@@ -6,7 +6,10 @@ export function VehicleCheckPanel() {
     <Card className="rounded-lg border-slate-200 shadow-sm">
       <CardHeader>
         <CardTitle>Проверка автомобиля</CardTitle>
-        <CardDescription>Введите госномер. На этом этапе запрос к Supabase не выполняется.</CardDescription>
+        <CardDescription>
+          Выберите АЗС и введите госномер. Online-проверка выполняется через RPC,
+          offline-результат помечается как неподтвержденный.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <CheckVehicleForm />
