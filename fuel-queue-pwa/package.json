@@ -8,6 +8,7 @@
     "typecheck": "tsc -b",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "check:architecture": "node scripts/check-architecture.mjs",
     "test": "vitest run",
     "format": "prettier --write .",
     "preview": "vite preview"
