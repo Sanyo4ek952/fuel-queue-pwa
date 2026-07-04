@@ -1,0 +1,13 @@
+{
+  "status": "ok",
+  "folder": "/mnt/data/fuel-queue-pwa-docs",
+  "expected_files_count": 20,
+  "actual_files_count_before_report": 20,
+  "missing_expected_files": [],
+  "empty_files": [],
+  "broken_markdown_links": [],
+  "missing_required_terms": [],
+  "zip_path": "/mnt/data/fuel-queue-pwa-docs.zip",
+  "zip_size_bytes": 27203,
+  "zip_missing_expected_files": []
+}
