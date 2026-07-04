@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNavigation } from '@/widgets/bottom-navigation'
@@ -9,12 +9,14 @@ import { DashboardPage } from '@/pages/dashboard'
 import { FuelingPage } from '@/pages/fueling'
 import { HistoryPage } from '@/pages/history'
 import { LoginPage } from '@/pages/login'
+import { PromoPage } from '@/pages/promo'
 import { ReportsPage } from '@/pages/reports'
 import { ReservationsPage } from '@/pages/reservations'
 import { SettingsPage } from '@/pages/settings'
 import { SyncStatusPage } from '@/pages/sync-status'
 import { TodayQueuePage } from '@/pages/today-queue'
 import { UsersPage } from '@/pages/users'
+import { ROUTES } from '@/shared/config/routes'
 
 function AppShell() {
   return (
@@ -45,5 +47,11 @@ function AppShell() {
 }
 
 export function AppRoutes() {
+  const location = useLocation()
+
+  if (location.pathname.replace(/\/$/, '') === ROUTES.promo) {
+    return <PromoPage />
+  }
+
   return <AppShell />
 }

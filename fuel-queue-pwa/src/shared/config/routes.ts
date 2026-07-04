@@ -11,6 +11,7 @@ export const ROUTES = {
   users: '/users',
   sync: '/sync',
   settings: '/settings',
+  promo: '/promo',
 } as const
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES]
