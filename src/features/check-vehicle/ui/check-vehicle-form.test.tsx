@@ -115,6 +115,20 @@ describe('CheckVehicleForm', () => {
           },
         ],
         fuel_type_summaries: [],
+        records: [
+          {
+            id: 'fueling-1',
+            date: '2026-07-05',
+            fueled_at: '2026-07-05T10:00:00.000Z',
+            liters: 40,
+            station_id: STATIONS[0].id,
+            station_name: 'АЗС №1',
+            fuel_type: 'AI_95',
+            is_manual_override: false,
+            sync_status: 'SYNCED',
+          },
+        ],
+        has_more: false,
       },
       error: null,
     })
@@ -123,9 +137,96 @@ describe('CheckVehicleForm', () => {
     await submitPlate()
 
     expect(await screen.findByText('История заправок по всем АЗС')).toBeInTheDocument()
-    expect(screen.getByText('3')).toBeInTheDocument()
-    expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({ plateNumber: 'A123BC' })
+    expect(mocks.getVehicleFuelingHistory).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: /История заправок/i }))
+
+    expect(await screen.findByText('Заправки')).toBeInTheDocument()
+    expect(screen.getByText('40 л')).toBeInTheDocument()
+    expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({
+      plateNumber: 'A123BC',
+      pageLimit: 10,
+      pageOffset: 0,
+    })
     expect(mocks.checkVehicleAccess).not.toHaveBeenCalled()
+  })
+
+  it('loads more fueling history items from the accordion', async () => {
+    mocks.getVehicleFuelingHistory
+      .mockResolvedValueOnce({
+        data: {
+          normalized_plate_number: 'A123BC',
+          vehicle_id: 'vehicle-id',
+          vehicle_found: true,
+          total_fueling_count: 11,
+          regular_fueling_count: 11,
+          manual_override_fueling_count: 0,
+          total_liters: 440,
+          first_fueled_at: '2026-07-01T10:00:00.000Z',
+          last_fueled_at: '2026-07-11T10:00:00.000Z',
+          station_summaries: [],
+          fuel_type_summaries: [],
+          records: [
+            {
+              id: 'fueling-11',
+              date: '2026-07-11',
+              fueled_at: '2026-07-11T10:00:00.000Z',
+              liters: 40,
+              station_id: STATIONS[0].id,
+              station_name: 'АЗС №1',
+              fuel_type: 'AI_95',
+              is_manual_override: false,
+              sync_status: 'SYNCED',
+            },
+          ],
+          has_more: true,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          normalized_plate_number: 'A123BC',
+          vehicle_id: 'vehicle-id',
+          vehicle_found: true,
+          total_fueling_count: 11,
+          regular_fueling_count: 11,
+          manual_override_fueling_count: 0,
+          total_liters: 440,
+          first_fueled_at: '2026-07-01T10:00:00.000Z',
+          last_fueled_at: '2026-07-11T10:00:00.000Z',
+          station_summaries: [],
+          fuel_type_summaries: [],
+          records: [
+            {
+              id: 'fueling-1',
+              date: '2026-07-01',
+              fueled_at: '2026-07-01T10:00:00.000Z',
+              liters: 35,
+              station_id: STATIONS[0].id,
+              station_name: 'АЗС №1',
+              fuel_type: 'AI_95',
+              is_manual_override: false,
+              sync_status: 'SYNCED',
+            },
+          ],
+          has_more: false,
+        },
+        error: null,
+      })
+
+    renderWithQueryClient(<CheckVehicleForm />)
+    await submitPlate()
+    await userEvent.click(screen.getByRole('button', { name: /История заправок/i }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Загрузить ещё' }))
+
+    await waitFor(() =>
+      expect(mocks.getVehicleFuelingHistory).toHaveBeenLastCalledWith({
+        plateNumber: 'A123BC',
+        pageLimit: 10,
+        pageOffset: 10,
+      }),
+    )
+    expect(await screen.findByText('35 л')).toBeInTheDocument()
   })
 
   it('shows loading state while online station check is pending', async () => {

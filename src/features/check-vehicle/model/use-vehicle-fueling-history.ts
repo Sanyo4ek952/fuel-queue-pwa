@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 
 import { getVehicleFuelingHistory } from '@/shared/api/rpc'
 import {
@@ -13,11 +13,31 @@ import type {
 
 export type { GetVehicleFuelingHistoryParams, VehicleFuelingHistoryResult }
 
-export function useVehicleFuelingHistory() {
+export const VEHICLE_FUELING_HISTORY_PAGE_SIZE = 10
+
+export const vehicleFuelingHistoryQueryKey = (plateNumber: string, isOnline: boolean) =>
+  ['vehicle-fueling-history', plateNumber, isOnline] as const
+
+export function useVehicleFuelingHistory({
+  plateNumber,
+  enabled,
+}: {
+  plateNumber: string
+  enabled: boolean
+}) {
   const isOnline = useOnlineStatus()
 
-  return useMutation({
-    mutationFn: async (params: GetVehicleFuelingHistoryParams) => {
+  return useInfiniteQuery({
+    queryKey: vehicleFuelingHistoryQueryKey(plateNumber, isOnline),
+    enabled: enabled && Boolean(plateNumber),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const params: GetVehicleFuelingHistoryParams = {
+        plateNumber,
+        pageLimit: VEHICLE_FUELING_HISTORY_PAGE_SIZE,
+        pageOffset: pageParam,
+      }
+
       if (isOnline) {
         try {
           const result = await getVehicleFuelingHistory(params)
@@ -40,5 +60,7 @@ export function useVehicleFuelingHistory() {
       const offlineResult = await getVehicleFuelingHistoryOffline(params)
       return markFuelingHistoryOfflineResult(offlineResult)
     },
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.has_more ? allPages.length * VEHICLE_FUELING_HISTORY_PAGE_SIZE : undefined,
   })
 }

@@ -21,6 +21,12 @@ import {
 } from '@/features/select-station'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { canCreateManualOverride } from '@/shared/lib/permissions'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/shared/ui/accordion'
 import { Button } from '@/shared/ui/button'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
@@ -33,6 +39,7 @@ import {
 } from '@/shared/ui/select'
 
 const ALL_STATIONS_VALUE = '__ALL_STATIONS__'
+const HISTORY_ACCORDION_VALUE = 'fueling-history'
 
 const litersFormatter = new Intl.NumberFormat('ru-RU', {
   maximumFractionDigits: 2,
@@ -236,6 +243,165 @@ function VehicleFuelingHistoryResultView({ result }: { result: VehicleFuelingHis
   )
 }
 
+function VehicleFuelingHistoryRecordsView({
+  result,
+  isLoading,
+  isError,
+  isFetchingNextPage,
+  hasNextPage,
+  onLoadMore,
+}: {
+  result: VehicleFuelingHistoryResult | undefined
+  isLoading: boolean
+  isError: boolean
+  isFetchingNextPage: boolean
+  hasNextPage: boolean
+  onLoadMore: () => void
+}) {
+  const records = result?.records ?? []
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-950">
+      <div className="space-y-4">
+        {isLoading ? <p className="text-sm text-slate-500">Загружаем историю...</p> : null}
+        {isError ? (
+          <p className="text-sm text-red-700">Не удалось загрузить историю заправок.</p>
+        ) : null}
+        {result ? (
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-slate-500">Номер</dt>
+              <dd className="font-semibold tracking-wide">
+                {result.normalized_plate_number || '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Всего заправок</dt>
+              <dd className="font-semibold">{result.total_fueling_count}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Всего литров</dt>
+              <dd className="font-semibold">{formatLiters(result.total_liters)}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Последняя заправка</dt>
+              <dd className="font-semibold">{formatDateTime(result.last_fueled_at)}</dd>
+            </div>
+          </dl>
+        ) : null}
+        {result && records.length === 0 && result.total_fueling_count === 0 ? (
+          <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            Заправок не найдено.
+          </p>
+        ) : null}
+        {records.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Заправки</p>
+            <div className="space-y-2">
+              {records.map((record) => (
+                <div
+                  key={record.id}
+                  className="rounded-md bg-slate-50 px-3 py-2 text-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium">{formatDateTime(record.fueled_at)}</p>
+                      <p className="truncate text-slate-500">
+                        {record.station_name} · {record.fuel_type}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-semibold">{formatLiters(record.liters)}</span>
+                  </div>
+                  {record.is_manual_override || record.sync_status !== 'SYNCED' ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      {record.is_manual_override ? 'Ручное разрешение' : null}
+                      {record.is_manual_override && record.sync_status !== 'SYNCED' ? ' · ' : null}
+                      {record.sync_status !== 'SYNCED' ? record.sync_status : null}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {hasNextPage ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={isFetchingNextPage}
+            onClick={onLoadMore}
+          >
+            {isFetchingNextPage ? 'Загружаем...' : 'Загрузить ещё'}
+          </Button>
+        ) : null}
+        {result?.offline ? (
+          <p className="text-sm text-amber-700">
+            Offline-режим: показаны только данные, которые уже есть в локальном кэше.
+          </p>
+        ) : null}
+        {result?.error ? <p className="text-sm text-slate-500">{result.error}</p> : null}
+      </div>
+    </div>
+  )
+}
+
+function VehicleFuelingHistoryAccordion({
+  plateNumber,
+  value,
+  onValueChange,
+  result,
+  isLoading,
+  isError,
+  isFetchingNextPage,
+  hasNextPage,
+  onLoadMore,
+}: {
+  plateNumber: string
+  value: string | undefined
+  onValueChange: (value: string | undefined) => void
+  result: VehicleFuelingHistoryResult | undefined
+  isLoading: boolean
+  isError: boolean
+  isFetchingNextPage: boolean
+  hasNextPage: boolean
+  onLoadMore: () => void
+}) {
+  return (
+    <Accordion type="single" collapsible value={value} onValueChange={onValueChange}>
+      <AccordionItem
+        value={HISTORY_ACCORDION_VALUE}
+        className="rounded-lg border border-slate-200 bg-white px-4"
+      >
+        <AccordionTrigger className="hover:no-underline">
+          <span className="min-w-0">
+            <span className="block font-medium">История заправок по всем АЗС</span>
+            <span className="block truncate text-sm font-normal text-slate-500">
+              {result
+                ? `${result.total_fueling_count} / ${formatLiters(result.total_liters)}`
+                : `Номер ${plateNumber}`}
+            </span>
+          </span>
+        </AccordionTrigger>
+        <AccordionContent>
+          {result && result.records.length === 0 && result.total_fueling_count > 0 ? (
+            <VehicleFuelingHistoryResultView result={result} />
+          ) : (
+            <VehicleFuelingHistoryRecordsView
+              result={result}
+              isLoading={isLoading}
+              isError={isError}
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              onLoadMore={onLoadMore}
+            />
+          )}
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  )
+}
+
 function CheckStationScopeSelect({
   stations,
   value,
@@ -280,8 +446,14 @@ export function CheckVehicleForm() {
   const [stationScopeValue, setStationScopeValue] = useState(
     selectedStationId || ALL_STATIONS_VALUE,
   )
+  const [historyPlateNumber, setHistoryPlateNumber] = useState('')
+  const [historyAccordionValue, setHistoryAccordionValue] = useState<string | undefined>()
   const checkVehicleAccessMutation = useCheckVehicleAccess()
-  const vehicleFuelingHistoryMutation = useVehicleFuelingHistory()
+  const isHistoryOpen = historyAccordionValue === HISTORY_ACCORDION_VALUE
+  const vehicleFuelingHistoryQuery = useVehicleFuelingHistory({
+    plateNumber: historyPlateNumber,
+    enabled: isHistoryOpen,
+  })
   const form = useForm<CheckVehicleFormValues>({
     resolver: zodResolver(checkVehicleSchema),
     defaultValues: {
@@ -304,7 +476,8 @@ export function CheckVehicleForm() {
   function handleStationScopeChange(value: string) {
     setStationScopeValue(value)
     checkVehicleAccessMutation.reset()
-    vehicleFuelingHistoryMutation.reset()
+    setHistoryPlateNumber('')
+    setHistoryAccordionValue(undefined)
 
     if (value !== ALL_STATIONS_VALUE) {
       setSelectedStationId(value)
@@ -312,19 +485,19 @@ export function CheckVehicleForm() {
   }
 
   async function handleSubmit(values: CheckVehicleFormValues) {
+    setHistoryPlateNumber(values.plateNumber)
+    setHistoryAccordionValue(undefined)
+
     if (isAllStationsSelected) {
       checkVehicleAccessMutation.reset()
-      await vehicleFuelingHistoryMutation.mutateAsync({
-        plateNumber: values.plateNumber,
-      })
       return
     }
 
     if (!selectedCheckStationId) {
+      setHistoryPlateNumber('')
       return
     }
 
-    vehicleFuelingHistoryMutation.reset()
     await checkVehicleAccessMutation.mutateAsync({
       plateNumber: values.plateNumber,
       stationId: selectedCheckStationId,
@@ -334,10 +507,24 @@ export function CheckVehicleForm() {
 
   const isSubmitDisabled =
     (!isAllStationsSelected && !selectedCheckStationId) ||
-    checkVehicleAccessMutation.isPending ||
-    vehicleFuelingHistoryMutation.isPending
+    checkVehicleAccessMutation.isPending
   const accessResult = checkVehicleAccessMutation.data
-  const fuelingHistoryResult = vehicleFuelingHistoryMutation.data
+  const fuelingHistoryResult = vehicleFuelingHistoryQuery.data?.pages[0]
+  const fuelingHistoryRecords =
+    vehicleFuelingHistoryQuery.data?.pages.flatMap((page) => page.records) ?? []
+  const fuelingHistoryViewResult = fuelingHistoryResult
+    ? {
+        ...fuelingHistoryResult,
+        records: fuelingHistoryRecords,
+        has_more: vehicleFuelingHistoryQuery.hasNextPage,
+        offline:
+          fuelingHistoryResult.offline ||
+          vehicleFuelingHistoryQuery.data?.pages.some((page) => page.offline),
+        error:
+          fuelingHistoryResult.error ??
+          vehicleFuelingHistoryQuery.data?.pages.find((page) => page.error)?.error,
+      }
+    : undefined
   const currentProfile = currentProfileQuery.data
   const canShowManualOverride =
     Boolean(
@@ -373,7 +560,7 @@ export function CheckVehicleForm() {
         </FormItem>
         <Button type="submit" className="h-11 w-full gap-2" disabled={isSubmitDisabled}>
           <Search className="size-4" aria-hidden="true" />
-          {checkVehicleAccessMutation.isPending || vehicleFuelingHistoryMutation.isPending
+          {checkVehicleAccessMutation.isPending
             ? 'Проверяем...'
             : 'Проверить'}
         </Button>
@@ -381,8 +568,20 @@ export function CheckVehicleForm() {
           <p className="text-sm text-slate-500">Выберите АЗС перед проверкой.</p>
         ) : null}
         {accessResult ? <VehicleAccessResultView result={accessResult} /> : null}
-        {fuelingHistoryResult ? (
-          <VehicleFuelingHistoryResultView result={fuelingHistoryResult} />
+        {historyPlateNumber ? (
+          <VehicleFuelingHistoryAccordion
+            plateNumber={historyPlateNumber}
+            value={historyAccordionValue}
+            onValueChange={setHistoryAccordionValue}
+            result={fuelingHistoryViewResult}
+            isLoading={vehicleFuelingHistoryQuery.isLoading}
+            isError={vehicleFuelingHistoryQuery.isError}
+            isFetchingNextPage={vehicleFuelingHistoryQuery.isFetchingNextPage}
+            hasNextPage={vehicleFuelingHistoryQuery.hasNextPage}
+            onLoadMore={() => {
+              void vehicleFuelingHistoryQuery.fetchNextPage()
+            }}
+          />
         ) : null}
         {canShowManualOverride && accessResult ? (
           <div className="rounded-lg border border-slate-200 bg-white p-4">

@@ -13,6 +13,18 @@ export type VehicleFuelingHistoryFuelSummary = {
   total_liters: number
 }
 
+export type VehicleFuelingHistoryRecord = {
+  id: string
+  date: string
+  fueled_at: string
+  liters: number
+  station_id: string
+  station_name: string
+  fuel_type: FuelType | string
+  is_manual_override: boolean
+  sync_status: string
+}
+
 export type VehicleFuelingHistoryResult = {
   normalized_plate_number: string
   vehicle_id: string | null
@@ -25,10 +37,14 @@ export type VehicleFuelingHistoryResult = {
   last_fueled_at: string | null
   station_summaries: VehicleFuelingHistoryStationSummary[]
   fuel_type_summaries: VehicleFuelingHistoryFuelSummary[]
+  records: VehicleFuelingHistoryRecord[]
+  has_more: boolean
   offline?: boolean
   error?: string
 }
 
 export type GetVehicleFuelingHistoryParams = {
   plateNumber: string
+  pageLimit?: number
+  pageOffset?: number
 }

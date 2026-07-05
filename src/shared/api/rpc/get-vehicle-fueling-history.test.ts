@@ -36,6 +36,20 @@ describe('parseVehicleFuelingHistory', () => {
             total_liters: '120.5',
           },
         ],
+        records: [
+          {
+            id: 'fueling-id',
+            date: '2026-07-05',
+            fueled_at: '2026-07-05T10:00:00.000Z',
+            liters: '40.5',
+            station_id: 'station-id',
+            station_name: 'Station 1',
+            fuel_type: 'AI_95',
+            is_manual_override: false,
+            sync_status: 'SYNCED',
+          },
+        ],
+        has_more: true,
       }),
     ).toMatchObject({
       normalized_plate_number: 'A123BC',
@@ -64,6 +78,48 @@ describe('parseVehicleFuelingHistory', () => {
       vehicle_found: false,
       vehicle_id: null,
       total_fueling_count: 0,
+    })
+  })
+
+  it('parses paginated fueling records', () => {
+    expect(
+      parseVehicleFuelingHistory({
+        normalized_plate_number: 'A123BC',
+        vehicle_id: 'vehicle-id',
+        vehicle_found: true,
+        total_fueling_count: 11,
+        regular_fueling_count: 10,
+        manual_override_fueling_count: 1,
+        total_liters: '440.5',
+        first_fueled_at: '2026-07-01T10:00:00.000Z',
+        last_fueled_at: '2026-07-05T10:00:00.000Z',
+        station_summaries: [],
+        fuel_type_summaries: [],
+        records: [
+          {
+            id: 'fueling-id',
+            date: '2026-07-05',
+            fueled_at: '2026-07-05T10:00:00.000Z',
+            liters: '40.5',
+            station_id: 'station-id',
+            station_name: 'Station 1',
+            fuel_type: 'AI_95',
+            is_manual_override: true,
+            sync_status: 'PENDING',
+          },
+        ],
+        has_more: true,
+      }),
+    ).toMatchObject({
+      records: [
+        {
+          id: 'fueling-id',
+          liters: 40.5,
+          is_manual_override: true,
+          sync_status: 'PENDING',
+        },
+      ],
+      has_more: true,
     })
   })
 

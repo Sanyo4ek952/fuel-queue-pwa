@@ -1,6 +1,7 @@
 import type {
   GetVehicleFuelingHistoryParams,
   VehicleFuelingHistoryFuelSummary,
+  VehicleFuelingHistoryRecord,
   VehicleFuelingHistoryResult,
   VehicleFuelingHistoryStationSummary,
 } from '@/shared/types/vehicle-fueling-history'
@@ -34,6 +35,8 @@ export function markFuelingHistoryOfflineResult(
 
 export async function getVehicleFuelingHistoryOffline({
   plateNumber,
+  pageLimit = 10,
+  pageOffset = 0,
 }: GetVehicleFuelingHistoryParams): Promise<VehicleFuelingHistoryResult> {
   const normalizedPlateNumber = normalizePlateNumber(plateNumber)
   const [vehicles, stations, fuelingRecords] = await Promise.all([
@@ -57,10 +60,14 @@ export async function getVehicleFuelingHistoryOffline({
       last_fueled_at: null,
       station_summaries: [],
       fuel_type_summaries: [],
+      records: [],
+      has_more: false,
     }
   }
 
-  const vehicleFuelings = fuelingRecords.filter((record) => record.vehicle_id === vehicle.id)
+  const vehicleFuelings = fuelingRecords
+    .filter((record) => record.vehicle_id === vehicle.id)
+    .sort((left, right) => right.fueled_at.localeCompare(left.fueled_at))
   const stationCounts = new Map<string, { fuelingCount: number; totalLiters: number }>()
   const fuelTypeCounts = new Map<string, { fuelingCount: number; totalLiters: number }>()
   let regularFuelingCount = 0
@@ -109,6 +116,19 @@ export async function getVehicleFuelingHistoryOffline({
       total_liters: count.totalLiters,
     }))
     .sort((left, right) => left.fuel_type.localeCompare(right.fuel_type))
+  const pageRecords: VehicleFuelingHistoryRecord[] = vehicleFuelings
+    .slice(pageOffset, pageOffset + pageLimit)
+    .map((fueling) => ({
+      id: fueling.id,
+      date: fueling.date,
+      fueled_at: fueling.fueled_at,
+      liters: fueling.liters ?? 0,
+      station_id: fueling.station_id,
+      station_name: stationNames.get(fueling.station_id) ?? fueling.station_id,
+      fuel_type: fueling.fuel_type ?? 'OTHER',
+      is_manual_override: fueling.is_manual_override,
+      sync_status: fueling.sync_status ?? 'SYNCED',
+    }))
 
   return {
     normalized_plate_number: normalizedPlateNumber,
@@ -122,5 +142,7 @@ export async function getVehicleFuelingHistoryOffline({
     last_fueled_at: lastFueledAt,
     station_summaries: stationSummaries,
     fuel_type_summaries: fuelTypeSummaries,
+    records: pageRecords,
+    has_more: pageOffset + pageLimit < vehicleFuelings.length,
   }
 }
