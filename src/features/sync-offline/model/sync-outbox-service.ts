@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 
 import {
+  parseCreateReservationResult,
   parseCreateFuelingRecordResult,
   syncOfflineMutation,
 } from '@/shared/api/rpc'
@@ -53,12 +54,56 @@ async function markFuelingRecordSynced(operation: SyncOutboxOperation, data: unk
   )
 }
 
+async function markReservationSynced(operation: SyncOutboxOperation, data: unknown) {
+  const parsed = parseCreateReservationResult(data)
+  const syncedAt = new Date().toISOString()
+
+  await offlineDb.transaction(
+    'rw',
+    [offlineDb.sync_outbox, offlineDb.local_reservations],
+    async () => {
+      await offlineDb.sync_outbox.update(operation.id, {
+        status: 'SYNCED',
+        synced_at: syncedAt,
+        error: undefined,
+      })
+
+      if (parsed) {
+        await offlineDb.local_reservations
+          .where('client_mutation_id')
+          .equals(operation.client_mutation_id)
+          .modify({
+            id: parsed.id,
+            station_id: parsed.station_id,
+            vehicle_id: parsed.vehicle_id,
+            driver_id: parsed.driver_id,
+            date: parsed.date,
+            fuel_type: parsed.fuel_type,
+            requested_liters: parsed.requested_liters,
+            queue_number: parsed.queue_number,
+            status: parsed.status,
+            normalized_plate_number: parsed.normalized_plate_number,
+            driver_full_name: parsed.driver_full_name,
+            driver_phone: parsed.driver_phone,
+            sync_status: 'SYNCED',
+            updated_at: syncedAt,
+          })
+      }
+    },
+  )
+}
+
 async function markOperationConflict(operation: SyncOutboxOperation, reason: string, payload: unknown) {
   const createdAt = new Date().toISOString()
 
   await offlineDb.transaction(
     'rw',
-    [offlineDb.sync_outbox, offlineDb.local_fueling_records, offlineDb.sync_conflicts],
+    [
+      offlineDb.sync_outbox,
+      offlineDb.local_fueling_records,
+      offlineDb.local_reservations,
+      offlineDb.sync_conflicts,
+    ],
     async () => {
       await offlineDb.sync_outbox.update(operation.id, {
         status: 'CONFLICT',
@@ -70,6 +115,14 @@ async function markOperationConflict(operation: SyncOutboxOperation, reason: str
         .equals(operation.client_mutation_id)
         .modify({
           sync_status: 'CONFLICT',
+          updated_at: createdAt,
+        })
+      await offlineDb.local_reservations
+        .where('client_mutation_id')
+        .equals(operation.client_mutation_id)
+        .modify({
+          sync_status: 'CONFLICT',
+          status: 'CONFLICT',
           updated_at: createdAt,
         })
       await offlineDb.sync_conflicts.put({
@@ -112,6 +165,11 @@ async function syncOutboxOperation(operation: SyncOutboxOperation) {
 
   if (operation.type === 'CREATE_FUELING_RECORD') {
     await markFuelingRecordSynced(operation, result.data.data)
+    return
+  }
+
+  if (operation.type === 'CREATE_RESERVATION') {
+    await markReservationSynced(operation, result.data.data)
     return
   }
 

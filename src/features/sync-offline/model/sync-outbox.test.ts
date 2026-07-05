@@ -51,6 +51,7 @@ const mocks = vi.hoisted(() => {
 
   const tables = {
     local_fueling_records: makeTable(),
+    local_reservations: makeTable(),
     sync_outbox: makeTable(),
     sync_conflicts: makeTable(),
   }
@@ -58,6 +59,7 @@ const mocks = vi.hoisted(() => {
   return {
     syncOfflineMutation: vi.fn(),
     parseCreateFuelingRecordResult: vi.fn((value: unknown) => value),
+    parseCreateReservationResult: vi.fn((value: unknown) => value),
     tables,
     offlineDb: {
       ...tables,
@@ -70,6 +72,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/shared/api/rpc', () => ({
   parseCreateFuelingRecordResult: mocks.parseCreateFuelingRecordResult,
+  parseCreateReservationResult: mocks.parseCreateReservationResult,
   syncOfflineMutation: mocks.syncOfflineMutation,
 }))
 
@@ -108,6 +111,7 @@ describe('syncPendingOutbox', () => {
     mocks.offlineDb.transaction.mockClear()
     mocks.syncOfflineMutation.mockReset()
     mocks.parseCreateFuelingRecordResult.mockClear()
+    mocks.parseCreateReservationResult.mockClear()
   })
 
   it('marks a create fueling record operation as synced and updates local record', async () => {
@@ -201,6 +205,58 @@ describe('syncPendingOutbox', () => {
       status: 'FAILED',
       error: 'Network error',
       retry_count: 3,
+    })
+  })
+
+  it('marks a create reservation operation as synced and updates local reservation', async () => {
+    addOutboxOperation({
+      type: 'CREATE_RESERVATION',
+      payload: {
+        plate_number: 'Рђ123Р’РЎ',
+        target_date: '2026-07-06',
+        station_id: 'station-id',
+      },
+    })
+    mocks.tables.local_reservations.rows.push({
+      id: 'local-mutation-id',
+      client_mutation_id: 'mutation-id',
+      sync_status: 'PENDING',
+    })
+    mocks.syncOfflineMutation.mockResolvedValue({
+      data: {
+        status: 'SYNCED',
+        operation_type: 'CREATE_RESERVATION',
+        client_mutation_id: 'mutation-id',
+        data: {
+          id: 'server-reservation-id',
+          station_id: 'station-id',
+          vehicle_id: 'vehicle-id',
+          driver_id: 'driver-id',
+          date: '2026-07-06',
+          normalized_plate_number: 'Рђ123Р’РЎ',
+          driver_full_name: 'Иван Иванов',
+          driver_phone: null,
+          fuel_type: 'AI_95',
+          requested_liters: 40,
+          queue_number: 3,
+          status: 'RESERVED',
+          client_mutation_id: 'mutation-id',
+        },
+      },
+      error: null,
+    })
+
+    await syncPendingOutbox()
+
+    expect(mocks.tables.sync_outbox.rows[0]).toMatchObject({
+      status: 'SYNCED',
+      error: undefined,
+    })
+    expect(mocks.tables.local_reservations.rows[0]).toMatchObject({
+      id: 'server-reservation-id',
+      vehicle_id: 'vehicle-id',
+      queue_number: 3,
+      sync_status: 'SYNCED',
     })
   })
 

@@ -1,5 +1,5 @@
-import { PagePlaceholder } from '@/shared/ui/page-placeholder'
+import { TodayQueuePanel } from '@/widgets/today-queue-panel'
 
 export function TodayQueuePage() {
-  return <PagePlaceholder title="Очередь сегодня" description="Список машин на текущую дату." />
+  return <TodayQueuePanel />
 }

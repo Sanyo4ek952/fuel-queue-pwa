@@ -44,7 +44,7 @@ export async function refreshVehicleAccessCache({
     supabase
       .from('fuel_reservations')
       .select(
-        'id,station_id,vehicle_id,date,status,queue_number,fuel_type,requested_liters,created_at,updated_at',
+        'id,station_id,vehicle_id,driver_id,date,status,queue_number,fuel_type,requested_liters,comment,client_mutation_id,sync_status,created_at,updated_at,vehicles(normalized_plate_number),drivers(full_name,phone)',
       )
       .eq('date', checkDate),
     supabase
@@ -90,6 +90,18 @@ export async function refreshVehicleAccessCache({
       await offlineDb.local_reservations.bulkPut(
         toRows<SupabaseRow>(reservationsResult.data).map((row) => ({
           ...row,
+          normalized_plate_number:
+            typeof row.vehicles === 'object' && row.vehicles && !Array.isArray(row.vehicles)
+              ? (row.vehicles as SupabaseRow).normalized_plate_number
+              : undefined,
+          driver_full_name:
+            typeof row.drivers === 'object' && row.drivers && !Array.isArray(row.drivers)
+              ? (row.drivers as SupabaseRow).full_name
+              : undefined,
+          driver_phone:
+            typeof row.drivers === 'object' && row.drivers && !Array.isArray(row.drivers)
+              ? (row.drivers as SupabaseRow).phone
+              : undefined,
           requested_liters: toNumber(row.requested_liters),
         })) as LocalReservation[],
       )

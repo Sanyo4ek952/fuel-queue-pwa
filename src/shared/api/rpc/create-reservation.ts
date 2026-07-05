@@ -36,7 +36,7 @@ function toNumber(value: unknown) {
   return typeof value === 'number' ? value : Number(value)
 }
 
-function toReservationResult(value: unknown): CreateReservationResult | null {
+export function parseCreateReservationResult(value: unknown): CreateReservationResult | null {
   if (!value || typeof value !== 'object') {
     return null
   }
@@ -48,8 +48,6 @@ function toReservationResult(value: unknown): CreateReservationResult | null {
     typeof result.date === 'string' &&
     typeof result.station_id === 'string' &&
     typeof result.vehicle_id === 'string' &&
-    typeof result.normalized_plate_number === 'string' &&
-    typeof result.driver_full_name === 'string' &&
     typeof result.fuel_type === 'string' &&
     typeof result.status === 'string' &&
     typeof result.client_mutation_id === 'string'
@@ -60,8 +58,8 @@ function toReservationResult(value: unknown): CreateReservationResult | null {
       station_id: result.station_id,
       vehicle_id: result.vehicle_id,
       driver_id: result.driver_id ?? null,
-      normalized_plate_number: result.normalized_plate_number,
-      driver_full_name: result.driver_full_name,
+      normalized_plate_number: result.normalized_plate_number ?? '',
+      driver_full_name: result.driver_full_name ?? '',
       driver_phone: result.driver_phone ?? null,
       fuel_type: result.fuel_type as FuelType,
       requested_liters: toNumber(result.requested_liters),
@@ -111,7 +109,7 @@ export async function createReservation({
     }
   }
 
-  const parsed = toReservationResult(data)
+  const parsed = parseCreateReservationResult(data)
 
   if (!parsed) {
     return {
