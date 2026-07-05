@@ -48,8 +48,15 @@ export type LocalFuelingRecord = LocalRecord & {
   station_id: string
   vehicle_id: string
   date: string
+  reservation_id?: string | null
+  fuel_type?: FuelType | string
+  liters?: number
   fueled_at: string
   is_manual_override: boolean
+  override_id?: string | null
+  comment?: string | null
+  client_mutation_id?: string | null
+  sync_status?: SyncStatus
 }
 
 export type LocalManualOverride = LocalRecord & {
@@ -125,6 +132,21 @@ export class FuelQueueOfflineDb extends Dexie {
       local_reservations: 'id, [vehicle_id+date], [station_id+date], date, status, updated_at',
       local_queue_entries: 'id, [station_id+date], date, status, updated_at',
       local_fueling_records: 'id, [vehicle_id+date], date, updated_at',
+      local_refusal_records: 'id, date, updated_at',
+      local_manual_overrides: 'id, [vehicle_id+station_id+date], date, updated_at',
+      sync_outbox: 'id, client_mutation_id, status, created_at',
+      sync_conflicts: 'id, client_mutation_id, operation_id, created_at',
+    })
+
+    this.version(3).stores({
+      local_profiles: 'id, updated_at',
+      local_stations: 'id, updated_at',
+      local_vehicles: 'id, normalized_plate_number, updated_at',
+      local_daily_limits: 'id, [station_id+date], date, updated_at',
+      local_reservations: 'id, [vehicle_id+date], [station_id+date], date, status, updated_at',
+      local_queue_entries: 'id, [station_id+date], date, status, updated_at',
+      local_fueling_records:
+        'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',
       local_refusal_records: 'id, date, updated_at',
       local_manual_overrides: 'id, [vehicle_id+station_id+date], date, updated_at',
       sync_outbox: 'id, client_mutation_id, status, created_at',

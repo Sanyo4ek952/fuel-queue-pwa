@@ -1,0 +1,341 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { AlertTriangle, CheckCircle2, Fuel, Search, XCircle } from 'lucide-react'
+import { useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+
+import {
+  type VehicleAccessReason,
+  type VehicleAccessResult,
+  useCheckVehicleAccess,
+} from '@/features/check-vehicle'
+import { StationSelect, useSelectedStation } from '@/features/select-station'
+import { FUEL_TYPES, type FuelType } from '@/shared/constants'
+import { getTodayDateInputValue } from '@/shared/lib/date'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
+import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
+import { Button } from '@/shared/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
+import { Input } from '@/shared/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/ui/select'
+
+import {
+  type CreateFuelingRecordFormInput,
+  type CreateFuelingRecordFormValues,
+  createFuelingRecordSchema,
+} from '../model/schema'
+import { useCreateFuelingRecord } from '../model/use-create-fueling-record'
+
+const fuelTypeLabels: Record<FuelType, string> = {
+  AI_92: 'АИ-92',
+  AI_95: 'АИ-95',
+  AI_100: 'АИ-100',
+  DIESEL: 'Дизель',
+  GAS: 'Газ',
+  OTHER: 'Другое',
+}
+
+const reasonLabels: Record<VehicleAccessReason, string> = {
+  ACTIVE_RESERVATION: 'Есть активная запись на выбранную АЗС.',
+  ALREADY_FUELED: 'Автомобиль уже заправлялся сегодня.',
+  DAILY_LIMIT_NOT_OPEN: 'Лимит на выбранную дату не открыт.',
+  INVALID_PLATE_NUMBER: 'Госномер не распознан.',
+  LITERS_LIMIT_EXCEEDED: 'Запрошенный объём превышает лимит.',
+  MANUAL_OVERRIDE_ACTIVE: 'Действует ручное разрешение.',
+  NO_ACTIVE_RESERVATION: 'Нет активной записи на сегодня.',
+  NO_DAILY_LIMIT: 'На сегодня не задан лимит по выбранной АЗС.',
+  OFFLINE_UNCONFIRMED: 'Offline-решение требует серверной перепроверки.',
+  PROFILE_NOT_FOUND: 'Профиль пользователя не найден.',
+  RESERVATION_AT_OTHER_STATION: 'Запись найдена на другой АЗС.',
+  RPC_ERROR: 'Не удалось выполнить серверную проверку.',
+  STATION_ACCESS_DENIED: 'Нет доступа к выбранной АЗС.',
+  VEHICLE_BLOCKED: 'Автомобиль заблокирован.',
+}
+
+function canCreateFuelingRecord(result?: VehicleAccessResult, normalizedPlateNumber?: string) {
+  if (!result || result.normalized_plate_number !== normalizedPlateNumber) {
+    return false
+  }
+
+  return result.status === 'ALLOWED' || result.offline_decision === 'ALLOWED'
+}
+
+function AccessResultCard({ result }: { result: VehicleAccessResult }) {
+  const isAllowed = result.status === 'ALLOWED'
+  const isOfflineAllowed = result.offline_decision === 'ALLOWED'
+  const Icon = isAllowed || isOfflineAllowed ? CheckCircle2 : result.status === 'WARNING' ? AlertTriangle : XCircle
+  const className =
+    isAllowed || isOfflineAllowed
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+      : result.status === 'WARNING'
+        ? 'border-amber-200 bg-amber-50 text-amber-950'
+        : 'border-red-200 bg-red-50 text-red-950'
+  const title =
+    isAllowed || isOfflineAllowed
+      ? result.offline
+        ? 'Локально разрешено'
+        : 'Допуск разрешён'
+      : result.status === 'WARNING'
+        ? 'Нужна перепроверка'
+        : 'Допуск запрещён'
+  const reason = result.offline_reason ?? result.reason
+
+  return (
+    <div className={`rounded-lg border p-4 ${className}`}>
+      <div className="flex items-start gap-3">
+        <Icon className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+        <div className="min-w-0 flex-1 space-y-3">
+          <div>
+            <p className="font-medium">{title}</p>
+            <p className="text-sm opacity-80">{reasonLabels[reason]}</p>
+          </div>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="opacity-70">Номер</dt>
+              <dd className="font-semibold tracking-wide">{result.normalized_plate_number}</dd>
+            </div>
+            {result.queue_number ? (
+              <div>
+                <dt className="opacity-70">Очередь</dt>
+                <dd className="font-semibold">№{result.queue_number}</dd>
+              </div>
+            ) : null}
+            {result.fuel_type ? (
+              <div>
+                <dt className="opacity-70">Топливо</dt>
+                <dd className="font-semibold">{result.fuel_type}</dd>
+              </div>
+            ) : null}
+            {result.requested_liters ? (
+              <div>
+                <dt className="opacity-70">По записи</dt>
+                <dd className="font-semibold">{result.requested_liters} л</dd>
+              </div>
+            ) : null}
+          </dl>
+          {result.offline ? (
+            <p className="text-sm opacity-80">
+              Фиксация будет сохранена локально со статусом PENDING и перепроверена сервером.
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function CreateFuelingRecordForm() {
+  const selectedStationId = useSelectedStation((state) => state.selectedStationId)
+  const checkVehicleAccessMutation = useCheckVehicleAccess()
+  const createFuelingRecordMutation = useCreateFuelingRecord()
+  const form = useForm<CreateFuelingRecordFormInput, unknown, CreateFuelingRecordFormValues>({
+    resolver: zodResolver(createFuelingRecordSchema),
+    defaultValues: {
+      plateNumber: '',
+      liters: 40,
+      fuelType: 'AI_95',
+      comment: '',
+    },
+  })
+  const watchedPlateNumber = form.watch('plateNumber')
+  const accessResult = checkVehicleAccessMutation.data
+  const normalizedPlateNumber = useMemo(
+    () => normalizePlateNumber(watchedPlateNumber),
+    [watchedPlateNumber],
+  )
+  const isManualOverrideWithoutReservation =
+    accessResult?.reason === 'MANUAL_OVERRIDE_ACTIVE' && !accessResult.reservation_id
+  const canSubmitFuelingRecord = canCreateFuelingRecord(accessResult, normalizedPlateNumber)
+
+  async function handleCheckVehicle() {
+    if (!selectedStationId) {
+      return
+    }
+
+    const isValid = await form.trigger('plateNumber')
+
+    if (!isValid) {
+      return
+    }
+
+    const result = await checkVehicleAccessMutation.mutateAsync({
+      plateNumber: form.getValues('plateNumber'),
+      stationId: selectedStationId,
+      checkDate: getTodayDateInputValue(),
+    })
+
+    if (result.requested_liters) {
+      form.setValue('liters', result.requested_liters, { shouldValidate: true })
+    }
+
+    if (result.fuel_type) {
+      form.setValue('fuelType', result.fuel_type as FuelType, { shouldValidate: true })
+    }
+  }
+
+  async function handleSubmit(values: CreateFuelingRecordFormValues) {
+    if (!selectedStationId || !canSubmitFuelingRecord) {
+      return
+    }
+
+    await createFuelingRecordMutation.mutateAsync({
+      stationId: selectedStationId,
+      plateNumber: values.plateNumber,
+      liters: values.liters,
+      fuelType: accessResult?.fuel_type ? (accessResult.fuel_type as FuelType) : values.fuelType,
+      targetDate: getTodayDateInputValue(),
+      fueledAt: new Date().toISOString(),
+      comment: values.comment,
+      clientMutationId: crypto.randomUUID(),
+      forceOffline: Boolean(accessResult?.offline),
+    })
+  }
+
+  const isCheckDisabled = !selectedStationId || checkVehicleAccessMutation.isPending
+  const isSubmitDisabled =
+    !selectedStationId || !canSubmitFuelingRecord || createFuelingRecordMutation.isPending
+
+  return (
+    <Card className="rounded-lg border-slate-200 bg-white shadow-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Fuel className="size-5 text-slate-500" aria-hidden="true" />
+          Фиксация заправки
+        </CardTitle>
+        <CardDescription>Проверка допуска и запись фактического отпуска топлива.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
+            <StationSelect />
+
+            <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+              <FormItem>
+                <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
+                <Input
+                  id="plateNumber"
+                  autoComplete="off"
+                  inputMode="text"
+                  placeholder="А123ВС"
+                  className="h-11 uppercase"
+                  {...form.register('plateNumber')}
+                />
+                {form.formState.errors.plateNumber ? (
+                  <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>
+                ) : null}
+              </FormItem>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full gap-2 sm:w-auto"
+                  disabled={isCheckDisabled}
+                  onClick={handleCheckVehicle}
+                >
+                  <Search className="size-4" aria-hidden="true" />
+                  {checkVehicleAccessMutation.isPending ? 'Проверяем...' : 'Проверить'}
+                </Button>
+              </div>
+            </div>
+
+            {accessResult ? <AccessResultCard result={accessResult} /> : null}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormItem>
+                <FormLabel htmlFor="liters">Фактические литры</FormLabel>
+                <Input
+                  id="liters"
+                  type="number"
+                  min={1}
+                  step="0.01"
+                  inputMode="decimal"
+                  {...form.register('liters')}
+                />
+                {form.formState.errors.liters ? (
+                  <FormMessage>{form.formState.errors.liters.message}</FormMessage>
+                ) : null}
+              </FormItem>
+
+              {isManualOverrideWithoutReservation ? (
+                <FormItem>
+                  <FormLabel htmlFor="fuelType">Топливо</FormLabel>
+                  <Select
+                    value={form.watch('fuelType')}
+                    onValueChange={(value) =>
+                      form.setValue('fuelType', value as FuelType, { shouldValidate: true })
+                    }
+                  >
+                    <SelectTrigger id="fuelType" className="h-10 w-full bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                      {FUEL_TYPES.map((fuelType) => (
+                        <SelectItem key={fuelType} value={fuelType}>
+                          {fuelTypeLabels[fuelType]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.fuelType ? (
+                    <FormMessage>{form.formState.errors.fuelType.message}</FormMessage>
+                  ) : null}
+                </FormItem>
+              ) : null}
+            </div>
+
+            <FormItem>
+              <FormLabel htmlFor="comment">Комментарий</FormLabel>
+              <Input id="comment" {...form.register('comment')} />
+              {form.formState.errors.comment ? (
+                <FormMessage>{form.formState.errors.comment.message}</FormMessage>
+              ) : null}
+            </FormItem>
+
+            {!selectedStationId ? (
+              <p className="text-sm text-slate-500">Выберите АЗС перед фиксацией заправки.</p>
+            ) : null}
+
+            <Button type="submit" className="h-11 w-full gap-2" disabled={isSubmitDisabled}>
+              <Fuel className="size-4" aria-hidden="true" />
+              {createFuelingRecordMutation.isPending ? 'Фиксируем...' : 'Зафиксировать заправку'}
+            </Button>
+
+            {createFuelingRecordMutation.error ? (
+              <Alert variant="destructive">
+                <AlertTitle>Заправка не зафиксирована</AlertTitle>
+                <AlertDescription>{createFuelingRecordMutation.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {createFuelingRecordMutation.data ? (
+              <Alert
+                className={
+                  createFuelingRecordMutation.data.sync_status === 'PENDING'
+                    ? 'border-amber-200 bg-amber-50 text-amber-950'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                }
+              >
+                <AlertTitle>
+                  {createFuelingRecordMutation.data.sync_status === 'PENDING'
+                    ? 'Заправка ожидает синхронизации'
+                    : 'Заправка зафиксирована'}
+                </AlertTitle>
+                <AlertDescription>
+                  {createFuelingRecordMutation.data.liters} л,{' '}
+                  {createFuelingRecordMutation.data.fuel_type},{' '}
+                  {createFuelingRecordMutation.data.sync_status}.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  )
+}
