@@ -8,6 +8,7 @@ export const ROUTES = {
   fueling: '/fueling',
   history: '/history',
   reports: '/reports',
+  maxMessages: '/max-messages',
   users: '/users',
   sync: '/sync',
   settings: '/settings',
@@ -24,5 +25,6 @@ export const MAIN_SECTION_LINKS = [
   { path: ROUTES.queue, label: 'Очередь сегодня', description: 'Текущая очередь по выбранной АЗС' },
   { path: ROUTES.fueling, label: 'Заправка', description: 'Фиксация факта отпуска топлива' },
   { path: ROUTES.limits, label: 'Лимиты', description: 'Дневные лимиты по АЗС и топливу' },
+  { path: ROUTES.maxMessages, label: 'MAX сообщения', description: 'Рассылка водителям с привязанным MAX-ботом' },
   { path: ROUTES.sync, label: 'Синхронизация', description: 'Outbox, ошибки и конфликты' },
 ] as const

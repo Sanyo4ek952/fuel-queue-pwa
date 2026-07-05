@@ -18,6 +18,7 @@ const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
   [ROUTES.limits]: stationManagerRoles,
   [ROUTES.history]: allRoles,
   [ROUTES.reports]: allRoles,
+  [ROUTES.maxMessages]: allRoles,
   [ROUTES.users]: userManagerRoles,
   [ROUTES.sync]: stationManagerRoles,
   [ROUTES.settings]: allRoles,

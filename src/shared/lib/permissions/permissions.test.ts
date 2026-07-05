@@ -46,6 +46,8 @@ describe('permission helpers', () => {
     expect(canAccessRoute('mayor_assistant', ROUTES.reservations)).toBe(true)
     expect(canAccessRoute('cashier', ROUTES.check)).toBe(true)
     expect(canAccessRoute('cashier', ROUTES.fueling)).toBe(true)
+    expect(canAccessRoute('cashier', ROUTES.maxMessages)).toBe(true)
+    expect(canAccessRoute('mayor_assistant', ROUTES.maxMessages)).toBe(true)
     expect(canAccessRoute('cashier', ROUTES.reservations)).toBe(false)
     expect(canAccessRoute('station_manager', ROUTES.limits)).toBe(true)
     expect(canAccessRoute('station_manager', ROUTES.users)).toBe(true)

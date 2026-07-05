@@ -38,6 +38,9 @@ const HistoryPage = lazy(() =>
 const ReportsPage = lazy(() =>
   import('@/pages/reports').then((m) => ({ default: m.ReportsPage })),
 )
+const MaxMessagesPage = lazy(() =>
+  import('@/pages/max-messages').then((m) => ({ default: m.MaxMessagesPage })),
+)
 const UsersPage = lazy(() =>
   import('@/pages/users').then((m) => ({ default: m.UsersPage })),
 )
@@ -128,6 +131,7 @@ function AppShell() {
             <Route path="/fueling" element={<FuelingPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/max-messages" element={<MaxMessagesPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/sync" element={<SyncStatusPage />} />
             <Route path="/settings" element={<SettingsPage />} />
