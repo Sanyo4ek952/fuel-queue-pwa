@@ -6,6 +6,8 @@ export type ProtectedRouteState =
   | 'redirect-login'
   | 'profile-loading'
   | 'profile-missing'
+  | 'profile-pending'
+  | 'profile-rejected'
   | 'profile-inactive'
   | 'forbidden'
   | 'allowed'
@@ -39,6 +41,14 @@ export function getProtectedRouteState({
 
   if (!profile) {
     return 'profile-missing'
+  }
+
+  if (profile.approval_status === 'pending') {
+    return 'profile-pending'
+  }
+
+  if (profile.approval_status === 'rejected') {
+    return 'profile-rejected'
   }
 
   if (!profile.is_active) {

@@ -9,8 +9,23 @@ const activeProfile: ProfileWithStations = {
   id: 'profile-id',
   auth_user_id: 'auth-user-id',
   full_name: 'Dev Operator',
+  first_name: 'Dev',
+  last_name: 'Operator',
+  middle_name: null,
+  position: 'Operator',
+  signature_name: 'Dev Operator',
   role: 'operator',
   is_active: true,
+  approval_status: 'approved',
+  requested_station_id: null,
+  approved_by: null,
+  approved_at: null,
+  rejected_by: null,
+  rejected_at: null,
+  rejection_reason: null,
+  deactivated_by: null,
+  deactivated_at: null,
+  deactivation_reason: null,
   stations: [],
 }
 
@@ -49,6 +64,30 @@ describe('getProtectedRouteState', () => {
         route: ROUTES.dashboard,
       }),
     ).toBe('profile-inactive')
+  })
+
+  it('blocks pending profiles before inactive state', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: { ...activeProfile, approval_status: 'pending', is_active: false },
+        route: ROUTES.dashboard,
+      }),
+    ).toBe('profile-pending')
+  })
+
+  it('blocks rejected profiles before inactive state', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: { ...activeProfile, approval_status: 'rejected', is_active: false },
+        route: ROUTES.dashboard,
+      }),
+    ).toBe('profile-rejected')
   })
 
   it('blocks routes that are not available for the role', () => {

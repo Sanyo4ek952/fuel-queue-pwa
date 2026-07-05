@@ -52,7 +52,7 @@ const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
     'city_admin',
     'viewer',
   ]),
-  [ROUTES.users]: new Set(['station_admin']),
+  [ROUTES.users]: new Set(['station_admin', 'city_admin']),
   [ROUTES.sync]: stationManagerRoles,
   [ROUTES.settings]: new Set([
     'operator',

@@ -49,6 +49,7 @@ describe('permission helpers', () => {
     expect(canAccessRoute('cashier', ROUTES.reservations)).toBe(false)
     expect(canAccessRoute('city_admin', ROUTES.limits)).toBe(false)
     expect(canAccessRoute('station_admin', ROUTES.users)).toBe(true)
+    expect(canAccessRoute('city_admin', ROUTES.users)).toBe(true)
     expect(canAccessRoute('viewer', ROUTES.users)).toBe(false)
   })
 })

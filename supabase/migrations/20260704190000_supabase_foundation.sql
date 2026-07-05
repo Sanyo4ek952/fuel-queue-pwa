@@ -516,13 +516,13 @@ begin
 
   select *
   into manual_override_row
-  from public.manual_overrides
-  where vehicle_id = vehicle_row.id
-    and station_id = check_vehicle_access.station_id
-    and date = check_vehicle_access.check_date
-    and used_at is null
-    and (expires_at is null or expires_at > now())
-  order by created_at desc
+  from public.manual_overrides mo
+  where mo.vehicle_id = vehicle_row.id
+    and mo.station_id = check_vehicle_access.station_id
+    and mo.date = check_vehicle_access.check_date
+    and mo.used_at is null
+    and (mo.expires_at is null or mo.expires_at > now())
+  order by mo.created_at desc
   limit 1;
 
   if vehicle_row.is_blocked and manual_override_row.id is null then
@@ -558,22 +558,22 @@ begin
 
   select *
   into reservation_row
-  from public.fuel_reservations
-  where vehicle_id = vehicle_row.id
-    and station_id = check_vehicle_access.station_id
-    and date = check_vehicle_access.check_date
-    and status in ('RESERVED', 'ARRIVED', 'APPROVED', 'FUELING')
-  order by queue_number asc
+  from public.fuel_reservations fr
+  where fr.vehicle_id = vehicle_row.id
+    and fr.station_id = check_vehicle_access.station_id
+    and fr.date = check_vehicle_access.check_date
+    and fr.status in ('RESERVED', 'ARRIVED', 'APPROVED', 'FUELING')
+  order by fr.queue_number asc
   limit 1;
 
   if reservation_row.id is null then
     select *
     into other_reservation_row
-    from public.fuel_reservations
-    where vehicle_id = vehicle_row.id
-      and date = check_vehicle_access.check_date
-      and status in ('RESERVED', 'ARRIVED', 'APPROVED', 'FUELING')
-    order by created_at asc
+    from public.fuel_reservations fr
+    where fr.vehicle_id = vehicle_row.id
+      and fr.date = check_vehicle_access.check_date
+      and fr.status in ('RESERVED', 'ARRIVED', 'APPROVED', 'FUELING')
+    order by fr.created_at asc
     limit 1;
 
     if manual_override_row.id is not null then
@@ -612,9 +612,9 @@ begin
 
   select *
   into daily_limit_row
-  from public.daily_limits
-  where date = check_vehicle_access.check_date
-    and station_id = check_vehicle_access.station_id
+  from public.daily_limits dl
+  where dl.date = check_vehicle_access.check_date
+    and dl.station_id = check_vehicle_access.station_id
   limit 1;
 
   if daily_limit_row.id is null then

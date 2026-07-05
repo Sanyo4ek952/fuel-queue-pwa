@@ -115,19 +115,37 @@ begin
   end if;
 end $$;
 
-insert into public.profiles (id, auth_user_id, full_name, role)
+insert into public.profiles (
+  id,
+  auth_user_id,
+  full_name,
+  first_name,
+  last_name,
+  position,
+  signature_name,
+  role,
+  is_active,
+  approval_status,
+  approved_at
+)
 values
-  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'Dev Operator', 'operator'),
-  ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', 'Dev Cashier', 'cashier'),
-  ('30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000003', 'Dev Shift Supervisor', 'shift_supervisor'),
-  ('30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000004', 'Dev Station Admin', 'station_admin'),
-  ('30000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000005', 'Dev City Admin', 'city_admin'),
-  ('30000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000006', 'Dev Viewer', 'viewer')
+  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'Dev Operator', 'Operator', 'Dev', 'Operator', 'Dev Operator', 'operator', true, 'approved', now()),
+  ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', 'Dev Cashier', 'Cashier', 'Dev', 'Cashier', 'Dev Cashier', 'cashier', true, 'approved', now()),
+  ('30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000003', 'Dev Shift Supervisor', 'Shift Supervisor', 'Dev', 'Shift Supervisor', 'Dev Shift Supervisor', 'shift_supervisor', true, 'approved', now()),
+  ('30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000004', 'Dev Station Admin', 'Station Admin', 'Dev', 'Station Admin', 'Dev Station Admin', 'station_admin', true, 'approved', now()),
+  ('30000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000005', 'Dev City Admin', 'City Admin', 'Dev', 'City Admin', 'Dev City Admin', 'city_admin', true, 'approved', now()),
+  ('30000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000006', 'Dev Viewer', 'Viewer', 'Dev', 'Viewer', 'Dev Viewer', 'viewer', true, 'approved', now())
 on conflict (auth_user_id) do update
 set
   full_name = excluded.full_name,
+  first_name = excluded.first_name,
+  last_name = excluded.last_name,
+  position = excluded.position,
+  signature_name = excluded.signature_name,
   role = excluded.role,
-  is_active = true;
+  is_active = excluded.is_active,
+  approval_status = excluded.approval_status,
+  approved_at = coalesce(public.profiles.approved_at, excluded.approved_at);
 
 insert into public.user_stations (user_id, station_id)
 values

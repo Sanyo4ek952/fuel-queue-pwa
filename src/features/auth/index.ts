@@ -1,4 +1,6 @@
 export * from './model/schema'
 export * from './model/use-login'
 export * from './model/use-logout'
+export * from './model/use-register'
 export * from './ui/login-form'
+export * from './ui/registration-form'

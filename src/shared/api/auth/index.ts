@@ -13,6 +13,17 @@ export type LoginWithPasswordParams = {
   password: string
 }
 
+export type SignUpWithPasswordParams = {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  middleName?: string
+  position: string
+  signatureName: string
+  requestedStationId: string
+}
+
 export async function getAuthSession(): Promise<AuthResult<Session>> {
   if (!isSupabaseConfigured) {
     return {
@@ -55,6 +66,44 @@ export async function signInWithPassword({
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
+  })
+
+  return {
+    data: data.session,
+    error: error?.message ?? null,
+  }
+}
+
+export async function signUpWithPassword({
+  email,
+  password,
+  firstName,
+  lastName,
+  middleName,
+  position,
+  signatureName,
+  requestedStationId,
+}: SignUpWithPasswordParams): Promise<AuthResult<Session>> {
+  if (!isSupabaseConfigured) {
+    return {
+      data: null,
+      error: 'Supabase is not configured.',
+    }
+  }
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        first_name: firstName,
+        last_name: lastName,
+        middle_name: middleName ?? '',
+        position,
+        signature_name: signatureName,
+        requested_station_id: requestedStationId,
+      },
+    },
   })
 
   return {

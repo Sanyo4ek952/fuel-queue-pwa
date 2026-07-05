@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { useCurrentProfile } from '@/entities/profile'
+import { useLogout } from '@/features/auth'
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNavigation } from '@/widgets/bottom-navigation'
 import { OfflineBanner } from '@/widgets/offline-banner'
@@ -58,9 +59,14 @@ function LoadingScreen() {
 }
 
 function AccessStateScreen({ state }: { state: ProtectedRouteState | 'profile-error' }) {
+  const logoutMutation = useLogout()
   const message =
     state === 'forbidden'
       ? 'Для вашей роли недоступен этот раздел.'
+      : state === 'profile-pending'
+        ? 'Заявка на регистрацию ожидает подтверждения руководителем.'
+        : state === 'profile-rejected'
+          ? 'Заявка на регистрацию отклонена. Обратитесь к руководителю.'
       : state === 'profile-inactive'
         ? 'Профиль отключён. Обратитесь к администратору.'
         : state === 'profile-error'
@@ -79,8 +85,12 @@ function AccessStateScreen({ state }: { state: ProtectedRouteState | 'profile-er
             <AlertTitle>Переход невозможен</AlertTitle>
             <AlertDescription>{message}</AlertDescription>
           </Alert>
-          <Button asChild className="w-full">
-            <Link to={ROUTES.dashboard}>На главный экран</Link>
+          <Button
+            className="w-full"
+            disabled={logoutMutation.isPending}
+            onClick={() => logoutMutation.mutate()}
+          >
+            {logoutMutation.isPending ? 'Выходим...' : 'Выйти'}
           </Button>
         </CardContent>
       </Card>
