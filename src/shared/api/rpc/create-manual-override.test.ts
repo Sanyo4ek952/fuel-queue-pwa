@@ -16,7 +16,7 @@ describe('parseCreateManualOverrideResult', () => {
         date: '2026-07-05',
         station_id: 'station-id',
         vehicle_id: 'vehicle-id',
-        normalized_plate_number: 'А123ВС',
+        normalized_plate_number: 'A123BC',
         reason: 'Supervisor decision',
         approved_by: 'profile-id',
         expires_at: null,
@@ -26,7 +26,7 @@ describe('parseCreateManualOverrideResult', () => {
       }),
     ).toMatchObject({
       id: 'override-id',
-      normalized_plate_number: 'А123ВС',
+      normalized_plate_number: 'A123BC',
       reason: 'Supervisor decision',
       sync_status: 'SYNCED',
     })

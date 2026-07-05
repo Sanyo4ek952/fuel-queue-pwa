@@ -72,7 +72,7 @@ describe('createOfflineFuelingRecord', () => {
 
     mocks.tables.local_vehicles.rows.push({
       id: vehicleId,
-      normalized_plate_number: 'А123ВС',
+      normalized_plate_number: 'A123BC',
       is_blocked: false,
     })
     mocks.tables.local_reservations.rows.push({

@@ -1,21 +1,22 @@
-const latinToCyrillicMap: Record<string, string> = {
-  A: 'А',
-  B: 'В',
-  E: 'Е',
-  K: 'К',
-  M: 'М',
-  H: 'Н',
-  O: 'О',
-  P: 'Р',
-  C: 'С',
-  T: 'Т',
-  Y: 'У',
-  X: 'Х',
+const cyrillicToLatinMap: Record<string, string> = {
+  А: 'A',
+  В: 'B',
+  Е: 'E',
+  К: 'K',
+  М: 'M',
+  Н: 'H',
+  О: 'O',
+  Р: 'P',
+  С: 'C',
+  Т: 'T',
+  У: 'Y',
+  Х: 'X',
 }
 
 export function normalizePlateNumber(value: string) {
   return value
-    .replace(/[\s-]/g, '')
     .toUpperCase()
-    .replace(/[ABEKMHOPCTYX]/g, (letter) => latinToCyrillicMap[letter] ?? letter)
+    .replace(/[\s-]/g, '')
+    .replace(/[АВЕКМНОРСТУХ]/g, (letter) => cyrillicToLatinMap[letter] ?? letter)
+    .replace(/[^0-9A-Z]/g, '')
 }

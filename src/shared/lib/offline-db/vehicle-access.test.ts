@@ -18,7 +18,7 @@ function makeSnapshot(
     vehicles: [
       {
         id: vehicleId,
-        normalized_plate_number: 'А123ВС',
+        normalized_plate_number: 'A123BC',
         is_blocked: false,
       },
     ],
@@ -108,7 +108,7 @@ describe('evaluateVehicleAccessOffline', () => {
           vehicles: [
             {
               id: vehicleId,
-              normalized_plate_number: 'А123ВС',
+              normalized_plate_number: 'A123BC',
               is_blocked: true,
               block_reason: 'test block',
             },
