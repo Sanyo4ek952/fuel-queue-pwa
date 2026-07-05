@@ -1,6 +1,11 @@
 import { MapPin } from 'lucide-react'
+import { useEffect } from 'react'
 
-import { STATIONS } from '@/features/select-station/model/stations'
+import { useCurrentProfile } from '@/entities/profile'
+import {
+  getAvailableStations,
+  getNextSelectedStationId,
+} from '@/features/select-station/model/available-stations'
 import { useSelectedStation } from '@/features/select-station/model/store'
 import {
   Select,
@@ -13,6 +18,20 @@ import {
 export function StationSelect() {
   const selectedStationId = useSelectedStation((state) => state.selectedStationId)
   const setSelectedStationId = useSelectedStation((state) => state.setSelectedStationId)
+  const currentProfileQuery = useCurrentProfile()
+  const stations = getAvailableStations(currentProfileQuery.data)
+
+  useEffect(() => {
+    if (!currentProfileQuery.data) {
+      return
+    }
+
+    const nextSelectedStationId = getNextSelectedStationId(selectedStationId, stations)
+
+    if (nextSelectedStationId !== selectedStationId) {
+      setSelectedStationId(nextSelectedStationId)
+    }
+  }, [currentProfileQuery.data, selectedStationId, setSelectedStationId, stations])
 
   return (
     <div className="space-y-2">
@@ -27,7 +46,7 @@ export function StationSelect() {
           </span>
         </SelectTrigger>
         <SelectContent position="popper" align="start">
-          {STATIONS.map((station) => (
+          {stations.map((station) => (
             <SelectItem key={station.id} value={station.id}>
               {station.name}
             </SelectItem>

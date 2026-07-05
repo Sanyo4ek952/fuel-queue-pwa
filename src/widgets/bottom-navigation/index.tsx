@@ -1,7 +1,9 @@
 import { CalendarPlus, CarFront, ClipboardList, Fuel, MoreHorizontal } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
+import { useCurrentProfile } from '@/entities/profile'
 import { ROUTES } from '@/shared/config/routes'
+import { canAccessRoute } from '@/shared/lib/permissions'
 
 const bottomNavItems = [
   { to: ROUTES.check, label: 'Проверка', icon: CarFront },
@@ -12,10 +14,19 @@ const bottomNavItems = [
 ] as const
 
 export function BottomNavigation() {
+  const currentProfileQuery = useCurrentProfile()
+  const role = currentProfileQuery.data?.role
+  const visibleItems = role
+    ? bottomNavItems.filter((item) => canAccessRoute(role, item.to))
+    : bottomNavItems
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto grid h-16 max-w-3xl grid-cols-5 px-1">
-        {bottomNavItems.map((item) => {
+      <div
+        className="mx-auto grid h-16 max-w-3xl px-1"
+        style={{ gridTemplateColumns: `repeat(${visibleItems.length}, minmax(0, 1fr))` }}
+      >
+        {visibleItems.map((item) => {
           const Icon = item.icon
 
           return (

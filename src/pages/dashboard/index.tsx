@@ -1,13 +1,24 @@
 import { ArrowRight, Fuel, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import { useCurrentProfile } from '@/entities/profile'
+import { useSelectedStation } from '@/features/select-station'
 import { MAIN_SECTION_LINKS } from '@/shared/config/routes'
+import { ROLE_LABELS } from '@/shared/config/roles'
+import { canAccessRoute } from '@/shared/lib/permissions'
 import { useOnlineStatus } from '@/shared/lib/sync'
 import { Badge } from '@/shared/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 
 export function DashboardPage() {
   const isOnline = useOnlineStatus()
+  const currentProfileQuery = useCurrentProfile()
+  const selectedStationId = useSelectedStation((state) => state.selectedStationId)
+  const profile = currentProfileQuery.data
+  const selectedStation = profile?.stations.find((station) => station.id === selectedStationId)
+  const visibleLinks = profile
+    ? MAIN_SECTION_LINKS.filter((item) => canAccessRoute(profile.role, item.path))
+    : MAIN_SECTION_LINKS
 
   return (
     <div className="space-y-4">
@@ -24,8 +35,16 @@ export function DashboardPage() {
         <div className="mt-5 flex flex-wrap gap-2">
           <Badge className="gap-1.5 rounded-md bg-white text-slate-950 hover:bg-white">
             <MapPin className="size-3.5" aria-hidden="true" />
-            АЗС №1
+            {selectedStation?.name ?? profile?.stations[0]?.name ?? 'АЗС не выбрана'}
           </Badge>
+          {profile ? (
+            <Badge
+              variant="outline"
+              className="rounded-md border-white/20 bg-white/10 text-white hover:bg-white/10"
+            >
+              {ROLE_LABELS[profile.role]}
+            </Badge>
+          ) : null}
           <Badge
             variant="outline"
             className="rounded-md border-white/20 bg-white/10 text-white hover:bg-white/10"
@@ -41,7 +60,7 @@ export function DashboardPage() {
           <CardDescription>Быстрый переход к рабочим сценариям АЗС</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2">
-          {MAIN_SECTION_LINKS.map((item) => (
+          {visibleLinks.map((item) => (
             <Link
               key={item.path}
               to={item.path}
