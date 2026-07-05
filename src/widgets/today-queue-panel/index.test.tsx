@@ -53,6 +53,10 @@ describe('TodayQueuePanel', () => {
           station_id: 'station-id',
           vehicle_id: 'vehicle-id',
           driver_id: null,
+          created_by_profile_id: 'profile-id',
+          created_by_full_name: 'Мария Петрова',
+          created_by_role: 'cashier',
+          created_by_signature_name: 'Петрова М.',
           queue_number: 1,
           normalized_plate_number: 'A123BC',
           driver_full_name: 'Ivan Ivanov',
@@ -75,6 +79,7 @@ describe('TodayQueuePanel', () => {
     render(<TodayQueuePanel />)
 
     expect(screen.getByText('A123BC')).toBeInTheDocument()
+    expect(screen.getByText('Кассир АЗС: Петрова М.')).toBeInTheDocument()
     expect(screen.getByText('PENDING')).toBeInTheDocument()
     expect(screen.getByText('Offline-режим')).toBeInTheDocument()
   })

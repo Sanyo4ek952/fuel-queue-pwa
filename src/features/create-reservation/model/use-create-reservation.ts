@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { useCurrentProfile } from '@/entities/profile'
 import {
   createReservation,
   type CreateReservationParams,
@@ -22,11 +23,20 @@ function shouldFallbackToOffline(error: string) {
 export function useCreateReservation() {
   const isOnline = useOnlineStatus()
   const queryClient = useQueryClient()
+  const currentProfileQuery = useCurrentProfile()
 
   return useMutation({
     mutationFn: async (params: CreateReservationParams): Promise<CreateReservationMutationResult> => {
       if (!isOnline) {
-        return createOfflineReservation(params)
+        const profile = currentProfileQuery.data
+
+        return createOfflineReservation({
+          ...params,
+          createdByProfileId: profile?.id ?? null,
+          createdByFullName: profile?.full_name ?? null,
+          createdByRole: profile?.role ?? null,
+          createdBySignatureName: profile?.signature_name ?? null,
+        })
       }
 
       const result = await createReservation(params)
@@ -43,7 +53,8 @@ export function useCreateReservation() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        predicate: (query) => query.queryKey[0] === 'today-queue',
+        predicate: (query) =>
+          query.queryKey[0] === 'today-queue' || query.queryKey[0] === 'daily-limit-overview',
       })
     },
   })

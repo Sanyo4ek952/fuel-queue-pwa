@@ -53,18 +53,19 @@ date
 
 Проверяет:
 
-- роль пользователя;
+- роль mayor/station_manager/mayor_assistant;
 - доступ к АЗС;
 - лимит на дату;
 - лимит по топливу;
 - отсутствие активной записи автомобиля на эту дату;
 - блокировку автомобиля.
+- сохраняет автора записи в `fuel_reservations.operator_id`.
 
 ### create_fueling_record
 
 Проверяет:
 
-- роль cashier/shift_supervisor/station_admin;
+- роль mayor/station_manager/cashier;
 - наличие активной записи;
 - отсутствие заправки сегодня по всем АЗС;
 - лимит литров;
@@ -74,7 +75,7 @@ date
 
 Проверяет:
 
-- роль shift_supervisor/station_admin;
+- роль mayor/station_manager;
 - доступ к АЗС;
 - корректность лимитов.
 
@@ -82,7 +83,7 @@ date
 
 Проверяет:
 
-- роль shift_supervisor/station_admin;
+- роль mayor/station_manager;
 - причину;
 - дату;
 - автомобиль.

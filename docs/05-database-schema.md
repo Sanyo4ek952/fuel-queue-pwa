@@ -255,12 +255,10 @@ create table audit_logs (
 ### roles
 
 ```text
-operator
+mayor
+station_manager
 cashier
-shift_supervisor
-station_admin
-city_admin
-viewer
+mayor_assistant
 ```
 
 ### fuel types

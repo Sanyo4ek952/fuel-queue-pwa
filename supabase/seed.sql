@@ -38,7 +38,7 @@ begin
         dev_instance_id,
         'authenticated',
         'authenticated',
-        'operator@example.local',
+        'mayor@example.local',
         extensions.crypt('password123', extensions.gen_salt('bf')),
         now(),
         '{"provider":"email","providers":["email"]}'::jsonb,
@@ -64,7 +64,7 @@ begin
         dev_instance_id,
         'authenticated',
         'authenticated',
-        'shift@example.local',
+        'station-manager-2@example.local',
         extensions.crypt('password123', extensions.gen_salt('bf')),
         now(),
         '{"provider":"email","providers":["email"]}'::jsonb,
@@ -77,7 +77,7 @@ begin
         dev_instance_id,
         'authenticated',
         'authenticated',
-        'station-admin@example.local',
+        'station-manager@example.local',
         extensions.crypt('password123', extensions.gen_salt('bf')),
         now(),
         '{"provider":"email","providers":["email"]}'::jsonb,
@@ -90,7 +90,7 @@ begin
         dev_instance_id,
         'authenticated',
         'authenticated',
-        'city-admin@example.local',
+        'mayor-assistant@example.local',
         extensions.crypt('password123', extensions.gen_salt('bf')),
         now(),
         '{"provider":"email","providers":["email"]}'::jsonb,
@@ -103,7 +103,7 @@ begin
         dev_instance_id,
         'authenticated',
         'authenticated',
-        'viewer@example.local',
+        'cashier-2@example.local',
         extensions.crypt('password123', extensions.gen_salt('bf')),
         now(),
         '{"provider":"email","providers":["email"]}'::jsonb,
@@ -129,12 +129,12 @@ insert into public.profiles (
   approved_at
 )
 values
-  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'Dev Operator', 'Operator', 'Dev', 'Operator', 'Dev Operator', 'operator', true, 'approved', now()),
+  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'Dev Mayor', 'Mayor', 'Dev', 'Mayor', 'Dev Mayor', 'mayor', true, 'approved', now()),
   ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', 'Dev Cashier', 'Cashier', 'Dev', 'Cashier', 'Dev Cashier', 'cashier', true, 'approved', now()),
-  ('30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000003', 'Dev Shift Supervisor', 'Shift Supervisor', 'Dev', 'Shift Supervisor', 'Dev Shift Supervisor', 'shift_supervisor', true, 'approved', now()),
-  ('30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000004', 'Dev Station Admin', 'Station Admin', 'Dev', 'Station Admin', 'Dev Station Admin', 'station_admin', true, 'approved', now()),
-  ('30000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000005', 'Dev City Admin', 'City Admin', 'Dev', 'City Admin', 'Dev City Admin', 'city_admin', true, 'approved', now()),
-  ('30000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000006', 'Dev Viewer', 'Viewer', 'Dev', 'Viewer', 'Dev Viewer', 'viewer', true, 'approved', now())
+  ('30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000003', 'Dev Station Manager 2', 'Station Manager', 'Dev', 'Station Manager', 'Dev Station Manager 2', 'station_manager', true, 'approved', now()),
+  ('30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000004', 'Dev Station Manager', 'Station Manager', 'Dev', 'Station Manager', 'Dev Station Manager', 'station_manager', true, 'approved', now()),
+  ('30000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000005', 'Dev Mayor Assistant', 'Mayor Assistant', 'Dev', 'Mayor Assistant', 'Dev Mayor Assistant', 'mayor_assistant', true, 'approved', now()),
+  ('30000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000006', 'Dev Cashier 2', 'Cashier', 'Dev', 'Cashier', 'Dev Cashier 2', 'cashier', true, 'approved', now())
 on conflict (auth_user_id) do update
 set
   full_name = excluded.full_name,

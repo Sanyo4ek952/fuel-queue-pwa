@@ -1,5 +1,5 @@
 import { MapPin } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useId } from 'react'
 
 import { useCurrentProfile } from '@/entities/profile'
 import {
@@ -7,6 +7,7 @@ import {
   getNextSelectedStationId,
 } from '@/features/select-station/model/available-stations'
 import { useSelectedStation } from '@/features/select-station/model/store'
+import { cn } from '@/shared/lib/utils'
 import {
   Select,
   SelectContent,
@@ -15,9 +16,24 @@ import {
   SelectValue,
 } from '@/shared/ui/select'
 
-export function StationSelect() {
-  const selectedStationId = useSelectedStation((state) => state.selectedStationId)
-  const setSelectedStationId = useSelectedStation((state) => state.setSelectedStationId)
+type StationSelectProps = {
+  showLabel?: boolean
+  className?: string
+  triggerClassName?: string
+}
+
+export function StationSelect({
+  showLabel = true,
+  className,
+  triggerClassName,
+}: StationSelectProps = {}) {
+  const triggerId = useId()
+  const selectedStationId = useSelectedStation(
+    (state) => state.selectedStationId,
+  )
+  const setSelectedStationId = useSelectedStation(
+    (state) => state.setSelectedStationId,
+  )
   const currentProfileQuery = useCurrentProfile()
   const stations = getAvailableStations(currentProfileQuery.data)
 
@@ -26,22 +42,42 @@ export function StationSelect() {
       return
     }
 
-    const nextSelectedStationId = getNextSelectedStationId(selectedStationId, stations)
+    const nextSelectedStationId = getNextSelectedStationId(
+      selectedStationId,
+      stations,
+    )
 
     if (nextSelectedStationId !== selectedStationId) {
       setSelectedStationId(nextSelectedStationId)
     }
-  }, [currentProfileQuery.data, selectedStationId, setSelectedStationId, stations])
+  }, [
+    currentProfileQuery.data,
+    selectedStationId,
+    setSelectedStationId,
+    stations,
+  ])
 
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-slate-700" htmlFor="station-select-trigger">
+    <div className={cn('space-y-2', className)}>
+      <label
+        className={cn(
+          'text-sm font-medium text-slate-700',
+          !showLabel && 'sr-only',
+        )}
+        htmlFor={triggerId}
+      >
         АЗС
       </label>
       <Select value={selectedStationId} onValueChange={setSelectedStationId}>
-        <SelectTrigger id="station-select-trigger" className="h-11 w-full bg-white">
+        <SelectTrigger
+          id={triggerId}
+          className={cn('h-11 w-full bg-white', triggerClassName)}
+        >
           <span className="flex min-w-0 items-center gap-2">
-            <MapPin className="size-4 shrink-0 text-slate-500" aria-hidden="true" />
+            <MapPin
+              className="size-4 shrink-0 text-slate-500"
+              aria-hidden="true"
+            />
             <SelectValue placeholder="Выберите АЗС" />
           </span>
         </SelectTrigger>

@@ -1,4 +1,5 @@
 import type { FuelType } from '@/shared/constants'
+import type { UserRole } from '@/shared/config/roles'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import { offlineDb, type LocalReservation, type LocalVehicle, type SyncOutboxOperation } from './db'
@@ -15,6 +16,10 @@ export type CreateOfflineReservationParams = {
   requestedLiters: number
   comment?: string
   clientMutationId: string
+  createdByProfileId?: string | null
+  createdByFullName?: string | null
+  createdByRole?: UserRole | string | null
+  createdBySignatureName?: string | null
 }
 
 export type OfflineReservationResult = {
@@ -23,6 +28,10 @@ export type OfflineReservationResult = {
   station_id: string
   vehicle_id: string
   driver_id: string | null
+  created_by_profile_id: string | null
+  created_by_full_name: string
+  created_by_role: UserRole | string | null
+  created_by_signature_name: string | null
   normalized_plate_number: string
   driver_full_name: string
   driver_phone: string | null
@@ -86,6 +95,10 @@ export async function createOfflineReservation({
   requestedLiters,
   comment,
   clientMutationId,
+  createdByProfileId,
+  createdByFullName,
+  createdByRole,
+  createdBySignatureName,
 }: CreateOfflineReservationParams): Promise<OfflineReservationResult> {
   const normalizedPlateNumber = normalizePlateNumber(plateNumber)
   const trimmedDriverFullName = driverFullName.trim()
@@ -158,6 +171,10 @@ export async function createOfflineReservation({
     station_id: stationId,
     vehicle_id: vehicle.id,
     driver_id: null,
+    created_by_profile_id: createdByProfileId ?? null,
+    created_by_full_name: createdByFullName ?? '',
+    created_by_role: createdByRole ?? null,
+    created_by_signature_name: createdBySignatureName ?? null,
     fuel_type: fuelType,
     requested_liters: requestedLiters,
     queue_number: nextQueueNumber,
@@ -210,6 +227,10 @@ export async function createOfflineReservation({
     station_id: stationId,
     vehicle_id: vehicle.id,
     driver_id: null,
+    created_by_profile_id: createdByProfileId ?? null,
+    created_by_full_name: createdByFullName ?? '',
+    created_by_role: createdByRole ?? null,
+    created_by_signature_name: createdBySignatureName ?? null,
     normalized_plate_number: normalizedPlateNumber,
     driver_full_name: trimmedDriverFullName,
     driver_phone: trimmedDriverPhone,

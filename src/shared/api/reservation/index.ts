@@ -1,4 +1,5 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
+import type { UserRole } from '@/shared/config/roles'
 import type { FuelType, ReservationStatus, SyncStatus } from '@/shared/constants'
 import { supabase } from '@/shared/api/supabase'
 import { offlineDb, type LocalReservation } from '@/shared/lib/offline-db'
@@ -12,12 +13,19 @@ type RelatedDriver = {
   phone?: string | null
 }
 
+type RelatedProfile = {
+  full_name?: string | null
+  role?: string | null
+  signature_name?: string | null
+}
+
 type ReservationRow = {
   id: string
   date: string
   station_id: string
   vehicle_id: string
   driver_id?: string | null
+  operator_id: string
   fuel_type: string
   requested_liters: number | string
   queue_number: number
@@ -29,6 +37,7 @@ type ReservationRow = {
   updated_at?: string
   vehicles?: RelatedVehicle | RelatedVehicle[] | null
   drivers?: RelatedDriver | RelatedDriver[] | null
+  operator?: RelatedProfile | RelatedProfile[] | null
 }
 
 export type TodayQueueRow = {
@@ -37,6 +46,10 @@ export type TodayQueueRow = {
   station_id: string
   vehicle_id: string
   driver_id: string | null
+  created_by_profile_id: string | null
+  created_by_full_name: string
+  created_by_role: UserRole | string | null
+  created_by_signature_name: string | null
   queue_number: number
   normalized_plate_number: string
   driver_full_name: string
@@ -62,6 +75,7 @@ function firstRelation<TRelation>(value: TRelation | TRelation[] | null | undefi
 function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
   const vehicle = firstRelation(row.vehicles)
   const driver = firstRelation(row.drivers)
+  const operator = firstRelation(row.operator)
 
   return {
     id: row.id,
@@ -69,6 +83,10 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     station_id: row.station_id,
     vehicle_id: row.vehicle_id,
     driver_id: row.driver_id ?? null,
+    created_by_profile_id: row.operator_id,
+    created_by_full_name: operator?.full_name ?? '',
+    created_by_role: operator?.role ?? null,
+    created_by_signature_name: operator?.signature_name ?? null,
     queue_number: toNumber(row.queue_number),
     normalized_plate_number: vehicle?.normalized_plate_number ?? '',
     driver_full_name: driver?.full_name ?? '',
@@ -91,6 +109,10 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     station_id: row.station_id,
     vehicle_id: row.vehicle_id,
     driver_id: row.driver_id ?? null,
+    created_by_profile_id: row.created_by_profile_id ?? null,
+    created_by_full_name: row.created_by_full_name ?? '',
+    created_by_role: row.created_by_role ?? null,
+    created_by_signature_name: row.created_by_signature_name ?? null,
     queue_number: row.queue_number,
     normalized_plate_number: row.normalized_plate_number ?? '',
     driver_full_name: row.driver_full_name ?? '',
@@ -120,7 +142,7 @@ export async function listTodayQueueRows({
   const { data, error } = await supabase
     .from('fuel_reservations')
     .select(
-      'id,date,station_id,vehicle_id,driver_id,fuel_type,requested_liters,queue_number,status,comment,client_mutation_id,sync_status,created_at,updated_at,vehicles(normalized_plate_number),drivers(full_name,phone)',
+      'id,date,station_id,vehicle_id,driver_id,operator_id,fuel_type,requested_liters,queue_number,status,comment,client_mutation_id,sync_status,created_at,updated_at,vehicles(normalized_plate_number),drivers(full_name,phone),operator:profiles!fuel_reservations_operator_id_fkey(full_name,role,signature_name)',
     )
     .eq('station_id', stationId)
     .eq('date', date)
@@ -142,6 +164,10 @@ export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
         station_id: row.station_id,
         vehicle_id: row.vehicle_id,
         driver_id: row.driver_id,
+        created_by_profile_id: row.created_by_profile_id,
+        created_by_full_name: row.created_by_full_name,
+        created_by_role: row.created_by_role,
+        created_by_signature_name: row.created_by_signature_name,
         fuel_type: row.fuel_type,
         requested_liters: row.requested_liters,
         queue_number: row.queue_number,

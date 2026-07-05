@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import {
   createDailyLimit,
@@ -9,6 +9,8 @@ import {
 export type { CreateDailyLimitParams, CreateDailyLimitResult }
 
 export function useCreateDailyLimit() {
+  const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: async (params: CreateDailyLimitParams) => {
       const result = await createDailyLimit(params)
@@ -18,6 +20,11 @@ export function useCreateDailyLimit() {
       }
 
       return result.data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === 'daily-limit-overview',
+      })
     },
   })
 }

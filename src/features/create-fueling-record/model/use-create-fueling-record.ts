@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import {
   createFuelingRecord,
@@ -23,6 +23,7 @@ export type CreateFuelingRecordMutationResult =
 
 export function useCreateFuelingRecord() {
   const isOnline = useOnlineStatus()
+  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (
@@ -39,6 +40,12 @@ export function useCreateFuelingRecord() {
       }
 
       return result.data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0] === 'today-queue' || query.queryKey[0] === 'daily-limit-overview',
+      })
     },
   })
 }

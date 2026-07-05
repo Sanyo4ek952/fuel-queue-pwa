@@ -44,19 +44,15 @@ import {
   type ManagedProfile,
 } from '../model/use-managed-profiles'
 
-const cityAdminAssignableRoles: UserRole[] = [
-  'operator',
+const mayorAssignableRoles: UserRole[] = [
+  'mayor',
+  'station_manager',
   'cashier',
-  'shift_supervisor',
-  'station_admin',
-  'viewer',
+  'mayor_assistant',
 ]
 
-const stationAdminAssignableRoles: UserRole[] = [
-  'operator',
+const stationManagerAssignableRoles: UserRole[] = [
   'cashier',
-  'shift_supervisor',
-  'viewer',
 ]
 
 const statusLabels = {
@@ -77,7 +73,7 @@ function formatDateTime(value: string | null) {
 }
 
 function getStationOptions(currentRole?: UserRole, currentStations: ManagedProfile['stations'] = []) {
-  if (currentRole === 'city_admin') {
+  if (currentRole === 'mayor') {
     return STATIONS
   }
 
@@ -158,7 +154,7 @@ function PendingProfileActions({
     resolver: zodResolver(approveRegistrationSchema),
     defaultValues: {
       profileId: profile.id,
-      role: assignableRoles[0] ?? 'viewer',
+      role: assignableRoles[0] ?? 'cashier',
       stationIds: defaultStationIds,
     },
   })
@@ -401,7 +397,7 @@ export function UsersManagementPanel() {
     [currentProfile?.role, currentProfile?.stations],
   )
   const assignableRoles =
-    currentProfile?.role === 'city_admin' ? cityAdminAssignableRoles : stationAdminAssignableRoles
+    currentProfile?.role === 'mayor' ? mayorAssignableRoles : stationManagerAssignableRoles
   const profiles = managedProfilesQuery.data ?? []
   const pendingProfiles = profiles.filter((profile) => profile.approval_status === 'pending')
   const activeProfiles = profiles.filter(

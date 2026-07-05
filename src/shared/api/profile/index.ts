@@ -1,6 +1,7 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { UserRole } from '@/shared/config/roles'
 import { USER_ROLES } from '@/shared/config/roles'
+import { canViewAllStations } from '@/shared/lib/permissions'
 import { supabase } from '@/shared/api/supabase'
 
 export type ProfileStation = {
@@ -214,8 +215,9 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
     return null
   }
 
-  const stations =
-    profile.role === 'city_admin' ? await getAllStations() : await getAssignedStations(profile.id)
+  const stations = isUserRole(profile.role) && canViewAllStations(profile.role)
+    ? await getAllStations()
+    : await getAssignedStations(profile.id)
 
   return toProfile(profile, stations)
 }

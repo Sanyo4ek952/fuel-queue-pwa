@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import {
   parseCreateReservationResult,
   parseCreateFuelingRecordResult,
+  parseCreateManualOverrideResult,
   syncOfflineMutation,
 } from '@/shared/api/rpc'
 import { offlineDb, type SyncOutboxOperation } from '@/shared/lib/offline-db'
@@ -93,6 +94,42 @@ async function markReservationSynced(operation: SyncOutboxOperation, data: unkno
   )
 }
 
+async function markManualOverrideSynced(operation: SyncOutboxOperation, data: unknown) {
+  const parsed = parseCreateManualOverrideResult(data)
+  const syncedAt = new Date().toISOString()
+
+  await offlineDb.transaction(
+    'rw',
+    [offlineDb.sync_outbox, offlineDb.local_manual_overrides],
+    async () => {
+      await offlineDb.sync_outbox.update(operation.id, {
+        status: 'SYNCED',
+        synced_at: syncedAt,
+        error: undefined,
+      })
+
+      if (parsed) {
+        await offlineDb.local_manual_overrides
+          .where('client_mutation_id')
+          .equals(operation.client_mutation_id)
+          .modify({
+            id: parsed.id,
+            station_id: parsed.station_id,
+            vehicle_id: parsed.vehicle_id,
+            date: parsed.date,
+            reason: parsed.reason,
+            approved_by: parsed.approved_by,
+            normalized_plate_number: parsed.normalized_plate_number,
+            expires_at: parsed.expires_at,
+            used_at: parsed.used_at,
+            sync_status: 'SYNCED',
+            updated_at: syncedAt,
+          })
+      }
+    },
+  )
+}
+
 async function markOperationConflict(operation: SyncOutboxOperation, reason: string, payload: unknown) {
   const createdAt = new Date().toISOString()
 
@@ -102,6 +139,7 @@ async function markOperationConflict(operation: SyncOutboxOperation, reason: str
       offlineDb.sync_outbox,
       offlineDb.local_fueling_records,
       offlineDb.local_reservations,
+      offlineDb.local_manual_overrides,
       offlineDb.sync_conflicts,
     ],
     async () => {
@@ -123,6 +161,13 @@ async function markOperationConflict(operation: SyncOutboxOperation, reason: str
         .modify({
           sync_status: 'CONFLICT',
           status: 'CONFLICT',
+          updated_at: createdAt,
+        })
+      await offlineDb.local_manual_overrides
+        .where('client_mutation_id')
+        .equals(operation.client_mutation_id)
+        .modify({
+          sync_status: 'CONFLICT',
           updated_at: createdAt,
         })
       await offlineDb.sync_conflicts.put({
@@ -170,6 +215,11 @@ async function syncOutboxOperation(operation: SyncOutboxOperation) {
 
   if (operation.type === 'CREATE_RESERVATION') {
     await markReservationSynced(operation, result.data.data)
+    return
+  }
+
+  if (operation.type === 'CREATE_MANUAL_OVERRIDE') {
+    await markManualOverrideSynced(operation, result.data.data)
     return
   }
 

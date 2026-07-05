@@ -58,7 +58,9 @@ export async function refreshVehicleAccessCache({
       .eq('date', checkDate),
     supabase
       .from('manual_overrides')
-      .select('id,station_id,vehicle_id,date,used_at,expires_at,updated_at')
+      .select(
+        'id,station_id,vehicle_id,date,reason,approved_by,used_at,expires_at,client_mutation_id,sync_status,updated_at',
+      )
       .eq('date', checkDate),
   ])
 

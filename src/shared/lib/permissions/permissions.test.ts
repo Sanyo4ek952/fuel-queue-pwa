@@ -13,43 +13,43 @@ import {
 } from './index'
 
 describe('permission helpers', () => {
-  it('allows reservation roles to create reservations', () => {
-    expect(canCreateReservation('operator')).toBe(true)
-    expect(canCreateReservation('shift_supervisor')).toBe(true)
-    expect(canCreateReservation('station_admin')).toBe(true)
+  it('allows mayor, station manager and mayor assistant to create reservations', () => {
+    expect(canCreateReservation('mayor')).toBe(true)
+    expect(canCreateReservation('station_manager')).toBe(true)
+    expect(canCreateReservation('mayor_assistant')).toBe(true)
     expect(canCreateReservation('cashier')).toBe(false)
-    expect(canCreateReservation('city_admin')).toBe(false)
-    expect(canCreateReservation('viewer')).toBe(false)
   })
 
-  it('allows cashier and station managers to create fueling records', () => {
+  it('allows cashier and full-access roles to create fueling records', () => {
+    expect(canCreateFuelingRecord('mayor')).toBe(true)
+    expect(canCreateFuelingRecord('station_manager')).toBe(true)
     expect(canCreateFuelingRecord('cashier')).toBe(true)
-    expect(canCreateFuelingRecord('shift_supervisor')).toBe(true)
-    expect(canCreateFuelingRecord('station_admin')).toBe(true)
-    expect(canCreateFuelingRecord('operator')).toBe(false)
+    expect(canCreateFuelingRecord('mayor_assistant')).toBe(false)
   })
 
-  it('allows only station managers to manage limits and sync conflicts', () => {
-    expect(canCreateDailyLimit('shift_supervisor')).toBe(true)
-    expect(canCreateDailyLimit('station_admin')).toBe(true)
-    expect(canCreateManualOverride('shift_supervisor')).toBe(true)
-    expect(canResolveSyncConflict('station_admin')).toBe(true)
-    expect(canCreateDailyLimit('city_admin')).toBe(false)
-    expect(canResolveSyncConflict('viewer')).toBe(false)
+  it('allows full-access roles to manage limits and sync conflicts', () => {
+    expect(canCreateDailyLimit('mayor')).toBe(true)
+    expect(canCreateDailyLimit('station_manager')).toBe(true)
+    expect(canCreateManualOverride('station_manager')).toBe(true)
+    expect(canResolveSyncConflict('mayor')).toBe(true)
+    expect(canResolveSyncConflict('cashier')).toBe(false)
+    expect(canResolveSyncConflict('mayor_assistant')).toBe(false)
   })
 
-  it('allows city admin to view all stations', () => {
-    expect(canViewAllStations('city_admin')).toBe(true)
-    expect(canViewAllStations('station_admin')).toBe(false)
+  it('allows mayor staff to view all stations', () => {
+    expect(canViewAllStations('mayor')).toBe(true)
+    expect(canViewAllStations('mayor_assistant')).toBe(true)
+    expect(canViewAllStations('station_manager')).toBe(false)
   })
 
   it('guards application routes by role', () => {
-    expect(canAccessRoute('operator', ROUTES.reservations)).toBe(true)
+    expect(canAccessRoute('mayor_assistant', ROUTES.reservations)).toBe(true)
+    expect(canAccessRoute('cashier', ROUTES.check)).toBe(true)
     expect(canAccessRoute('cashier', ROUTES.fueling)).toBe(true)
     expect(canAccessRoute('cashier', ROUTES.reservations)).toBe(false)
-    expect(canAccessRoute('city_admin', ROUTES.limits)).toBe(false)
-    expect(canAccessRoute('station_admin', ROUTES.users)).toBe(true)
-    expect(canAccessRoute('city_admin', ROUTES.users)).toBe(true)
-    expect(canAccessRoute('viewer', ROUTES.users)).toBe(false)
+    expect(canAccessRoute('station_manager', ROUTES.limits)).toBe(true)
+    expect(canAccessRoute('station_manager', ROUTES.users)).toBe(true)
+    expect(canAccessRoute('mayor', ROUTES.users)).toBe(true)
+    expect(canAccessRoute('mayor_assistant', ROUTES.users)).toBe(false)
   })
 })

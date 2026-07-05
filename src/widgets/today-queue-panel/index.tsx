@@ -2,6 +2,7 @@ import { CalendarDays, CloudOff, ListChecks } from 'lucide-react'
 
 import { useTodayQueue, type TodayQueueRow } from '@/entities/reservation'
 import { StationSelect, useSelectedStation } from '@/features/select-station'
+import { ROLE_LABELS, type UserRole } from '@/shared/config/roles'
 import type { FuelType, ReservationStatus, SyncStatus } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
@@ -70,6 +71,16 @@ function SummaryTile({ label, value }: { label: string; value: number }) {
   )
 }
 
+function formatCreatedBy(row: TodayQueueRow) {
+  const roleLabel =
+    row.created_by_role && row.created_by_role in ROLE_LABELS
+      ? ROLE_LABELS[row.created_by_role as UserRole]
+      : 'Пользователь'
+  const name = row.created_by_signature_name || row.created_by_full_name
+
+  return name ? `${roleLabel}: ${name}` : 'Автор не указан'
+}
+
 function QueueRowCard({ row }: { row: TodayQueueRow }) {
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -99,7 +110,7 @@ function QueueRowCard({ row }: { row: TodayQueueRow }) {
         </div>
       </div>
 
-      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-slate-500">Топливо</dt>
           <dd className="font-medium text-slate-950">
@@ -113,6 +124,10 @@ function QueueRowCard({ row }: { row: TodayQueueRow }) {
         <div>
           <dt className="text-slate-500">Телефон</dt>
           <dd className="font-medium text-slate-950">{row.driver_phone || 'Не указан'}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Добавил</dt>
+          <dd className="font-medium text-slate-950">{formatCreatedBy(row)}</dd>
         </div>
       </dl>
 

@@ -51,6 +51,7 @@ const mocks = vi.hoisted(() => {
 
   const tables = {
     local_fueling_records: makeTable(),
+    local_manual_overrides: makeTable(),
     local_reservations: makeTable(),
     sync_outbox: makeTable(),
     sync_conflicts: makeTable(),
@@ -59,6 +60,7 @@ const mocks = vi.hoisted(() => {
   return {
     syncOfflineMutation: vi.fn(),
     parseCreateFuelingRecordResult: vi.fn((value: unknown) => value),
+    parseCreateManualOverrideResult: vi.fn((value: unknown) => value),
     parseCreateReservationResult: vi.fn((value: unknown) => value),
     tables,
     offlineDb: {
@@ -72,6 +74,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/shared/api/rpc', () => ({
   parseCreateFuelingRecordResult: mocks.parseCreateFuelingRecordResult,
+  parseCreateManualOverrideResult: mocks.parseCreateManualOverrideResult,
   parseCreateReservationResult: mocks.parseCreateReservationResult,
   syncOfflineMutation: mocks.syncOfflineMutation,
 }))
@@ -111,6 +114,7 @@ describe('syncPendingOutbox', () => {
     mocks.offlineDb.transaction.mockClear()
     mocks.syncOfflineMutation.mockReset()
     mocks.parseCreateFuelingRecordResult.mockClear()
+    mocks.parseCreateManualOverrideResult.mockClear()
     mocks.parseCreateReservationResult.mockClear()
   })
 
@@ -257,6 +261,94 @@ describe('syncPendingOutbox', () => {
       vehicle_id: 'vehicle-id',
       queue_number: 3,
       sync_status: 'SYNCED',
+    })
+  })
+
+  it('marks a create manual override operation as synced and updates local override', async () => {
+    addOutboxOperation({
+      type: 'CREATE_MANUAL_OVERRIDE',
+      payload: {
+        plate_number: 'Рђ123Р’РЎ',
+        target_date: '2026-07-05',
+        station_id: 'station-id',
+        reason: 'Supervisor decision',
+      },
+    })
+    mocks.tables.local_manual_overrides.rows.push({
+      id: 'local-mutation-id',
+      client_mutation_id: 'mutation-id',
+      sync_status: 'PENDING',
+    })
+    mocks.syncOfflineMutation.mockResolvedValue({
+      data: {
+        status: 'SYNCED',
+        operation_type: 'CREATE_MANUAL_OVERRIDE',
+        client_mutation_id: 'mutation-id',
+        data: {
+          id: 'server-override-id',
+          station_id: 'station-id',
+          vehicle_id: 'vehicle-id',
+          date: '2026-07-05',
+          normalized_plate_number: 'Рђ123Р’РЎ',
+          reason: 'Supervisor decision',
+          approved_by: 'profile-id',
+          expires_at: null,
+          used_at: null,
+          client_mutation_id: 'mutation-id',
+          sync_status: 'SYNCED',
+        },
+      },
+      error: null,
+    })
+
+    await syncPendingOutbox()
+
+    expect(mocks.tables.sync_outbox.rows[0]).toMatchObject({
+      status: 'SYNCED',
+      error: undefined,
+    })
+    expect(mocks.tables.local_manual_overrides.rows[0]).toMatchObject({
+      id: 'server-override-id',
+      vehicle_id: 'vehicle-id',
+      reason: 'Supervisor decision',
+      sync_status: 'SYNCED',
+    })
+  })
+
+  it('marks a create manual override operation and local override as conflict', async () => {
+    addOutboxOperation({
+      type: 'CREATE_MANUAL_OVERRIDE',
+      payload: {
+        plate_number: 'Рђ123Р’РЎ',
+        target_date: '2026-07-05',
+        station_id: 'station-id',
+        reason: 'Supervisor decision',
+      },
+    })
+    mocks.tables.local_manual_overrides.rows.push({
+      id: 'local-mutation-id',
+      client_mutation_id: 'mutation-id',
+      sync_status: 'PENDING',
+    })
+    mocks.syncOfflineMutation.mockResolvedValue({
+      data: {
+        status: 'CONFLICT',
+        operation_type: 'CREATE_MANUAL_OVERRIDE',
+        client_mutation_id: 'mutation-id',
+        reason: 'FORBIDDEN',
+        payload: { plate_number: 'Рђ123Р’РЎ' },
+      },
+      error: null,
+    })
+
+    await syncPendingOutbox()
+
+    expect(mocks.tables.sync_outbox.rows[0]).toMatchObject({
+      status: 'CONFLICT',
+      error: 'FORBIDDEN',
+    })
+    expect(mocks.tables.local_manual_overrides.rows[0]).toMatchObject({
+      sync_status: 'CONFLICT',
     })
   })
 

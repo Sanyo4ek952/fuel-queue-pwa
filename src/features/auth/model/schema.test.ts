@@ -5,7 +5,7 @@ import { loginSchema, registerSchema } from './schema'
 describe('loginSchema', () => {
   it('accepts valid email and password', () => {
     const result = loginSchema.safeParse({
-      email: 'operator@example.local',
+      email: 'cashier@example.local',
       password: 'password123',
     })
 
@@ -14,7 +14,7 @@ describe('loginSchema', () => {
 
   it('rejects invalid email', () => {
     const result = loginSchema.safeParse({
-      email: 'operator',
+      email: 'cashier',
       password: 'password123',
     })
 
@@ -23,7 +23,7 @@ describe('loginSchema', () => {
 
   it('rejects short password', () => {
     const result = loginSchema.safeParse({
-      email: 'operator@example.local',
+      email: 'cashier@example.local',
       password: '12345',
     })
 
@@ -33,13 +33,13 @@ describe('loginSchema', () => {
 
 describe('registerSchema', () => {
   const validRegistration = {
-    email: 'new.operator@example.local',
+    email: 'new.cashier@example.local',
     password: 'password123',
     passwordConfirmation: 'password123',
     firstName: 'Ivan',
     lastName: 'Ivanov',
     middleName: '',
-    position: 'Operator',
+    position: 'Cashier',
     signatureName: 'Ivanov I.I.',
     requestedStationId: '10000000-0000-0000-0000-000000000001',
   }

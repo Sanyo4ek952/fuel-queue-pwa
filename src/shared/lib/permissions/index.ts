@@ -1,83 +1,28 @@
 import type { UserRole } from '@/shared/config/roles'
 import { ROUTES, type AppRoute } from '@/shared/config/routes'
 
-const createReservationRoles = new Set<UserRole>([
-  'operator',
-  'shift_supervisor',
-  'station_admin',
-])
+const allRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier', 'mayor_assistant'])
+const createReservationRoles = new Set<UserRole>(['mayor', 'station_manager', 'mayor_assistant'])
+const checkVehicleRoles = allRoles
 
-const createFuelingRecordRoles = new Set<UserRole>([
-  'cashier',
-  'shift_supervisor',
-  'station_admin',
-])
-
-const stationManagerRoles = new Set<UserRole>(['shift_supervisor', 'station_admin'])
+const createFuelingRecordRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier'])
+const stationManagerRoles = new Set<UserRole>(['mayor', 'station_manager'])
+const userManagerRoles = new Set<UserRole>(['mayor', 'station_manager'])
 
 const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
-  [ROUTES.dashboard]: new Set([
-    'operator',
-    'cashier',
-    'shift_supervisor',
-    'station_admin',
-    'city_admin',
-    'viewer',
-  ]),
-  [ROUTES.check]: new Set([
-    'operator',
-    'cashier',
-    'shift_supervisor',
-    'station_admin',
-    'city_admin',
-    'viewer',
-  ]),
+  [ROUTES.dashboard]: allRoles,
+  [ROUTES.check]: checkVehicleRoles,
   [ROUTES.queue]: createReservationRoles,
   [ROUTES.reservations]: createReservationRoles,
   [ROUTES.fueling]: createFuelingRecordRoles,
   [ROUTES.limits]: stationManagerRoles,
-  [ROUTES.history]: new Set([
-    'operator',
-    'cashier',
-    'shift_supervisor',
-    'station_admin',
-    'city_admin',
-    'viewer',
-  ]),
-  [ROUTES.reports]: new Set([
-    'operator',
-    'cashier',
-    'shift_supervisor',
-    'station_admin',
-    'city_admin',
-    'viewer',
-  ]),
-  [ROUTES.users]: new Set(['station_admin', 'city_admin']),
+  [ROUTES.history]: allRoles,
+  [ROUTES.reports]: allRoles,
+  [ROUTES.users]: userManagerRoles,
   [ROUTES.sync]: stationManagerRoles,
-  [ROUTES.settings]: new Set([
-    'operator',
-    'cashier',
-    'shift_supervisor',
-    'station_admin',
-    'city_admin',
-    'viewer',
-  ]),
-  [ROUTES.login]: new Set([
-    'operator',
-    'cashier',
-    'shift_supervisor',
-    'station_admin',
-    'city_admin',
-    'viewer',
-  ]),
-  [ROUTES.promo]: new Set([
-    'operator',
-    'cashier',
-    'shift_supervisor',
-    'station_admin',
-    'city_admin',
-    'viewer',
-  ]),
+  [ROUTES.settings]: allRoles,
+  [ROUTES.login]: allRoles,
+  [ROUTES.promo]: allRoles,
 }
 
 export function canCreateReservation(role: UserRole) {
@@ -97,7 +42,7 @@ export function canCreateManualOverride(role: UserRole) {
 }
 
 export function canViewAllStations(role: UserRole) {
-  return role === 'city_admin'
+  return role === 'mayor' || role === 'mayor_assistant'
 }
 
 export function canResolveSyncConflict(role: UserRole) {

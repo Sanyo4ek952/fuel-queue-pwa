@@ -303,7 +303,7 @@ export function CreateFuelingRecordForm() {
 
             <Button type="submit" className="h-11 w-full gap-2" disabled={isSubmitDisabled}>
               <Fuel className="size-4" aria-hidden="true" />
-              {createFuelingRecordMutation.isPending ? 'Фиксируем...' : 'Зафиксировать заправку'}
+              {createFuelingRecordMutation.isPending ? 'Фиксируем...' : 'Заправить'}
             </Button>
 
             {createFuelingRecordMutation.error ? (

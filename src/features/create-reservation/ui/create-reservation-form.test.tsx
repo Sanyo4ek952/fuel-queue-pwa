@@ -14,10 +14,23 @@ import { CreateReservationForm } from './create-reservation-form'
 
 const mocks = vi.hoisted(() => ({
   createReservation: vi.fn(),
+  currentProfile: {
+    id: 'profile-id',
+    full_name: 'Мария Петрова',
+    role: 'cashier',
+    signature_name: 'Петрова М.',
+    stations: [] as Array<{ id: string; name: string; address: string }>,
+  },
 }))
 
 vi.mock('@/shared/api/rpc', () => ({
   createReservation: mocks.createReservation,
+}))
+
+vi.mock('@/entities/profile', () => ({
+  useCurrentProfile: () => ({
+    data: mocks.currentProfile,
+  }),
 }))
 
 function renderWithQueryClient(children: ReactNode) {
@@ -40,6 +53,7 @@ describe('CreateReservationForm', () => {
     localStorage.clear()
     useSelectedStation.setState({ selectedStationId: '' })
     mocks.createReservation.mockReset()
+    mocks.currentProfile.stations = []
   })
 
   afterEach(() => {
@@ -55,6 +69,7 @@ describe('CreateReservationForm', () => {
   })
 
   it('submits reservation fields for the selected station', async () => {
+    mocks.currentProfile.stations = [STATIONS[0]]
     useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.createReservation.mockResolvedValue({
       data: {
