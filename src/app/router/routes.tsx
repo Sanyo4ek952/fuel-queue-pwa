@@ -7,7 +7,7 @@ import { AppHeader } from '@/widgets/app-header'
 import { BottomNavigation } from '@/widgets/bottom-navigation'
 import { OfflineBanner } from '@/widgets/offline-banner'
 import { useSupabaseAuth } from '@/app/providers/supabase-provider/auth-context'
-import { ROUTES } from '@/shared/config/routes'
+import { PUBLIC_ROUTES, ROUTES } from '@/shared/config/routes'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -195,8 +195,9 @@ function LoginRoute() {
 
 export function AppRoutes() {
   const location = useLocation()
+  const normalizedPathname = location.pathname.replace(/\/$/, '')
 
-  if (location.pathname.replace(/\/$/, '') === ROUTES.promo) {
+  if (PUBLIC_ROUTES.includes(normalizedPathname as (typeof PUBLIC_ROUTES)[number])) {
     return (
       <Suspense fallback={<LoadingScreen />}>
         <PromoPage />
@@ -204,7 +205,7 @@ export function AppRoutes() {
     )
   }
 
-  if (location.pathname.replace(/\/$/, '') === ROUTES.login) {
+  if (normalizedPathname === ROUTES.login) {
     return <LoginRoute />
   }
 
