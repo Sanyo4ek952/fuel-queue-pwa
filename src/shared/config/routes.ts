@@ -24,5 +24,6 @@ export const MAIN_SECTION_LINKS = [
   { path: ROUTES.queue, label: 'Очередь сегодня', description: 'Текущая очередь по выбранной АЗС' },
   { path: ROUTES.fueling, label: 'Заправка', description: 'Фиксация факта отпуска топлива' },
   { path: ROUTES.limits, label: 'Лимиты', description: 'Дневные лимиты по АЗС и топливу' },
+  { path: ROUTES.users, label: 'Сотрудники', description: 'Заявки на регистрацию и доступ сотрудников' },
   { path: ROUTES.sync, label: 'Синхронизация', description: 'Outbox, ошибки и конфликты' },
 ] as const

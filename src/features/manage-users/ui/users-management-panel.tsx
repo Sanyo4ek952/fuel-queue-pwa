@@ -13,13 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shared/ui/select'
-import {
   Table,
   TableBody,
   TableCell,
@@ -43,17 +36,6 @@ import {
   useRejectRegistration,
   type ManagedProfile,
 } from '../model/use-managed-profiles'
-
-const mayorAssignableRoles: UserRole[] = [
-  'mayor',
-  'station_manager',
-  'cashier',
-  'mayor_assistant',
-]
-
-const stationManagerAssignableRoles: UserRole[] = [
-  'cashier',
-]
 
 const statusLabels = {
   pending: 'Ожидает',
@@ -136,25 +118,24 @@ function StationCheckboxes({
 
 function PendingProfileActions({
   profile,
-  assignableRoles,
   stationOptions,
 }: {
   profile: ManagedProfile
-  assignableRoles: UserRole[]
   stationOptions: Array<{ id: string; name: string }>
 }) {
   const approveMutation = useApproveRegistration()
   const rejectMutation = useRejectRegistration()
-  const defaultStationIds = profile.requested_station_id
+  const needsStations = profile.role === 'cashier'
+  const defaultStationIds = needsStations && profile.requested_station_id
     ? [profile.requested_station_id]
-    : stationOptions[0]
+    : needsStations && stationOptions[0]
       ? [stationOptions[0].id]
       : []
   const approveForm = useForm<ApproveRegistrationValues>({
     resolver: zodResolver(approveRegistrationSchema),
     defaultValues: {
       profileId: profile.id,
-      role: assignableRoles[0] ?? 'cashier',
+      role: profile.role === 'mayor_assistant' ? 'mayor_assistant' : 'cashier',
       stationIds: defaultStationIds,
     },
   })
@@ -171,34 +152,25 @@ function PendingProfileActions({
       <Form {...approveForm}>
         <form
           className="space-y-3 rounded-md border border-slate-200 p-3"
-          onSubmit={approveForm.handleSubmit((values) => approveMutation.mutate(values))}
+          onSubmit={approveForm.handleSubmit((values) =>
+            approveMutation.mutate({
+              ...values,
+              stationIds: needsStations ? values.stationIds : [],
+            }),
+          )}
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <FormItem>
               <FormLabel>Роль</FormLabel>
-              <Select
-                value={approveForm.watch('role')}
-                onValueChange={(value) =>
-                  approveForm.setValue('role', value as UserRole, { shouldValidate: true })
-                }
-              >
-                <SelectTrigger className="h-10 w-full bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper" align="start">
-                  {assignableRoles.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {ROLE_LABELS[role]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm">
+                {ROLE_LABELS[profile.role]}
+              </div>
             </FormItem>
             <div className="flex items-end">
               <Button
                 type="submit"
                 className="h-10 w-full gap-2"
-                disabled={approveMutation.isPending || stationOptions.length === 0}
+                disabled={approveMutation.isPending || (needsStations && stationOptions.length === 0)}
               >
                 <Check className="size-4" aria-hidden="true" />
                 Одобрить
@@ -206,19 +178,21 @@ function PendingProfileActions({
             </div>
           </div>
 
-          <FormItem>
-            <FormLabel>Доступ к АЗС</FormLabel>
-            <StationCheckboxes
-              stationIds={approveForm.watch('stationIds')}
-              setStationIds={(stationIds) =>
-                approveForm.setValue('stationIds', stationIds, { shouldValidate: true })
-              }
-              stationOptions={stationOptions}
-            />
-            {approveForm.formState.errors.stationIds ? (
-              <FormMessage>{approveForm.formState.errors.stationIds.message}</FormMessage>
-            ) : null}
-          </FormItem>
+          {needsStations ? (
+            <FormItem>
+              <FormLabel>Доступ к АЗС</FormLabel>
+              <StationCheckboxes
+                stationIds={approveForm.watch('stationIds')}
+                setStationIds={(stationIds) =>
+                  approveForm.setValue('stationIds', stationIds, { shouldValidate: true })
+                }
+                stationOptions={stationOptions}
+              />
+              {approveForm.formState.errors.stationIds ? (
+                <FormMessage>{approveForm.formState.errors.stationIds.message}</FormMessage>
+              ) : null}
+            </FormItem>
+          ) : null}
 
           {approveMutation.error ? (
             <p className="text-sm text-red-600">{approveMutation.error.message}</p>
@@ -396,8 +370,6 @@ export function UsersManagementPanel() {
     () => getStationOptions(currentProfile?.role, currentProfile?.stations),
     [currentProfile?.role, currentProfile?.stations],
   )
-  const assignableRoles =
-    currentProfile?.role === 'mayor' ? mayorAssignableRoles : stationManagerAssignableRoles
   const profiles = managedProfilesQuery.data ?? []
   const pendingProfiles = profiles.filter((profile) => profile.approval_status === 'pending')
   const activeProfiles = profiles.filter(
@@ -451,7 +423,6 @@ export function UsersManagementPanel() {
         {(profile) => (
           <PendingProfileActions
             profile={profile}
-            assignableRoles={assignableRoles}
             stationOptions={stationOptions}
           />
         )}

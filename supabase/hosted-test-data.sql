@@ -89,6 +89,11 @@ declare
   last_name_value text := nullif(trim(meta->>'last_name'), '');
   middle_name_value text := nullif(trim(meta->>'middle_name'), '');
   full_name_value text;
+  requested_role_value text := case
+    when nullif(trim(meta->>'requested_role'), '') in ('cashier', 'mayor_assistant')
+      then nullif(trim(meta->>'requested_role'), '')
+    else 'cashier'
+  end;
   requested_station_value uuid;
 begin
   full_name_value := nullif(
@@ -96,7 +101,8 @@ begin
     ''
   );
 
-  if nullif(meta->>'requested_station_id', '') is not null then
+  if requested_role_value = 'cashier'
+    and nullif(meta->>'requested_station_id', '') is not null then
     requested_station_value := (meta->>'requested_station_id')::uuid;
   end if;
 
@@ -122,7 +128,7 @@ begin
     nullif(trim(meta->>'position'), ''),
     coalesce(nullif(trim(meta->>'signature_name'), ''), full_name_value, new.email),
     requested_station_value,
-    'cashier',
+    requested_role_value,
     false,
     'pending'
   )
@@ -168,7 +174,7 @@ begin
     return target_profile;
   end if;
 
-  if target_profile.role in ('mayor', 'mayor_assistant', 'station_manager') then
+  if target_profile.role <> 'cashier' then
     raise exception 'PROFILE_ACCESS_DENIED';
   end if;
 
@@ -310,26 +316,32 @@ begin
     raise exception 'PROFILE_NOT_PENDING';
   end if;
 
-  if target_role not in ('mayor', 'station_manager', 'cashier', 'mayor_assistant') then
+  if old_profile.role not in ('cashier', 'mayor_assistant') then
     raise exception 'INVALID_ROLE';
   end if;
 
-  if actor_role = 'station_manager' and target_role <> 'cashier' then
+  if target_role <> old_profile.role then
+    raise exception 'ROLE_CHANGE_DENIED';
+  end if;
+
+  if old_profile.role = 'cashier' then
+    if target_station_ids is null or cardinality(target_station_ids) = 0 then
+      raise exception 'STATIONS_REQUIRED';
+    end if;
+
+    foreach assigned_station_id in array target_station_ids loop
+      if actor_role <> 'mayor' and not public.can_access_station(assigned_station_id) then
+        raise exception 'STATION_ACCESS_DENIED';
+      end if;
+    end loop;
+  end if;
+
+  if old_profile.role = 'mayor_assistant' and actor_role <> 'mayor' then
     raise exception 'ROLE_ASSIGNMENT_DENIED';
   end if;
 
-  if target_station_ids is null or cardinality(target_station_ids) = 0 then
-    raise exception 'STATIONS_REQUIRED';
-  end if;
-
-  foreach assigned_station_id in array target_station_ids loop
-    if actor_role <> 'mayor' and not public.can_access_station(assigned_station_id) then
-      raise exception 'STATION_ACCESS_DENIED';
-    end if;
-  end loop;
-
   update public.profiles
-  set role = target_role,
+  set role = old_profile.role,
       is_active = true,
       approval_status = 'approved',
       approved_by = actor_profile_id,
@@ -346,11 +358,13 @@ begin
   delete from public.user_stations
   where user_id = target_profile_id;
 
-  foreach assigned_station_id in array target_station_ids loop
-    insert into public.user_stations (user_id, station_id)
-    values (target_profile_id, assigned_station_id)
-    on conflict (user_id, station_id) do nothing;
-  end loop;
+  if old_profile.role = 'cashier' then
+    foreach assigned_station_id in array target_station_ids loop
+      insert into public.user_stations (user_id, station_id)
+      values (target_profile_id, assigned_station_id)
+      on conflict (user_id, station_id) do nothing;
+    end loop;
+  end if;
 
   perform public.audit_action(
     'APPROVE_REGISTRATION',

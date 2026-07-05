@@ -3,12 +3,14 @@ import { Send } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 
 import {
+  REGISTERABLE_ROLES,
   type RegisterFormInput,
   type RegisterFormValues,
   registerSchema,
   useRegister,
 } from '@/features/auth'
 import { STATIONS } from '@/features/select-station'
+import { ROLE_LABELS } from '@/shared/config/roles'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -39,9 +41,11 @@ export function RegistrationForm({ onSuccess }: RegistrationFormProps) {
       middleName: '',
       position: '',
       signatureName: '',
+      requestedRole: 'cashier',
       requestedStationId: STATIONS[0]?.id ?? '',
     },
   })
+  const requestedRole = form.watch('requestedRole')
 
   async function handleSubmit(values: RegisterFormValues) {
     await registerMutation.mutateAsync({
@@ -52,7 +56,8 @@ export function RegistrationForm({ onSuccess }: RegistrationFormProps) {
       middleName: values.middleName,
       position: values.position,
       signatureName: values.signatureName,
-      requestedStationId: values.requestedStationId,
+      requestedRole: values.requestedRole,
+      requestedStationId: values.requestedRole === 'cashier' ? values.requestedStationId : undefined,
     })
 
     onSuccess?.()
@@ -123,28 +128,60 @@ export function RegistrationForm({ onSuccess }: RegistrationFormProps) {
             </div>
 
             <FormItem>
-              <FormLabel htmlFor="requestedStationId">АЗС</FormLabel>
+              <FormLabel htmlFor="requestedRole">Роль</FormLabel>
               <Select
-                value={form.watch('requestedStationId')}
-                onValueChange={(value) =>
-                  form.setValue('requestedStationId', value, { shouldValidate: true })
-                }
+                value={requestedRole}
+                onValueChange={(value) => {
+                  const role = value as RegisterFormValues['requestedRole']
+                  form.setValue('requestedRole', role, { shouldValidate: true })
+                  form.setValue(
+                    'requestedStationId',
+                    role === 'cashier' ? (form.getValues('requestedStationId') || STATIONS[0]?.id || '') : '',
+                    { shouldValidate: true },
+                  )
+                }}
               >
-                <SelectTrigger id="requestedStationId" className="h-10 w-full bg-white">
+                <SelectTrigger id="requestedRole" className="h-10 w-full bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent position="popper" align="start">
-                  {STATIONS.map((station) => (
-                    <SelectItem key={station.id} value={station.id}>
-                      {station.name}
+                  {REGISTERABLE_ROLES.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {ROLE_LABELS[role]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {form.formState.errors.requestedStationId ? (
-                <FormMessage>{form.formState.errors.requestedStationId.message}</FormMessage>
+              {form.formState.errors.requestedRole ? (
+                <FormMessage>{form.formState.errors.requestedRole.message}</FormMessage>
               ) : null}
             </FormItem>
+
+            {requestedRole === 'cashier' ? (
+              <FormItem>
+                <FormLabel htmlFor="requestedStationId">АЗС</FormLabel>
+                <Select
+                  value={form.watch('requestedStationId')}
+                  onValueChange={(value) =>
+                    form.setValue('requestedStationId', value, { shouldValidate: true })
+                  }
+                >
+                  <SelectTrigger id="requestedStationId" className="h-10 w-full bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start">
+                    {STATIONS.map((station) => (
+                      <SelectItem key={station.id} value={station.id}>
+                        {station.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {form.formState.errors.requestedStationId ? (
+                  <FormMessage>{form.formState.errors.requestedStationId.message}</FormMessage>
+                ) : null}
+              </FormItem>
+            ) : null}
 
             <FormItem>
               <FormLabel htmlFor="registerEmail">Email</FormLabel>

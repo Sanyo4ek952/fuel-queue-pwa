@@ -41,6 +41,7 @@ describe('registerSchema', () => {
     middleName: '',
     position: 'Cashier',
     signatureName: 'Ivanov I.I.',
+    requestedRole: 'cashier',
     requestedStationId: '10000000-0000-0000-0000-000000000001',
   }
 
@@ -52,6 +53,34 @@ describe('registerSchema', () => {
     const result = registerSchema.safeParse({
       ...validRegistration,
       passwordConfirmation: 'password456',
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects cashier registration without a station', () => {
+    const result = registerSchema.safeParse({
+      ...validRegistration,
+      requestedStationId: '',
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('accepts mayor assistant registration without a station', () => {
+    const result = registerSchema.safeParse({
+      ...validRegistration,
+      requestedRole: 'mayor_assistant',
+      requestedStationId: '',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects an unsupported requested role', () => {
+    const result = registerSchema.safeParse({
+      ...validRegistration,
+      requestedRole: 'station_manager',
     })
 
     expect(result.success).toBe(false)

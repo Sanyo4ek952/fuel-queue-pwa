@@ -21,7 +21,8 @@ export type SignUpWithPasswordParams = {
   middleName?: string
   position: string
   signatureName: string
-  requestedStationId: string
+  requestedRole: 'cashier' | 'mayor_assistant'
+  requestedStationId?: string
 }
 
 export async function getAuthSession(): Promise<AuthResult<Session>> {
@@ -82,6 +83,7 @@ export async function signUpWithPassword({
   middleName,
   position,
   signatureName,
+  requestedRole,
   requestedStationId,
 }: SignUpWithPasswordParams): Promise<AuthResult<Session>> {
   if (!isSupabaseConfigured) {
@@ -101,7 +103,8 @@ export async function signUpWithPassword({
         middle_name: middleName ?? '',
         position,
         signature_name: signatureName,
-        requested_station_id: requestedStationId,
+        requested_role: requestedRole,
+        requested_station_id: requestedRole === 'cashier' ? (requestedStationId ?? '') : '',
       },
     },
   })
