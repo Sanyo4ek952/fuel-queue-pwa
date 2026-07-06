@@ -135,6 +135,24 @@ describe('createOfflineFuelingRecord', () => {
     expect(mocks.tables.local_reservations.rows[0].status).toBe('FUELED')
   })
 
+  it('removes the fueled reservation from the active local queue snapshot', async () => {
+    await createOfflineFuelingRecord({
+      stationId,
+      plateNumber: String(mocks.tables.local_vehicles.rows[0].normalized_plate_number),
+      liters: 40,
+      targetDate,
+      fueledAt: '2026-07-05T10:00:00.000Z',
+      clientMutationId: 'mutation-id',
+    })
+
+    const activeStatuses = new Set(['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'])
+    const activeRows = mocks.tables.local_reservations.rows.filter((row) =>
+      activeStatuses.has(String(row.status)),
+    )
+
+    expect(activeRows).toHaveLength(0)
+  })
+
   it('blocks a repeated offline fueling after the first local record', async () => {
     await createOfflineFuelingRecord({
       stationId,

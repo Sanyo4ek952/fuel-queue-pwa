@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { todayQueueQueryKey, type TodayQueueRow } from '@/entities/reservation'
 import {
   createFuelingRecord,
   type CreateFuelingRecordParams,
@@ -7,6 +8,7 @@ import {
 } from '@/shared/api/rpc'
 import {
   createOfflineFuelingRecord,
+  offlineDb,
   type OfflineFuelingRecordResult,
 } from '@/shared/lib/offline-db'
 import { useOnlineStatus } from '@/shared/lib/sync'
@@ -41,7 +43,20 @@ export function useCreateFuelingRecord() {
 
       return result.data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data.reservation_id) {
+        queryClient.setQueryData<TodayQueueRow[]>(todayQueueQueryKey(), (rows) =>
+          rows?.filter((row) => row.id !== data.reservation_id),
+        )
+
+        if (isOnline && data.sync_status !== 'PENDING') {
+          void offlineDb.local_reservations.update(data.reservation_id, {
+            status: 'FUELED',
+            updated_at: new Date().toISOString(),
+          })
+        }
+      }
+
       void queryClient.invalidateQueries({
         predicate: (query) =>
           query.queryKey[0] === 'today-queue' || query.queryKey[0] === 'daily-limit-overview',

@@ -155,14 +155,14 @@ function buildAuthorOptions(rows: TodayQueueRow[]) {
   return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label))
 }
 
-function QueueRowCard({ row }: { row: TodayQueueRow }) {
+function QueueRowCard({ row, displayNumber }: { row: TodayQueueRow; displayNumber: number }) {
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-semibold text-white">
-              {row.queue_number}
+              {displayNumber}
             </span>
             <div className="min-w-0">
               <h2 className="truncate text-lg font-semibold tracking-normal text-slate-950">
@@ -337,7 +337,9 @@ export function TodayQueuePanel() {
           {rowsByCategory.map(({ fuelCategory, rows }) => (
             <TabsContent key={fuelCategory} value={fuelCategory} className="space-y-3">
               {rows.length > 0 ? (
-                rows.map((row) => <QueueRowCard key={row.id} row={row} />)
+                rows.map((row, index) => (
+                  <QueueRowCard key={row.id} row={row} displayNumber={index + 1} />
+                ))
               ) : (
                 <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
                   В этой очереди нет активных записей.

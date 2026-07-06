@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import '@testing-library/jest-dom/vitest'
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -204,6 +204,32 @@ describe('TodayQueuePanel', () => {
     expect(screen.getByRole('tab', { name: 'Бензин (1)' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Дизель (0)' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Газ (0)' })).toBeInTheDocument()
+  })
+
+  it('renders contiguous display numbers for visible category rows', () => {
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [
+        makeQueueRow({ id: 'first-row', queue_number: 1, normalized_plate_number: 'A123BC777' }),
+        makeQueueRow({
+          id: 'second-row',
+          created_by_profile_id: 'second-profile',
+          queue_number: 3,
+          normalized_plate_number: 'B456TC777',
+        }),
+      ],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    const secondRow = screen.getByText('B456TC777').closest('article')
+
+    expect(secondRow).not.toBeNull()
+    expect(within(secondRow as HTMLElement).getByText('2')).toBeInTheDocument()
+    expect(within(secondRow as HTMLElement).queryByText('3')).not.toBeInTheDocument()
   })
 
   it('shows an empty state when filters match no rows', async () => {
