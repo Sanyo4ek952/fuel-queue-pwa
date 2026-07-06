@@ -3,7 +3,15 @@ import '@testing-library/jest-dom/vitest'
 
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import type { TodayQueueRow } from '@/entities/reservation'
 
@@ -71,10 +79,12 @@ describe('TodayQueuePanel', () => {
   it('shows an empty state for the global queue without rows', () => {
     render(<TodayQueuePanel />)
 
-    expect(screen.getByText('В общей очереди нет активных записей.')).toBeInTheDocument()
+    expect(
+      screen.getByText('В общей очереди нет активных записей.'),
+    ).toBeInTheDocument()
   })
 
-  it('renders pending offline queue rows', () => {
+  it('renders pending offline queue rows', async () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [
         makeQueueRow({
@@ -93,8 +103,11 @@ describe('TodayQueuePanel', () => {
     render(<TodayQueuePanel />)
 
     expect(screen.getByText('А123ВС777')).toBeInTheDocument()
+    expect(screen.queryByText('PENDING')).not.toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Открыть детали' }),
+    )
     expect(screen.getByText('Кассир АЗС: Петрова М.')).toBeInTheDocument()
-    expect(screen.getByText('PENDING')).toBeInTheDocument()
     expect(screen.getByText('Offline-режим')).toBeInTheDocument()
   })
 
@@ -146,7 +159,10 @@ describe('TodayQueuePanel', () => {
 
     render(<TodayQueuePanel />)
 
-    await userEvent.type(screen.getByLabelText('Поиск по госномеру'), 'a 123 bc')
+    await userEvent.type(
+      screen.getByLabelText('Поиск по госномеру'),
+      'a 123 bc',
+    )
 
     expect(screen.getByText('А123ВС777')).toBeInTheDocument()
     expect(screen.queryByText('В456ТС777')).not.toBeInTheDocument()
@@ -174,7 +190,9 @@ describe('TodayQueuePanel', () => {
     render(<TodayQueuePanel />)
 
     await userEvent.click(screen.getByLabelText('Кто добавил'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Сидоров И. (Кассир АЗС)' }))
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'Сидоров И. (Кассир АЗС)' }),
+    )
 
     expect(screen.getByText('В456ТС777')).toBeInTheDocument()
     expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
@@ -199,7 +217,10 @@ describe('TodayQueuePanel', () => {
 
     render(<TodayQueuePanel />)
 
-    await userEvent.type(screen.getByLabelText('Поиск по госномеру'), 'a 123 bc')
+    await userEvent.type(
+      screen.getByLabelText('Поиск по госномеру'),
+      'a 123 bc',
+    )
 
     expect(screen.getByRole('tab', { name: 'Бензин (1)' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Дизель (0)' })).toBeInTheDocument()
@@ -209,7 +230,11 @@ describe('TodayQueuePanel', () => {
   it('renders contiguous display numbers for visible category rows', () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [
-        makeQueueRow({ id: 'first-row', queue_number: 1, normalized_plate_number: 'A123BC777' }),
+        makeQueueRow({
+          id: 'first-row',
+          queue_number: 1,
+          normalized_plate_number: 'A123BC777',
+        }),
         makeQueueRow({
           id: 'second-row',
           created_by_profile_id: 'second-profile',
@@ -229,12 +254,16 @@ describe('TodayQueuePanel', () => {
 
     expect(secondRow).not.toBeNull()
     expect(within(secondRow as HTMLElement).getByText('2')).toBeInTheDocument()
-    expect(within(secondRow as HTMLElement).queryByText('3')).not.toBeInTheDocument()
+    expect(
+      within(secondRow as HTMLElement).queryByText('3'),
+    ).not.toBeInTheDocument()
   })
 
   it('shows an empty state when filters match no rows', async () => {
     mocks.useTodayQueue.mockReturnValue({
-      rows: [makeQueueRow({ id: 'first-row', normalized_plate_number: 'А123ВС777' })],
+      rows: [
+        makeQueueRow({ id: 'first-row', normalized_plate_number: 'А123ВС777' }),
+      ],
       isOnline: true,
       isLoading: false,
       isFetching: false,
@@ -245,7 +274,9 @@ describe('TodayQueuePanel', () => {
 
     await userEvent.type(screen.getByLabelText('Поиск по госномеру'), '999')
 
-    expect(screen.getByText('По выбранным фильтрам записей нет.')).toBeInTheDocument()
+    expect(
+      screen.getByText('По выбранным фильтрам записей нет.'),
+    ).toBeInTheDocument()
     expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
   })
 })

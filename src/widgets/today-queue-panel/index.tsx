@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-import { CloudOff, ListChecks } from 'lucide-react'
+import { CloudOff, ListChecks, Phone } from 'lucide-react'
 
 import { useTodayQueue, type TodayQueueRow } from '@/entities/reservation'
 import { ROLE_LABELS, type UserRole } from '@/shared/config/roles'
@@ -8,13 +8,23 @@ import {
   getFuelQueueCategory,
   type FuelQueueCategory,
   type FuelType,
-  type ReservationStatus,
-  type SyncStatus,
 } from '@/shared/constants'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/shared/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
-import { Badge } from '@/shared/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Button } from '@/shared/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
 import {
   Select,
@@ -32,50 +42,6 @@ const fuelTypeLabels: Record<FuelType, string> = {
   DIESEL: 'Дизель',
   GAS: 'Газ',
   OTHER: 'Другое',
-}
-
-const statusLabels: Record<ReservationStatus, string> = {
-  RESERVED: 'Записан',
-  ARRIVED: 'Прибыл',
-  APPROVED: 'Допущен',
-  FUELING: 'Заправка',
-  FUELED: 'Заправлен',
-  REJECTED: 'Отказ',
-  CANCELLED: 'Отменён',
-  NO_SHOW: 'Не прибыл',
-  EXPIRED: 'Просрочен',
-  ERROR: 'Ошибка',
-  CONFLICT: 'Конфликт',
-}
-
-const syncStatusLabels: Record<SyncStatus, string> = {
-  SYNCED: 'SYNCED',
-  PENDING: 'PENDING',
-  SYNCING: 'SYNCING',
-  FAILED: 'FAILED',
-  CONFLICT: 'CONFLICT',
-}
-
-const statusVariants: Record<ReservationStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  RESERVED: 'secondary',
-  ARRIVED: 'outline',
-  APPROVED: 'default',
-  FUELING: 'default',
-  FUELED: 'outline',
-  REJECTED: 'destructive',
-  CANCELLED: 'outline',
-  NO_SHOW: 'outline',
-  EXPIRED: 'outline',
-  ERROR: 'destructive',
-  CONFLICT: 'destructive',
-}
-
-const syncStatusVariants: Record<SyncStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  SYNCED: 'outline',
-  PENDING: 'secondary',
-  SYNCING: 'secondary',
-  FAILED: 'destructive',
-  CONFLICT: 'destructive',
 }
 
 const categoryLabels: Record<FuelQueueCategory, string> = {
@@ -152,60 +118,113 @@ function buildAuthorOptions(rows: TodayQueueRow[]) {
     }
   })
 
-  return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label))
+  return Array.from(options.values()).sort((left, right) =>
+    left.label.localeCompare(right.label),
+  )
 }
 
-function QueueRowCard({ row, displayNumber }: { row: TodayQueueRow; displayNumber: number }) {
+function getPhoneHref(phone: string | null) {
+  const normalizedPhone = phone?.replace(/[^\d+]/g, '')
+
+  return normalizedPhone ? `tel:${normalizedPhone}` : null
+}
+
+function QueueRowCard({
+  row,
+  displayNumber,
+}: {
+  row: TodayQueueRow
+  displayNumber: number
+}) {
+  const phoneHref = getPhoneHref(row.driver_phone)
+
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-semibold text-white">
-              {displayNumber}
-            </span>
+    <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <Accordion type="single" collapsible>
+        <AccordionItem value={row.id} className="border-b-0">
+          <div className="flex items-center justify-between gap-3 p-3">
             <div className="min-w-0">
-              <h2 className="truncate text-lg font-semibold tracking-normal text-slate-950">
-                {row.normalized_plate_number || 'Номер не загружен'}
-              </h2>
-              <p className="truncate text-sm text-slate-500">
-                {row.driver_full_name || 'Водитель не указан'}
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-semibold text-white">
+                  {displayNumber}
+                </span>
+                <div className="min-w-0">
+                  <h2 className="truncate text-base font-semibold tracking-normal text-slate-950">
+                    {row.normalized_plate_number || 'Номер не загружен'}
+                  </h2>
+                  <p className="truncate text-xs text-slate-500">
+                    {row.driver_full_name || 'Водитель не указан'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {phoneHref ? (
+                <Button
+                  asChild
+                  variant="outline"
+                  size="icon"
+                  aria-label="Позвонить"
+                >
+                  <a href={phoneHref}>
+                    <Phone className="size-4" aria-hidden="true" />
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Телефон не указан"
+                  disabled
+                >
+                  <Phone className="size-4" aria-hidden="true" />
+                </Button>
+              )}
+              <AccordionTrigger
+                className="size-8 flex-none justify-center gap-0 p-0 hover:no-underline"
+                aria-label="Открыть детали"
+              >
+                <span className="sr-only">Открыть детали</span>
+              </AccordionTrigger>
             </div>
           </div>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <Badge variant={statusVariants[row.status]} className="rounded-md">
-            {statusLabels[row.status]}
-          </Badge>
-          <Badge variant={syncStatusVariants[row.sync_status]} className="rounded-md">
-            {syncStatusLabels[row.sync_status]}
-          </Badge>
-        </div>
-      </div>
 
-      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="text-slate-500">Топливо</dt>
-          <dd className="font-medium text-slate-950">
-            {fuelTypeLabels[row.fuel_type as FuelType] ?? row.fuel_type}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-slate-500">Литры</dt>
-          <dd className="font-medium text-slate-950">{row.requested_liters} л</dd>
-        </div>
-        <div>
-          <dt className="text-slate-500">Телефон</dt>
-          <dd className="font-medium text-slate-950">{row.driver_phone || 'Не указан'}</dd>
-        </div>
-        <div>
-          <dt className="text-slate-500">Добавил</dt>
-          <dd className="font-medium text-slate-950">{formatCreatedBy(row)}</dd>
-        </div>
-      </dl>
+          <AccordionContent className="border-t border-slate-100 px-3 pt-3 pb-3">
+            <span className="sr-only">Сведения о записи</span>
+            <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-slate-500">Топливо</dt>
+                <dd className="font-medium text-slate-950">
+                  {fuelTypeLabels[row.fuel_type as FuelType] ?? row.fuel_type}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Литры</dt>
+                <dd className="font-medium text-slate-950">
+                  {row.requested_liters} л
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Телефон</dt>
+                <dd className="font-medium text-slate-950">
+                  {row.driver_phone || 'Не указан'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Добавил</dt>
+                <dd className="font-medium text-slate-950">
+                  {formatCreatedBy(row)}
+                </dd>
+              </div>
+            </dl>
 
-      {row.comment ? <p className="mt-3 text-sm text-slate-500">{row.comment}</p> : null}
+            {row.comment ? (
+              <p className="mt-3 text-sm text-slate-500">{row.comment}</p>
+            ) : null}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </article>
   )
 }
@@ -215,7 +234,10 @@ export function TodayQueuePanel() {
   const [authorFilter, setAuthorFilter] = useState(ALL_AUTHORS_FILTER)
   const queue = useTodayQueue()
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
-  const authorOptions = useMemo(() => buildAuthorOptions(queue.rows), [queue.rows])
+  const authorOptions = useMemo(
+    () => buildAuthorOptions(queue.rows),
+    [queue.rows],
+  )
   const filteredRows = useMemo(
     () =>
       queue.rows.filter((row) => {
@@ -223,7 +245,8 @@ export function TodayQueuePanel() {
           normalizedPlateSearch.length === 0 ||
           row.normalized_plate_number.includes(normalizedPlateSearch)
         const matchesAuthor =
-          authorFilter === ALL_AUTHORS_FILTER || getAuthorFilterValue(row) === authorFilter
+          authorFilter === ALL_AUTHORS_FILTER ||
+          getAuthorFilterValue(row) === authorFilter
 
         return matchesPlate && matchesAuthor
       }),
@@ -232,9 +255,12 @@ export function TodayQueuePanel() {
   const pendingRows = filteredRows.filter((row) => row.sync_status !== 'SYNCED')
   const rowsByCategory = categoryOrder.map((fuelCategory) => ({
     fuelCategory,
-    rows: filteredRows.filter((row) => getFuelQueueCategory(row.fuel_type) === fuelCategory),
+    rows: filteredRows.filter(
+      (row) => getFuelQueueCategory(row.fuel_type) === fuelCategory,
+    ),
   }))
-  const hasActiveFilters = normalizedPlateSearch.length > 0 || authorFilter !== ALL_AUTHORS_FILTER
+  const hasActiveFilters =
+    normalizedPlateSearch.length > 0 || authorFilter !== ALL_AUTHORS_FILTER
 
   return (
     <div className="space-y-4">
@@ -254,7 +280,8 @@ export function TodayQueuePanel() {
               <CloudOff className="size-4" aria-hidden="true" />
               <AlertTitle>Offline-режим</AlertTitle>
               <AlertDescription>
-                Показан локальный снимок. Новые записи будут подтверждены после синхронизации.
+                Показан локальный снимок. Новые записи будут подтверждены после
+                синхронизации.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -267,7 +294,10 @@ export function TodayQueuePanel() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label htmlFor="queuePlateSearch" className="text-sm font-medium text-slate-700">
+              <label
+                htmlFor="queuePlateSearch"
+                className="text-sm font-medium text-slate-700"
+              >
                 Поиск по госномеру
               </label>
               <Input
@@ -279,7 +309,10 @@ export function TodayQueuePanel() {
               />
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="queueAuthorFilter" className="text-sm font-medium text-slate-700">
+              <label
+                htmlFor="queueAuthorFilter"
+                className="text-sm font-medium text-slate-700"
+              >
                 Кто добавил
               </label>
               <Select value={authorFilter} onValueChange={setAuthorFilter}>
@@ -319,7 +352,10 @@ export function TodayQueuePanel() {
         </div>
       ) : null}
 
-      {!queue.isLoading && queue.rows.length > 0 && filteredRows.length === 0 && hasActiveFilters ? (
+      {!queue.isLoading &&
+      queue.rows.length > 0 &&
+      filteredRows.length === 0 &&
+      hasActiveFilters ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
           По выбранным фильтрам записей нет.
         </div>
@@ -335,10 +371,18 @@ export function TodayQueuePanel() {
             ))}
           </TabsList>
           {rowsByCategory.map(({ fuelCategory, rows }) => (
-            <TabsContent key={fuelCategory} value={fuelCategory} className="space-y-3">
+            <TabsContent
+              key={fuelCategory}
+              value={fuelCategory}
+              className="space-y-3"
+            >
               {rows.length > 0 ? (
                 rows.map((row, index) => (
-                  <QueueRowCard key={row.id} row={row} displayNumber={index + 1} />
+                  <QueueRowCard
+                    key={row.id}
+                    row={row}
+                    displayNumber={index + 1}
+                  />
                 ))
               ) : (
                 <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">

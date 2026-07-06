@@ -16,7 +16,19 @@ import { type FuelType } from '@/shared/constants'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/shared/ui/card'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/shared/ui/accordion'
 import {
   Dialog,
   DialogContent,
@@ -37,70 +49,121 @@ const fuelTypeLabels: Record<FuelType, string> = {
 
 const preferentialQueuesQueryKey = () => ['preferential-queues'] as const
 
+function getPhoneHref(phone: string | null) {
+  const normalizedPhone = phone?.replace(/[^\d+]/g, '')
+
+  return normalizedPhone ? `tel:${normalizedPhone}` : null
+}
+
 function PreferentialEntryCard({ entry }: { entry: PreferentialQueueEntry }) {
   const cancelEntryMutation = useCancelPreferentialQueueEntry()
+  const phoneHref = getPhoneHref(entry.driver_phone)
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-lg font-semibold tracking-normal text-slate-950">
-            {entry.normalized_plate_number || 'Номер не указан'}
-          </h3>
-          <div className="mt-1 flex flex-wrap gap-2">
-            <Badge variant="secondary" className="rounded-md">
-              {fuelTypeLabels[entry.fuel_type as FuelType] ?? entry.fuel_type}
-            </Badge>
-            <Badge variant="outline" className="rounded-md">
-              {entry.requested_liters} л
-            </Badge>
+    <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <Accordion type="single" collapsible>
+        <AccordionItem value={entry.id} className="border-b-0">
+          <div className="flex items-start justify-between gap-3 p-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-semibold tracking-normal text-slate-950">
+                {entry.normalized_plate_number || 'Номер не указан'}
+              </h3>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <Badge variant="secondary" className="rounded-md">
+                  {fuelTypeLabels[entry.fuel_type as FuelType] ??
+                    entry.fuel_type}
+                </Badge>
+                <Badge variant="outline" className="rounded-md">
+                  {entry.requested_liters} л
+                </Badge>
+              </div>
+            </div>
+            {phoneHref ? (
+              <Button
+                asChild
+                variant="outline"
+                size="icon"
+                className="order-2"
+                aria-label="Позвонить"
+              >
+                <a href={phoneHref}>
+                  <Phone className="size-4" aria-hidden="true" />
+                </a>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="order-2"
+                aria-label="Телефон не указан"
+                disabled
+              >
+                <Phone className="size-4" aria-hidden="true" />
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="order-1 shrink-0 gap-2"
+              disabled={cancelEntryMutation.isPending}
+              onClick={() =>
+                cancelEntryMutation.mutate({
+                  entryId: entry.id,
+                  comment: 'Отменено мэром',
+                })
+              }
+            >
+              <Ban className="size-4" aria-hidden="true" />
+              Отменить
+            </Button>
+            <AccordionTrigger
+              className="order-3 size-8 flex-none justify-center gap-0 p-0 hover:no-underline"
+              aria-label="Открыть детали"
+            >
+              <span className="sr-only">Открыть детали</span>
+            </AccordionTrigger>
           </div>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shrink-0 gap-2"
-          disabled={cancelEntryMutation.isPending}
-          onClick={() =>
-            cancelEntryMutation.mutate({
-              entryId: entry.id,
-              comment: 'Отменено мэром',
-            })
-          }
-        >
-          <Ban className="size-4" aria-hidden="true" />
-          Отменить
-        </Button>
-      </div>
 
-      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="flex items-center gap-1 text-slate-500">
-            <UserRound className="size-4" aria-hidden="true" />
-            Водитель
-          </dt>
-          <dd className="font-medium text-slate-950">
-            {entry.driver_full_name || 'Не указан'}
-          </dd>
-        </div>
-        <div>
-          <dt className="flex items-center gap-1 text-slate-500">
-            <Phone className="size-4" aria-hidden="true" />
-            Телефон
-          </dt>
-          <dd className="font-medium text-slate-950">{entry.driver_phone || 'Не указан'}</dd>
-        </div>
-      </dl>
+          <AccordionContent className="border-t border-slate-100 px-3 pt-3 pb-3">
+            <span className="sr-only">Сведения о записи</span>
+            <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="flex items-center gap-1 text-slate-500">
+                  <UserRound className="size-4" aria-hidden="true" />
+                  Водитель
+                </dt>
+                <dd className="font-medium text-slate-950">
+                  {entry.driver_full_name || 'Не указан'}
+                </dd>
+              </div>
+              <div>
+                <dt className="flex items-center gap-1 text-slate-500">
+                  <Phone className="size-4" aria-hidden="true" />
+                  Телефон
+                </dt>
+                <dd className="font-medium text-slate-950">
+                  {entry.driver_phone || 'Не указан'}
+                </dd>
+              </div>
+            </dl>
 
-      {entry.comment ? <p className="mt-3 text-sm text-slate-500">{entry.comment}</p> : null}
+            {entry.comment ? (
+              <p className="mt-3 text-sm text-slate-500">{entry.comment}</p>
+            ) : null}
+          </AccordionContent>
 
-      {cancelEntryMutation.error ? (
-        <Alert variant="destructive" className="mt-3">
-          <AlertTitle>Заявка не отменена</AlertTitle>
-          <AlertDescription>{cancelEntryMutation.error.message}</AlertDescription>
-        </Alert>
-      ) : null}
+          {cancelEntryMutation.error ? (
+            <Alert variant="destructive" className="mt-3">
+              <AlertTitle>Заявка не отменена</AlertTitle>
+              <AlertDescription>
+                {cancelEntryMutation.error.message}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </AccordionItem>
+      </Accordion>
     </article>
   )
 }
@@ -141,7 +204,9 @@ function PreferentialQueueCard({ queue }: { queue: PreferentialQueue }) {
               </Dialog>
             </span>
           </CardTitle>
-          <CardDescription>Активные льготные заявки в этой очереди.</CardDescription>
+          <CardDescription>
+            Активные льготные заявки в этой очереди.
+          </CardDescription>
         </CardHeader>
       </Card>
 
@@ -166,7 +231,10 @@ export function PreferentialQueuesPanel() {
     queryFn: listActivePreferentialQueues,
   })
   const queues = queuesQuery.data ?? []
-  const activeEntriesCount = queues.reduce((count, queue) => count + queue.entries.length, 0)
+  const activeEntriesCount = queues.reduce(
+    (count, queue) => count + queue.entries.length,
+    0,
+  )
 
   return (
     <div className="space-y-4">
@@ -177,18 +245,23 @@ export function PreferentialQueuesPanel() {
             Льготные очереди
           </CardTitle>
           <CardDescription>
-            Отдельные списки мэра. Они не занимают дневной лимит и не зависят от правила повторной постановки в обычную очередь.
+            Отдельные списки мэра. Они не занимают дневной лимит и не зависят от
+            правила повторной постановки в обычную очередь.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
               <p className="text-xs text-slate-500">Очередей</p>
-              <p className="mt-1 text-xl font-semibold text-slate-950">{queues.length}</p>
+              <p className="mt-1 text-xl font-semibold text-slate-950">
+                {queues.length}
+              </p>
             </div>
             <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
               <p className="text-xs text-slate-500">Активных машин</p>
-              <p className="mt-1 text-xl font-semibold text-slate-950">{activeEntriesCount}</p>
+              <p className="mt-1 text-xl font-semibold text-slate-950">
+                {activeEntriesCount}
+              </p>
             </div>
           </div>
         </CardContent>
