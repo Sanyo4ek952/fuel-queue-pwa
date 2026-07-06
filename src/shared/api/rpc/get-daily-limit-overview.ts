@@ -1,37 +1,37 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
-import type { FuelType } from '@/shared/constants'
+import type { DailyLimitMode, FuelQueueCategory } from '@/shared/constants'
 
 import type { RpcResult } from './index'
 
 export type DailyLimitStatus = 'OPEN' | 'CLOSED' | 'PAUSED'
 
-export type DailyLimitFuelTypeOverview = {
-  fuel_type: FuelType
+export type DailyLimitCategoryOverview = {
+  fuel_category: FuelQueueCategory
+  label: string
+  limit_mode: DailyLimitMode
   vehicle_limit: number
-  occupied_vehicle_count: number
-  remaining_vehicle_count: number
   liters_limit: number | null
-  reserved_liters: number
+  queue_count: number
+  queued_liters: number
+  covered_vehicle_count: number
+  covered_liters: number
+  remaining_vehicle_count: number | null
   remaining_liters: number | null
+  projected_queue_number: number | null
 }
 
 export type DailyLimitOverview = {
   exists: boolean
   id: string | null
   date: string
-  station_id: string
+  station_id: string | null
   status: DailyLimitStatus | null
-  total_vehicle_limit: number | null
-  max_liters_per_vehicle: number | null
-  occupied_vehicle_count: number
-  remaining_vehicle_count: number | null
-  fuel_type_overviews: DailyLimitFuelTypeOverview[]
+  category_overviews: DailyLimitCategoryOverview[]
   updated_at: string | null
 }
 
 export type GetDailyLimitOverviewParams = {
-  stationId: string
   date: string
 }
 
@@ -43,25 +43,30 @@ function toNullableNumber(value: unknown) {
   return value == null ? null : toNumber(value)
 }
 
-function parseFuelTypeOverview(value: unknown): DailyLimitFuelTypeOverview | null {
+function parseCategoryOverview(value: unknown): DailyLimitCategoryOverview | null {
   if (!value || typeof value !== 'object') {
     return null
   }
 
-  const result = value as Partial<DailyLimitFuelTypeOverview>
+  const result = value as Partial<DailyLimitCategoryOverview>
 
-  if (typeof result.fuel_type !== 'string') {
+  if (typeof result.fuel_category !== 'string') {
     return null
   }
 
   return {
-    fuel_type: result.fuel_type as FuelType,
+    fuel_category: result.fuel_category as FuelQueueCategory,
+    label: result.label ?? result.fuel_category,
+    limit_mode: (result.limit_mode ?? 'vehicle_count') as DailyLimitMode,
     vehicle_limit: toNumber(result.vehicle_limit),
-    occupied_vehicle_count: toNumber(result.occupied_vehicle_count),
-    remaining_vehicle_count: toNumber(result.remaining_vehicle_count),
     liters_limit: toNullableNumber(result.liters_limit),
-    reserved_liters: toNumber(result.reserved_liters),
+    queue_count: toNumber(result.queue_count),
+    queued_liters: toNumber(result.queued_liters),
+    covered_vehicle_count: toNumber(result.covered_vehicle_count),
+    covered_liters: toNumber(result.covered_liters),
+    remaining_vehicle_count: toNullableNumber(result.remaining_vehicle_count),
     remaining_liters: toNullableNumber(result.remaining_liters),
+    projected_queue_number: toNullableNumber(result.projected_queue_number),
   }
 }
 
@@ -72,19 +77,15 @@ export function parseDailyLimitOverview(value: unknown): DailyLimitOverview | nu
 
   const result = value as Partial<DailyLimitOverview>
 
-  if (
-    typeof result.exists !== 'boolean' ||
-    typeof result.date !== 'string' ||
-    typeof result.station_id !== 'string'
-  ) {
+  if (typeof result.exists !== 'boolean' || typeof result.date !== 'string') {
     return null
   }
 
-  const fuelTypeOverviews = Array.isArray(result.fuel_type_overviews)
-    ? result.fuel_type_overviews.map(parseFuelTypeOverview)
+  const categoryOverviews = Array.isArray(result.category_overviews)
+    ? result.category_overviews.map(parseCategoryOverview)
     : []
 
-  if (fuelTypeOverviews.some((item) => item === null)) {
+  if (categoryOverviews.some((item) => item === null)) {
     return null
   }
 
@@ -92,19 +93,14 @@ export function parseDailyLimitOverview(value: unknown): DailyLimitOverview | nu
     exists: result.exists,
     id: result.id ?? null,
     date: result.date,
-    station_id: result.station_id,
+    station_id: result.station_id ?? null,
     status: result.status ?? null,
-    total_vehicle_limit: toNullableNumber(result.total_vehicle_limit),
-    max_liters_per_vehicle: toNullableNumber(result.max_liters_per_vehicle),
-    occupied_vehicle_count: toNumber(result.occupied_vehicle_count),
-    remaining_vehicle_count: toNullableNumber(result.remaining_vehicle_count),
-    fuel_type_overviews: fuelTypeOverviews as DailyLimitFuelTypeOverview[],
+    category_overviews: categoryOverviews as DailyLimitCategoryOverview[],
     updated_at: result.updated_at ?? null,
   }
 }
 
 export async function getDailyLimitOverview({
-  stationId,
   date,
 }: GetDailyLimitOverviewParams): Promise<RpcResult<DailyLimitOverview>> {
   if (!isSupabaseConfigured) {
@@ -116,7 +112,6 @@ export async function getDailyLimitOverview({
 
   const { data, error } = await supabase.rpc('get_daily_limit_overview', {
     target_date: date,
-    target_station_id: stationId,
   })
 
   if (error) {

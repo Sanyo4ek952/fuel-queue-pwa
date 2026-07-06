@@ -10,6 +10,7 @@ import {
   offlineDb,
 } from '@/shared/lib/offline-db'
 import type { CheckVehicleAccessParams } from '@/shared/types/vehicle-access'
+import { getDailyLimitOverview } from './get-daily-limit-overview'
 
 type SupabaseRow = Record<string, unknown>
 
@@ -22,9 +23,8 @@ function toNumber(value: unknown) {
 }
 
 export async function refreshVehicleAccessCache({
-  stationId,
   checkDate,
-}: Pick<CheckVehicleAccessParams, 'stationId' | 'checkDate'>) {
+}: Pick<CheckVehicleAccessParams, 'checkDate'>) {
   if (!isSupabaseConfigured) {
     return
   }
@@ -33,9 +33,9 @@ export async function refreshVehicleAccessCache({
     stationsResult,
     vehiclesResult,
     reservationsResult,
-    dailyLimitsResult,
     fuelingRecordsResult,
     manualOverridesResult,
+    dailyLimitOverviewResult,
   ] = await Promise.all([
     supabase.from('stations').select('id,name,address,is_active,updated_at').eq('is_active', true),
     supabase
@@ -46,12 +46,7 @@ export async function refreshVehicleAccessCache({
       .select(
         'id,station_id,vehicle_id,driver_id,date,status,queue_number,fuel_type,requested_liters,comment,client_mutation_id,sync_status,created_at,updated_at,vehicles(normalized_plate_number),drivers(full_name,phone)',
       )
-      .eq('date', checkDate),
-    supabase
-      .from('daily_limits')
-      .select('id,station_id,date,status,max_liters_per_vehicle,updated_at')
-      .eq('station_id', stationId)
-      .eq('date', checkDate),
+      .in('status', ['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING']),
     supabase
       .from('fueling_records')
       .select('id,station_id,vehicle_id,date,fueled_at,is_manual_override,updated_at')
@@ -62,15 +57,16 @@ export async function refreshVehicleAccessCache({
         'id,station_id,vehicle_id,date,reason,approved_by,used_at,expires_at,client_mutation_id,sync_status,updated_at',
       )
       .eq('date', checkDate),
+    getDailyLimitOverview({ date: checkDate }),
   ])
 
   const firstError =
     stationsResult.error ??
     vehiclesResult.error ??
     reservationsResult.error ??
-    dailyLimitsResult.error ??
     fuelingRecordsResult.error ??
-    manualOverridesResult.error
+    manualOverridesResult.error ??
+    (dailyLimitOverviewResult.error ? new Error(dailyLimitOverviewResult.error) : null)
 
   if (firstError) {
     throw new Error(firstError.message)
@@ -107,12 +103,17 @@ export async function refreshVehicleAccessCache({
           requested_liters: toNumber(row.requested_liters),
         })) as LocalReservation[],
       )
-      await offlineDb.local_daily_limits.bulkPut(
-        toRows<SupabaseRow>(dailyLimitsResult.data).map((row) => ({
-          ...row,
-          max_liters_per_vehicle: toNumber(row.max_liters_per_vehicle),
-        })) as LocalDailyLimit[],
-      )
+      if (dailyLimitOverviewResult.data?.exists) {
+        await offlineDb.local_daily_limits.put({
+          id: dailyLimitOverviewResult.data.id,
+          station_id: null,
+          date: dailyLimitOverviewResult.data.date,
+          status: dailyLimitOverviewResult.data.status,
+          category_overviews: dailyLimitOverviewResult.data.category_overviews,
+          cached_at: new Date().toISOString(),
+          updated_at: dailyLimitOverviewResult.data.updated_at ?? undefined,
+        } as LocalDailyLimit)
+      }
       await offlineDb.local_fueling_records.bulkPut(
         toRows<LocalFuelingRecord>(fuelingRecordsResult.data),
       )

@@ -6,8 +6,6 @@ import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import type { RpcResult } from './index'
 
 export type CreateReservationParams = {
-  targetDate: string
-  stationId: string
   plateNumber: string
   driverFullName: string
   driverPhone?: string
@@ -19,8 +17,8 @@ export type CreateReservationParams = {
 
 export type CreateReservationResult = {
   id: string
-  date: string
-  station_id: string
+  date: string | null
+  station_id: string | null
   vehicle_id: string
   driver_id: string | null
   normalized_plate_number: string
@@ -46,8 +44,6 @@ export function parseCreateReservationResult(value: unknown): CreateReservationR
 
   if (
     typeof result.id === 'string' &&
-    typeof result.date === 'string' &&
-    typeof result.station_id === 'string' &&
     typeof result.vehicle_id === 'string' &&
     typeof result.fuel_type === 'string' &&
     typeof result.status === 'string' &&
@@ -55,8 +51,8 @@ export function parseCreateReservationResult(value: unknown): CreateReservationR
   ) {
     return {
       id: result.id,
-      date: result.date,
-      station_id: result.station_id,
+      date: result.date ?? null,
+      station_id: result.station_id ?? null,
       vehicle_id: result.vehicle_id,
       driver_id: result.driver_id ?? null,
       normalized_plate_number: result.normalized_plate_number ?? '',
@@ -74,8 +70,6 @@ export function parseCreateReservationResult(value: unknown): CreateReservationR
 }
 
 export async function createReservation({
-  targetDate,
-  stationId,
   plateNumber,
   driverFullName,
   driverPhone,
@@ -92,8 +86,6 @@ export async function createReservation({
   }
 
   const { data, error } = await supabase.rpc('create_reservation', {
-    target_date: targetDate,
-    target_station_id: stationId,
     plate_number: normalizePlateNumber(plateNumber),
     driver_full_name: driverFullName,
     driver_phone: driverPhone ?? null,

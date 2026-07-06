@@ -3,27 +3,31 @@ import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import type { VehicleAccessReason, VehicleAccessResult } from '@/features/check-vehicle'
 
 const reasonLabels: Record<VehicleAccessReason, string> = {
-  ACTIVE_RESERVATION: 'Есть активная запись на выбранную АЗС.',
+  ACTIVE_RESERVATION: 'Есть активная запись в общей очереди.',
   ALREADY_FUELED: 'Автомобиль уже заправлялся сегодня.',
-  DAILY_LIMIT_NOT_OPEN: 'Лимит на выбранную дату не открыт.',
   INVALID_PLATE_NUMBER: 'Госномер не распознан.',
-  LITERS_LIMIT_EXCEEDED: 'Запрошенный объём превышает лимит на автомобиль.',
   MANUAL_OVERRIDE_ACTIVE: 'Действует ручное разрешение.',
-  NO_ACTIVE_RESERVATION: 'Нет активной записи на сегодня.',
-  NO_DAILY_LIMIT: 'На сегодня не задан лимит по выбранной АЗС.',
+  NO_GLOBAL_DAILY_LIMIT: 'На сегодня не задан общий лимит топлива.',
+  NO_ACTIVE_RESERVATION: 'Нет активной записи в общей очереди.',
   OFFLINE_UNCONFIRMED: 'Offline-проверка требует серверного подтверждения.',
+  OUTSIDE_TODAY_LIMIT: 'Автомобиль не попадает в сегодняшний лимит своей очереди.',
   PROFILE_NOT_FOUND: 'Профиль пользователя не найден.',
-  RESERVATION_AT_OTHER_STATION: 'Запись найдена на другой АЗС.',
   RPC_ERROR: 'Не удалось выполнить серверную проверку.',
   STATION_ACCESS_DENIED: 'Нет доступа к выбранной АЗС.',
   VEHICLE_BLOCKED: 'Автомобиль заблокирован.',
+}
+
+const categoryLabels: Record<string, string> = {
+  GASOLINE: 'Бензин',
+  DIESEL: 'Дизель',
+  GAS: 'Газ',
 }
 
 function getResultTone(result: VehicleAccessResult) {
   if (result.status === 'ALLOWED') {
     return {
       Icon: CheckCircle2,
-      title: 'Допуск разрешён',
+      title: 'Допуск разрешен',
       className: 'border-emerald-200 bg-emerald-50 text-emerald-950',
     }
   }
@@ -68,8 +72,22 @@ export function VehicleAccessResultView({ result }: { result: VehicleAccessResul
             </div>
             {result.queue_number ? (
               <div>
-                <dt className="opacity-70">Очередь</dt>
+                <dt className="opacity-70">Общая очередь</dt>
                 <dd className="font-semibold">№{result.queue_number}</dd>
+              </div>
+            ) : null}
+            {result.category_position ? (
+              <div>
+                <dt className="opacity-70">Позиция в категории</dt>
+                <dd className="font-semibold">№{result.category_position}</dd>
+              </div>
+            ) : null}
+            {result.fuel_category ? (
+              <div>
+                <dt className="opacity-70">Очередь</dt>
+                <dd className="font-semibold">
+                  {categoryLabels[result.fuel_category] ?? result.fuel_category}
+                </dd>
               </div>
             ) : null}
             {result.fuel_type ? (
@@ -78,10 +96,10 @@ export function VehicleAccessResultView({ result }: { result: VehicleAccessResul
                 <dd className="font-semibold">{result.fuel_type}</dd>
               </div>
             ) : null}
-            {result.requested_liters ? (
+            {result.effective_liters ? (
               <div>
-                <dt className="opacity-70">Литры</dt>
-                <dd className="font-semibold">{result.requested_liters}</dd>
+                <dt className="opacity-70">В расчёте</dt>
+                <dd className="font-semibold">{result.effective_liters} л</dd>
               </div>
             ) : null}
           </dl>

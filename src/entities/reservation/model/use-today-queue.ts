@@ -1,6 +1,6 @@
+import { useQuery } from '@tanstack/react-query'
 import { liveQuery } from 'dexie'
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 
 import {
   cacheTodayQueueRows,
@@ -11,8 +11,9 @@ import {
 import { offlineDb } from '@/shared/lib/offline-db'
 import { useOnlineStatus } from '@/shared/lib/sync'
 
-export const todayQueueQueryKey = (stationId: string, date: string) =>
-  ['today-queue', stationId, date] as const
+const activeReservationStatuses = new Set(['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'])
+
+export const todayQueueQueryKey = () => ['today-queue'] as const
 
 function compareQueueRows(left: TodayQueueRow, right: TodayQueueRow) {
   return left.queue_number - right.queue_number || left.id.localeCompare(right.id)
@@ -29,43 +30,40 @@ function mergeRows(onlineRows: TodayQueueRow[], localRows: TodayQueueRow[]) {
   return [...onlineRows, ...unsyncedLocalRows].sort(compareQueueRows)
 }
 
-export function useTodayQueue({ stationId, date }: { stationId: string; date: string }) {
+export function useTodayQueue() {
   const isOnline = useOnlineStatus()
   const [localRows, setLocalRows] = useState<TodayQueueRow[]>([])
   const [localError, setLocalError] = useState<Error | null>(null)
-  const enabled = Boolean(stationId && date)
+  const [isLocalReady, setIsLocalReady] = useState(false)
 
   useEffect(() => {
-    if (!enabled) {
-      setLocalRows([])
-      return
-    }
-
     const subscription = liveQuery(async () => {
-      const rows = await offlineDb.local_reservations
-        .where('[station_id+date]')
-        .equals([stationId, date])
-        .toArray()
+      const rows = await offlineDb.local_reservations.toArray()
 
-      return rows.map(toTodayQueueRowFromLocal).sort(compareQueueRows)
+      return rows
+        .filter((row) => activeReservationStatuses.has(row.status))
+        .map(toTodayQueueRowFromLocal)
+        .sort(compareQueueRows)
     }).subscribe({
       next: (rows) => {
         setLocalRows(rows)
         setLocalError(null)
+        setIsLocalReady(true)
       },
       error: (error) => {
         setLocalError(error instanceof Error ? error : new Error('Не удалось загрузить очередь.'))
+        setIsLocalReady(true)
       },
     })
 
     return () => subscription.unsubscribe()
-  }, [date, enabled, stationId])
+  }, [])
 
   const onlineQuery = useQuery({
-    queryKey: todayQueueQueryKey(stationId, date),
-    enabled: enabled && isOnline,
+    queryKey: todayQueueQueryKey(),
+    enabled: isOnline,
     queryFn: async () => {
-      const rows = await listTodayQueueRows({ stationId, date })
+      const rows = await listTodayQueueRows()
       await cacheTodayQueueRows(rows)
       return rows
     },
@@ -78,7 +76,7 @@ export function useTodayQueue({ stationId, date }: { stationId: string; date: st
   return {
     rows,
     isOnline,
-    isLoading: enabled && (isOnline ? onlineQuery.isLoading : localRows.length === 0 && !localError),
+    isLoading: isOnline ? onlineQuery.isLoading : !isLocalReady,
     isFetching: onlineQuery.isFetching,
     error: onlineQuery.error ?? localError,
   }

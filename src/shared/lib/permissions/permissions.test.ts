@@ -27,9 +27,10 @@ describe('permission helpers', () => {
     expect(canCreateFuelingRecord('mayor_assistant')).toBe(false)
   })
 
-  it('allows full-access roles to manage limits and sync conflicts', () => {
+  it('allows mayor to manage daily limits and station managers to manage operational exceptions', () => {
     expect(canCreateDailyLimit('mayor')).toBe(true)
-    expect(canCreateDailyLimit('station_manager')).toBe(true)
+    expect(canCreateDailyLimit('station_manager')).toBe(false)
+    expect(canCreateDailyLimit('mayor_assistant')).toBe(false)
     expect(canCreateManualOverride('station_manager')).toBe(true)
     expect(canResolveSyncConflict('mayor')).toBe(true)
     expect(canResolveSyncConflict('cashier')).toBe(false)

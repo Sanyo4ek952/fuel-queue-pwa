@@ -1,10 +1,9 @@
 import { z } from 'zod'
 
-import { FUEL_TYPES } from '@/shared/constants'
+import { QUEUE_FUEL_TYPES } from '@/shared/constants'
 import { isValidPlateNumber, normalizePlateNumber } from '@/shared/lib/plate-number'
 
 export const createReservationSchema = z.object({
-  targetDate: z.string().min(1, 'Выберите дату'),
   plateNumber: z
     .string()
     .trim()
@@ -13,7 +12,7 @@ export const createReservationSchema = z.object({
     .refine(isValidPlateNumber, 'Введите номер в формате А 123 ВС 777'),
   driverFullName: z.string().trim().min(1, 'Введите ФИО водителя'),
   driverPhone: z.string().trim().optional(),
-  fuelType: z.enum(FUEL_TYPES),
+  fuelType: z.enum(QUEUE_FUEL_TYPES),
   requestedLiters: z.coerce.number().positive('Литры должны быть больше нуля'),
   comment: z.string().trim().optional(),
 })

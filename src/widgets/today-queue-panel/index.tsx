@@ -1,13 +1,18 @@
-import { CalendarDays, CloudOff, ListChecks } from 'lucide-react'
+import { CloudOff, ListChecks } from 'lucide-react'
 
 import { useTodayQueue, type TodayQueueRow } from '@/entities/reservation'
-import { StationSelect, useSelectedStation } from '@/features/select-station'
 import { ROLE_LABELS, type UserRole } from '@/shared/config/roles'
-import type { FuelType, ReservationStatus, SyncStatus } from '@/shared/constants'
-import { getTodayDateInputValue } from '@/shared/lib/date'
+import {
+  getFuelQueueCategory,
+  type FuelQueueCategory,
+  type FuelType,
+  type ReservationStatus,
+  type SyncStatus,
+} from '@/shared/constants'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 
 const fuelTypeLabels: Record<FuelType, string> = {
   AI_92: 'АИ-92',
@@ -61,6 +66,14 @@ const syncStatusVariants: Record<SyncStatus, 'default' | 'secondary' | 'destruct
   FAILED: 'destructive',
   CONFLICT: 'destructive',
 }
+
+const categoryLabels: Record<FuelQueueCategory, string> = {
+  GASOLINE: 'Бензин',
+  DIESEL: 'Дизель',
+  GAS: 'Газ',
+}
+
+const categoryOrder: FuelQueueCategory[] = ['GASOLINE', 'DIESEL', 'GAS']
 
 function SummaryTile({ label, value }: { label: string; value: number }) {
   return (
@@ -137,13 +150,12 @@ function QueueRowCard({ row }: { row: TodayQueueRow }) {
 }
 
 export function TodayQueuePanel() {
-  const selectedStationId = useSelectedStation((state) => state.selectedStationId)
-  const today = getTodayDateInputValue()
-  const queue = useTodayQueue({ stationId: selectedStationId, date: today })
-  const activeRows = queue.rows.filter((row) =>
-    ['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'].includes(row.status),
-  )
+  const queue = useTodayQueue()
   const pendingRows = queue.rows.filter((row) => row.sync_status !== 'SYNCED')
+  const rowsByCategory = categoryOrder.map((fuelCategory) => ({
+    fuelCategory,
+    rows: queue.rows.filter((row) => getFuelQueueCategory(row.fuel_type) === fuelCategory),
+  }))
 
   return (
     <div className="space-y-4">
@@ -151,16 +163,13 @@ export function TodayQueuePanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ListChecks className="size-5 text-slate-500" aria-hidden="true" />
-            Очередь сегодня
+            Общая очередь
           </CardTitle>
-          <CardDescription className="flex items-center gap-2">
-            <CalendarDays className="size-4" aria-hidden="true" />
-            {today}
+          <CardDescription>
+            Единая очередь по всем АЗС, разложенная на бензин, дизель и газ.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <StationSelect />
-
           {!queue.isOnline ? (
             <Alert className="border-amber-200 bg-amber-50 text-amber-950">
               <CloudOff className="size-4" aria-hidden="true" />
@@ -173,18 +182,11 @@ export function TodayQueuePanel() {
 
           <div className="grid grid-cols-3 gap-2">
             <SummaryTile label="Всего" value={queue.rows.length} />
-            <SummaryTile label="Активные" value={activeRows.length} />
+            <SummaryTile label="Активные" value={queue.rows.length} />
             <SummaryTile label="Sync" value={pendingRows.length} />
           </div>
         </CardContent>
       </Card>
-
-      {!selectedStationId ? (
-        <Alert>
-          <AlertTitle>АЗС не выбрана</AlertTitle>
-          <AlertDescription>Выберите АЗС, чтобы увидеть очередь на сегодня.</AlertDescription>
-        </Alert>
-      ) : null}
 
       {queue.error ? (
         <Alert variant="destructive">
@@ -193,24 +195,39 @@ export function TodayQueuePanel() {
         </Alert>
       ) : null}
 
-      {selectedStationId && queue.isLoading ? (
+      {queue.isLoading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
           Загрузка очереди...
         </div>
       ) : null}
 
-      {selectedStationId && !queue.isLoading && queue.rows.length === 0 ? (
+      {!queue.isLoading && queue.rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-          На сегодня записей нет.
+          В общей очереди нет активных записей.
         </div>
       ) : null}
 
       {queue.rows.length > 0 ? (
-        <div className="space-y-3">
-          {queue.rows.map((row) => (
-            <QueueRowCard key={row.id} row={row} />
+        <Tabs defaultValue="GASOLINE" className="space-y-3">
+          <TabsList className="grid w-full grid-cols-3">
+            {rowsByCategory.map(({ fuelCategory, rows }) => (
+              <TabsTrigger key={fuelCategory} value={fuelCategory}>
+                {categoryLabels[fuelCategory]} ({rows.length})
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {rowsByCategory.map(({ fuelCategory, rows }) => (
+            <TabsContent key={fuelCategory} value={fuelCategory} className="space-y-3">
+              {rows.length > 0 ? (
+                rows.map((row) => <QueueRowCard key={row.id} row={row} />)
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
+                  В этой очереди нет активных записей.
+                </div>
+              )}
+            </TabsContent>
           ))}
-        </div>
+        </Tabs>
       ) : null}
     </div>
   )

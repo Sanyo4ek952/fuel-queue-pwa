@@ -37,10 +37,25 @@ function makeSnapshot(
     dailyLimits: [
       {
         id: 'daily-limit-1',
-        station_id: stationId,
+        station_id: null,
         date: checkDate,
         status: 'OPEN',
-        max_liters_per_vehicle: 50,
+        category_overviews: [
+          {
+            fuel_category: 'GASOLINE',
+            label: 'Бензин',
+            limit_mode: 'vehicle_count',
+            vehicle_limit: 10,
+            liters_limit: null,
+            queue_count: 1,
+            queued_liters: 40,
+            covered_vehicle_count: 1,
+            covered_liters: 40,
+            remaining_vehicle_count: 9,
+            remaining_liters: null,
+            projected_queue_number: 7,
+          },
+        ],
       },
     ],
     fuelingRecords: [],
@@ -146,33 +161,46 @@ describe('evaluateVehicleAccessOffline', () => {
     })
   })
 
-  it('blocks when there is no daily limit', () => {
+  it('blocks an active reservation without a daily limit', () => {
     expect(check(makeSnapshot({ dailyLimits: [] }))).toMatchObject({
       status: 'BLOCKED',
-      reason: 'NO_DAILY_LIMIT',
+      reason: 'NO_GLOBAL_DAILY_LIMIT',
     })
   })
 
-  it('blocks when requested liters exceed the daily per-vehicle limit', () => {
+  it('blocks when the category vehicle limit is already exhausted', () => {
     expect(
       check(
         makeSnapshot({
           dailyLimits: [
             {
               id: 'daily-limit-1',
-              station_id: stationId,
+              station_id: null,
               date: checkDate,
               status: 'OPEN',
-              max_liters_per_vehicle: 30,
+              category_overviews: [
+                {
+                  fuel_category: 'GASOLINE',
+                  label: 'Бензин',
+                  limit_mode: 'vehicle_count',
+                  vehicle_limit: 0,
+                  liters_limit: null,
+                  queue_count: 1,
+                  queued_liters: 40,
+                  covered_vehicle_count: 0,
+                  covered_liters: 0,
+                  remaining_vehicle_count: 0,
+                  remaining_liters: null,
+                  projected_queue_number: null,
+                },
+              ],
             },
           ],
         }),
       ),
     ).toMatchObject({
       status: 'BLOCKED',
-      reason: 'LITERS_LIMIT_EXCEEDED',
-      requested_liters: 40,
-      max_liters_per_vehicle: 30,
+      reason: 'OUTSIDE_TODAY_LIMIT',
     })
   })
 

@@ -87,10 +87,25 @@ describe('createOfflineFuelingRecord', () => {
     })
     mocks.tables.local_daily_limits.rows.push({
       id: 'daily-limit-1',
-      station_id: stationId,
+      station_id: null,
       date: targetDate,
       status: 'OPEN',
-      max_liters_per_vehicle: 50,
+      category_overviews: [
+        {
+          fuel_category: 'GASOLINE',
+          label: 'Бензин',
+          limit_mode: 'vehicle_count',
+          vehicle_limit: 10,
+          liters_limit: null,
+          queue_count: 1,
+          queued_liters: 40,
+          covered_vehicle_count: 1,
+          covered_liters: 40,
+          remaining_vehicle_count: 9,
+          remaining_liters: null,
+          projected_queue_number: 7,
+        },
+      ],
     })
   })
 

@@ -5,7 +5,6 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  selectedStationId: 'station-id',
   useTodayQueue: vi.fn(),
 }))
 
@@ -13,17 +12,10 @@ vi.mock('@/entities/reservation', () => ({
   useTodayQueue: mocks.useTodayQueue,
 }))
 
-vi.mock('@/features/select-station', () => ({
-  StationSelect: () => <div data-testid="station-select" />,
-  useSelectedStation: (selector: (state: { selectedStationId: string }) => string) =>
-    selector({ selectedStationId: mocks.selectedStationId }),
-}))
-
 import { TodayQueuePanel } from './index'
 
 describe('TodayQueuePanel', () => {
   beforeEach(() => {
-    mocks.selectedStationId = 'station-id'
     mocks.useTodayQueue.mockReturnValue({
       rows: [],
       isOnline: true,
@@ -38,10 +30,10 @@ describe('TodayQueuePanel', () => {
     vi.clearAllMocks()
   })
 
-  it('shows an empty state for a selected station without rows', () => {
+  it('shows an empty state for the global queue without rows', () => {
     render(<TodayQueuePanel />)
 
-    expect(screen.getByText('На сегодня записей нет.')).toBeInTheDocument()
+    expect(screen.getByText('В общей очереди нет активных записей.')).toBeInTheDocument()
   })
 
   it('renders pending offline queue rows', () => {
@@ -49,8 +41,8 @@ describe('TodayQueuePanel', () => {
       rows: [
         {
           id: 'local-mutation-id',
-          date: '2026-07-05',
-          station_id: 'station-id',
+          date: null,
+          station_id: null,
           vehicle_id: 'vehicle-id',
           driver_id: null,
           created_by_profile_id: 'profile-id',

@@ -1,27 +1,25 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
-import type { FuelType } from '@/shared/constants'
+import type { DailyLimitMode, FuelQueueCategory } from '@/shared/constants'
 
 import type { RpcResult } from './index'
 
-export type DailyFuelTypeLimitInput = {
-  fuelType: FuelType
+export type DailyCategoryLimitInput = {
+  fuelCategory: FuelQueueCategory
+  limitMode: DailyLimitMode
   vehicleLimit: number
   litersLimit?: number | null
 }
 
 export type CreateDailyLimitParams = {
   targetDate: string
-  stationId: string
-  totalVehicleLimit: number
-  maxLitersPerVehicle: number
-  fuelTypeLimits: DailyFuelTypeLimitInput[]
+  categoryLimits: DailyCategoryLimitInput[]
   clientMutationId: string
 }
 
-export type DailyFuelTypeLimitResult = {
-  id: string
-  fuel_type: FuelType
+export type DailyCategoryLimitResult = {
+  fuel_category: FuelQueueCategory
+  limit_mode: DailyLimitMode
   vehicle_limit: number
   liters_limit: number | null
 }
@@ -29,12 +27,10 @@ export type DailyFuelTypeLimitResult = {
 export type CreateDailyLimitResult = {
   id: string
   date: string
-  station_id: string
-  total_vehicle_limit: number
-  max_liters_per_vehicle: number
+  station_id: string | null
   status: 'OPEN' | 'CLOSED' | 'PAUSED'
   client_mutation_id: string
-  fuel_type_limits: DailyFuelTypeLimitResult[]
+  category_limits: DailyCategoryLimitResult[]
 }
 
 function toNumber(value: unknown) {
@@ -51,22 +47,19 @@ function toDailyLimitResult(value: unknown): CreateDailyLimitResult | null {
   if (
     typeof result.id === 'string' &&
     typeof result.date === 'string' &&
-    typeof result.station_id === 'string' &&
     typeof result.status === 'string' &&
     typeof result.client_mutation_id === 'string'
   ) {
     return {
       id: result.id,
       date: result.date,
-      station_id: result.station_id,
-      total_vehicle_limit: toNumber(result.total_vehicle_limit),
-      max_liters_per_vehicle: toNumber(result.max_liters_per_vehicle),
+      station_id: result.station_id ?? null,
       status: result.status as CreateDailyLimitResult['status'],
       client_mutation_id: result.client_mutation_id,
-      fuel_type_limits: Array.isArray(result.fuel_type_limits)
-        ? result.fuel_type_limits.map((item) => ({
-            id: item.id,
-            fuel_type: item.fuel_type,
+      category_limits: Array.isArray(result.category_limits)
+        ? result.category_limits.map((item) => ({
+            fuel_category: item.fuel_category,
+            limit_mode: item.limit_mode,
             vehicle_limit: toNumber(item.vehicle_limit),
             liters_limit: item.liters_limit == null ? null : toNumber(item.liters_limit),
           }))
@@ -79,10 +72,7 @@ function toDailyLimitResult(value: unknown): CreateDailyLimitResult | null {
 
 export async function createDailyLimit({
   targetDate,
-  stationId,
-  totalVehicleLimit,
-  maxLitersPerVehicle,
-  fuelTypeLimits,
+  categoryLimits,
   clientMutationId,
 }: CreateDailyLimitParams): Promise<RpcResult<CreateDailyLimitResult>> {
   if (!isSupabaseConfigured) {
@@ -92,16 +82,22 @@ export async function createDailyLimit({
     }
   }
 
+  const byCategory = new Map(categoryLimits.map((item) => [item.fuelCategory, item]))
+  const gasoline = byCategory.get('GASOLINE')
+  const diesel = byCategory.get('DIESEL')
+  const gas = byCategory.get('GAS')
+
   const { data, error } = await supabase.rpc('create_daily_limit', {
     target_date: targetDate,
-    target_station_id: stationId,
-    total_vehicle_limit: totalVehicleLimit,
-    max_liters_per_vehicle: maxLitersPerVehicle,
-    fuel_type_limits: fuelTypeLimits.map((item) => ({
-      fuel_type: item.fuelType,
-      vehicle_limit: item.vehicleLimit,
-      liters_limit: item.litersLimit ?? null,
-    })),
+    gasoline_limit_mode: gasoline?.limitMode ?? 'vehicle_count',
+    gasoline_vehicle_limit: gasoline?.vehicleLimit ?? 0,
+    gasoline_liters_limit: gasoline?.litersLimit ?? null,
+    diesel_limit_mode: diesel?.limitMode ?? 'vehicle_count',
+    diesel_vehicle_limit: diesel?.vehicleLimit ?? 0,
+    diesel_liters_limit: diesel?.litersLimit ?? null,
+    gas_limit_mode: gas?.limitMode ?? 'vehicle_count',
+    gas_vehicle_limit: gas?.vehicleLimit ?? 0,
+    gas_liters_limit: gas?.litersLimit ?? null,
     client_mutation_id: clientMutationId,
   })
 

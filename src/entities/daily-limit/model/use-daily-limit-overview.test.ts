@@ -13,22 +13,23 @@ const overview: DailyLimitOverview = {
   exists: true,
   id: 'limit-id',
   date: '2026-07-05',
-  station_id: 'station-id',
+  station_id: null,
   status: 'OPEN',
-  total_vehicle_limit: 10,
-  max_liters_per_vehicle: 50,
-  occupied_vehicle_count: 2,
-  remaining_vehicle_count: 8,
   updated_at: '2026-07-05T10:00:00.000Z',
-  fuel_type_overviews: [
+  category_overviews: [
     {
-      fuel_type: 'AI_95',
-      vehicle_limit: 4,
-      occupied_vehicle_count: 1,
-      remaining_vehicle_count: 3,
+      fuel_category: 'GASOLINE',
+      label: 'Бензин',
+      limit_mode: 'fuel_liters',
+      vehicle_limit: 0,
       liters_limit: 200,
-      reserved_liters: 40,
-      remaining_liters: 160,
+      queue_count: 2,
+      queued_liters: 80,
+      covered_vehicle_count: 2,
+      covered_liters: 80,
+      remaining_vehicle_count: null,
+      remaining_liters: 120,
+      projected_queue_number: 2,
     },
   ],
 }
@@ -36,9 +37,9 @@ const overview: DailyLimitOverview = {
 function makeReservation(overrides: Partial<LocalReservation>): LocalReservation {
   return {
     id: 'reservation-id',
-    station_id: 'station-id',
+    station_id: null,
     vehicle_id: 'vehicle-id',
-    date: '2026-07-05',
+    date: null,
     status: 'RESERVED',
     queue_number: 1,
     fuel_type: 'AI_95',
@@ -49,11 +50,11 @@ function makeReservation(overrides: Partial<LocalReservation>): LocalReservation
 }
 
 describe('applyUnsyncedReservationEstimate', () => {
-  it('subtracts unsynced active reservations from vehicle and liters remainders', () => {
+  it('adds unsynced active reservations to category queue and liters projection', () => {
     const result = applyUnsyncedReservationEstimate(
       overview,
       [
-        makeReservation({ id: 'pending-1', requested_liters: 30 }),
+        makeReservation({ id: 'pending-1', queue_number: 3, requested_liters: 30 }),
         makeReservation({ id: 'synced-1', sync_status: 'SYNCED', requested_liters: 30 }),
         makeReservation({ id: 'cancelled-1', status: 'CANCELLED', requested_liters: 30 }),
       ],
@@ -61,16 +62,18 @@ describe('applyUnsyncedReservationEstimate', () => {
     )
 
     expect(result).toMatchObject({
-      occupied_vehicle_count: 3,
-      remaining_vehicle_count: 7,
       is_estimated: true,
       unsynced_reservation_count: 1,
     })
-    expect(result.fuel_type_overviews.find((item) => item.fuel_type === 'AI_95')).toMatchObject({
-      occupied_vehicle_count: 2,
-      remaining_vehicle_count: 2,
-      reserved_liters: 70,
-      remaining_liters: 130,
+    expect(
+      result.category_overviews.find((item) => item.fuel_category === 'GASOLINE'),
+    ).toMatchObject({
+      queue_count: 3,
+      queued_liters: 110,
+      covered_vehicle_count: 3,
+      covered_liters: 110,
+      remaining_liters: 90,
+      projected_queue_number: 3,
     })
   })
 
@@ -78,10 +81,12 @@ describe('applyUnsyncedReservationEstimate', () => {
     const result = applyUnsyncedReservationEstimate(overview, [], 'online')
 
     expect(result).toMatchObject({
-      occupied_vehicle_count: 2,
-      remaining_vehicle_count: 8,
       is_estimated: false,
       unsynced_reservation_count: 0,
+    })
+    expect(result.category_overviews[0]).toMatchObject({
+      covered_vehicle_count: 2,
+      remaining_liters: 120,
     })
   })
 })

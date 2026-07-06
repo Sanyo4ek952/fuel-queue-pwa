@@ -1,42 +1,44 @@
 import { z } from 'zod'
 
-import { FUEL_TYPES } from '@/shared/constants'
+import { DAILY_LIMIT_MODES, FUEL_QUEUE_CATEGORIES } from '@/shared/constants'
 
-const optionalNonNegativeNumber = z.preprocess(
+const optionalPositiveNumber = z.preprocess(
   (value) => (value === '' || value == null ? null : Number(value)),
-  z.number().min(0, 'Лимит литров не может быть отрицательным').nullable(),
+  z.number().positive('Лимит должен быть больше нуля').nullable(),
 )
 
-export const dailyFuelTypeLimitSchema = z.object({
-  fuelType: z.enum(FUEL_TYPES),
-  vehicleLimit: z.coerce
-    .number()
-    .int('Лимит машин должен быть целым числом')
-    .min(0, 'Лимит машин не может быть отрицательным'),
-  litersLimit: optionalNonNegativeNumber,
-})
-
-export const createDailyLimitSchema = z
+export const dailyCategoryLimitSchema = z
   .object({
-    targetDate: z.string().min(1, 'Выберите дату'),
-    totalVehicleLimit: z.coerce
+    fuelCategory: z.enum(FUEL_QUEUE_CATEGORIES),
+    limitMode: z.enum(DAILY_LIMIT_MODES),
+    vehicleLimit: z.coerce
       .number()
-      .int('Общий лимит машин должен быть целым числом')
-      .positive('Общий лимит машин должен быть больше нуля'),
-    maxLitersPerVehicle: z.coerce
-      .number()
-      .positive('Лимит литров на авто должен быть больше нуля'),
-    fuelTypeLimits: z.array(dailyFuelTypeLimitSchema),
+      .int('Лимит машин должен быть целым числом')
+      .min(0, 'Лимит машин не может быть отрицательным'),
+    litersLimit: optionalPositiveNumber,
   })
-  .refine(
-    (values) =>
-      values.fuelTypeLimits.reduce((sum, item) => sum + item.vehicleLimit, 0) <=
-      values.totalVehicleLimit,
-    {
-      message: 'Сумма лимитов по видам топлива не должна превышать общий лимит',
-      path: ['fuelTypeLimits'],
-    },
-  )
+  .superRefine((value, context) => {
+    if (value.limitMode === 'vehicle_count' && value.vehicleLimit <= 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['vehicleLimit'],
+        message: 'Укажите количество машин',
+      })
+    }
+
+    if (value.limitMode === 'fuel_liters' && (value.litersLimit == null || value.litersLimit <= 0)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['litersLimit'],
+        message: 'Укажите количество топлива',
+      })
+    }
+  })
+
+export const createDailyLimitSchema = z.object({
+  targetDate: z.string().min(1, 'Выберите дату'),
+  categoryLimits: z.array(dailyCategoryLimitSchema).length(3),
+})
 
 export type CreateDailyLimitFormInput = z.input<typeof createDailyLimitSchema>
 export type CreateDailyLimitFormValues = z.infer<typeof createDailyLimitSchema>

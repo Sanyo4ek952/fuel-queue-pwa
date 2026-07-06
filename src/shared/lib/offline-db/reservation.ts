@@ -7,8 +7,6 @@ import { offlineDb, type LocalReservation, type LocalVehicle, type SyncOutboxOpe
 const activeReservationStatuses = new Set(['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'])
 
 export type CreateOfflineReservationParams = {
-  targetDate: string
-  stationId: string
   plateNumber: string
   driverFullName: string
   driverPhone?: string
@@ -24,8 +22,8 @@ export type CreateOfflineReservationParams = {
 
 export type OfflineReservationResult = {
   id: string
-  date: string
-  station_id: string
+  date: string | null
+  station_id: string | null
   vehicle_id: string
   driver_id: string | null
   created_by_profile_id: string | null
@@ -44,8 +42,6 @@ export type OfflineReservationResult = {
 }
 
 export type CreateReservationPayload = {
-  target_date: string
-  station_id: string
   plate_number: string
   driver_full_name: string
   driver_phone?: string
@@ -55,8 +51,6 @@ export type CreateReservationPayload = {
 }
 
 export function buildCreateReservationPayload({
-  targetDate,
-  stationId,
   plateNumber,
   driverFullName,
   driverPhone,
@@ -65,8 +59,6 @@ export function buildCreateReservationPayload({
   comment,
 }: CreateOfflineReservationParams): CreateReservationPayload {
   return {
-    target_date: targetDate,
-    station_id: stationId,
     plate_number: normalizePlateNumber(plateNumber),
     driver_full_name: driverFullName,
     driver_phone: driverPhone || undefined,
@@ -86,8 +78,6 @@ function makeLocalVehicle(normalizedPlateNumber: string): LocalVehicle {
 }
 
 export async function createOfflineReservation({
-  targetDate,
-  stationId,
   plateNumber,
   driverFullName,
   driverPhone,
@@ -117,10 +107,9 @@ export async function createOfflineReservation({
     throw new Error('INVALID_REQUESTED_LITERS')
   }
 
-  const [vehicles, reservations, dailyLimits] = await Promise.all([
+  const [vehicles, reservations] = await Promise.all([
     offlineDb.local_vehicles.toArray(),
     offlineDb.local_reservations.toArray(),
-    offlineDb.local_daily_limits.toArray(),
   ])
   const existingVehicle = vehicles.find(
     (vehicle) => vehicle.normalized_plate_number === normalizedPlateNumber,
@@ -134,7 +123,6 @@ export async function createOfflineReservation({
   const duplicateReservation = reservations.find(
     (reservation) =>
       reservation.vehicle_id === vehicle.id &&
-      reservation.date === targetDate &&
       activeReservationStatuses.has(reservation.status),
   )
 
@@ -142,33 +130,14 @@ export async function createOfflineReservation({
     throw new Error('ACTIVE_RESERVATION_ALREADY_EXISTS')
   }
 
-  const dailyLimit = dailyLimits.find(
-    (limit) => limit.station_id === stationId && limit.date === targetDate,
-  )
-
-  if (dailyLimit) {
-    if (dailyLimit.status !== 'OPEN') {
-      throw new Error('DAILY_LIMIT_NOT_OPEN')
-    }
-
-    if (requestedLiters > dailyLimit.max_liters_per_vehicle) {
-      throw new Error('LITERS_LIMIT_EXCEEDED')
-    }
-  }
-
   const nextQueueNumber =
-    Math.max(
-      0,
-      ...reservations
-        .filter((reservation) => reservation.station_id === stationId && reservation.date === targetDate)
-        .map((reservation) => reservation.queue_number),
-    ) + 1
+    Math.max(0, ...reservations.map((reservation) => reservation.queue_number)) + 1
   const id = `local-${clientMutationId}`
   const now = new Date().toISOString()
   const localReservation: LocalReservation = {
     id,
-    date: targetDate,
-    station_id: stationId,
+    date: null,
+    station_id: null,
     vehicle_id: vehicle.id,
     driver_id: null,
     created_by_profile_id: createdByProfileId ?? null,
@@ -193,8 +162,6 @@ export async function createOfflineReservation({
     client_mutation_id: clientMutationId,
     type: 'CREATE_RESERVATION',
     payload: buildCreateReservationPayload({
-      targetDate,
-      stationId,
       plateNumber,
       driverFullName,
       driverPhone: trimmedDriverPhone ?? undefined,
@@ -223,8 +190,8 @@ export async function createOfflineReservation({
 
   return {
     id,
-    date: targetDate,
-    station_id: stationId,
+    date: null,
+    station_id: null,
     vehicle_id: vehicle.id,
     driver_id: null,
     created_by_profile_id: createdByProfileId ?? null,

@@ -22,14 +22,14 @@ export type LocalVehicle = LocalRecord & {
 }
 
 export type LocalReservation = LocalRecord & {
-  station_id: string
+  station_id?: string | null
   vehicle_id: string
   driver_id?: string | null
   created_by_profile_id?: string | null
   created_by_full_name?: string | null
   created_by_role?: UserRole | string | null
   created_by_signature_name?: string | null
-  date: string
+  date?: string | null
   status: string
   queue_number: number
   fuel_type: FuelType | string
@@ -51,13 +51,14 @@ export type LocalQueueEntry = LocalRecord & {
 }
 
 export type LocalDailyLimit = LocalRecord & {
-  station_id: string
+  station_id?: string | null
   date: string
   status: string
   total_vehicle_limit?: number | null
-  max_liters_per_vehicle: number
+  max_liters_per_vehicle?: number
   occupied_vehicle_count?: number
   remaining_vehicle_count?: number | null
+  projected_queue_number?: number | null
   fuel_type_overviews?: Array<{
     fuel_type: FuelType | string
     vehicle_limit: number
@@ -66,6 +67,20 @@ export type LocalDailyLimit = LocalRecord & {
     liters_limit: number | null
     reserved_liters: number
     remaining_liters: number | null
+  }>
+  category_overviews?: Array<{
+    fuel_category: string
+    label: string
+    limit_mode: string
+    vehicle_limit: number
+    liters_limit: number | null
+    queue_count: number
+    queued_liters: number
+    covered_vehicle_count: number
+    covered_liters: number
+    remaining_vehicle_count: number | null
+    remaining_liters: number | null
+    projected_queue_number: number | null
   }>
   cached_at?: string
 }
@@ -308,6 +323,40 @@ export class FuelQueueOfflineDb extends Dexie {
             conflict.payload = normalizePayloadPlateNumber(conflict.payload)
           })
       })
+
+    this.version(8).stores({
+      local_profiles: 'id, updated_at',
+      local_stations: 'id, updated_at',
+      local_vehicles: 'id, normalized_plate_number, updated_at',
+      local_daily_limits: 'id, [station_id+date], date, status, cached_at, updated_at',
+      local_reservations:
+        'id, client_mutation_id, vehicle_id, queue_number, status, sync_status, updated_at',
+      local_queue_entries: 'id, [station_id+date], date, status, updated_at',
+      local_fueling_records:
+        'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',
+      local_refusal_records: 'id, date, updated_at',
+      local_manual_overrides:
+        'id, client_mutation_id, [vehicle_id+station_id+date], date, sync_status, updated_at',
+      sync_outbox: 'id, client_mutation_id, status, created_at',
+      sync_conflicts: 'id, client_mutation_id, operation_id, created_at',
+    })
+
+    this.version(9).stores({
+      local_profiles: 'id, updated_at',
+      local_stations: 'id, updated_at',
+      local_vehicles: 'id, normalized_plate_number, updated_at',
+      local_daily_limits: 'id, date, status, cached_at, updated_at',
+      local_reservations:
+        'id, client_mutation_id, vehicle_id, queue_number, status, sync_status, updated_at',
+      local_queue_entries: 'id, [station_id+date], date, status, updated_at',
+      local_fueling_records:
+        'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',
+      local_refusal_records: 'id, date, updated_at',
+      local_manual_overrides:
+        'id, client_mutation_id, [vehicle_id+station_id+date], date, sync_status, updated_at',
+      sync_outbox: 'id, client_mutation_id, status, created_at',
+      sync_conflicts: 'id, client_mutation_id, operation_id, created_at',
+    })
   }
 }
 

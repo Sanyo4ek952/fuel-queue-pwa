@@ -94,64 +94,27 @@ describe('CheckVehicleForm', () => {
     vi.clearAllMocks()
   })
 
-  it('checks fueling history across all stations without a selected station', async () => {
-    mocks.getVehicleFuelingHistory.mockResolvedValue({
-      data: {
-        normalized_plate_number: 'А123ВС777',
-        vehicle_id: 'vehicle-id',
-        vehicle_found: true,
-        total_fueling_count: 3,
-        regular_fueling_count: 3,
-        manual_override_fueling_count: 0,
-        total_liters: 120,
-        first_fueled_at: '2026-07-01T10:00:00.000Z',
-        last_fueled_at: '2026-07-05T10:00:00.000Z',
-        station_summaries: [
-          {
-            station_id: STATIONS[0].id,
-            station_name: 'АЗС №1',
-            fueling_count: 3,
-            total_liters: 120,
-          },
-        ],
-        fuel_type_summaries: [],
-        records: [
-          {
-            id: 'fueling-1',
-            date: '2026-07-05',
-            fueled_at: '2026-07-05T10:00:00.000Z',
-            liters: 40,
-            station_id: STATIONS[0].id,
-            station_name: 'АЗС №1',
-            fuel_type: 'AI_95',
-            is_manual_override: false,
-            sync_status: 'SYNCED',
-          },
-        ],
-        has_more: false,
-      },
-      error: null,
-    })
-
+  it('requires a selected cashier station before checking access', async () => {
     renderWithQueryClient(<CheckVehicleForm />)
-    await submitPlate()
+    await userEvent.type(screen.getByLabelText('Госномер'), 'А123ВС777')
 
-    expect(await screen.findByText('История заправок по всем АЗС')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /проверить/i })).toBeDisabled()
+    expect(screen.getByText('Выберите АЗС кассира перед проверкой.')).toBeInTheDocument()
     expect(mocks.getVehicleFuelingHistory).not.toHaveBeenCalled()
-
-    await userEvent.click(screen.getByRole('button', { name: /История заправок/i }))
-
-    expect(await screen.findByText('Заправки')).toBeInTheDocument()
-    expect(screen.getByText('40 л')).toBeInTheDocument()
-    expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({
-      plateNumber: 'А123ВС777',
-      pageLimit: 10,
-      pageOffset: 0,
-    })
     expect(mocks.checkVehicleAccess).not.toHaveBeenCalled()
   })
 
   it('loads more fueling history items from the accordion', async () => {
+    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
+    mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
+    mocks.checkVehicleAccess.mockResolvedValue({
+      data: {
+        status: 'ALLOWED',
+        reason: 'ACTIVE_RESERVATION',
+        normalized_plate_number: 'Рђ123Р’РЎ777',
+      },
+      error: null,
+    })
     mocks.getVehicleFuelingHistory
       .mockResolvedValueOnce({
         data: {
@@ -301,7 +264,7 @@ describe('CheckVehicleForm', () => {
     renderWithQueryClient(<CheckVehicleForm />)
     await submitPlate()
 
-    expect(await screen.findByText('Допуск разрешён')).toBeInTheDocument()
+    expect(await screen.findByText('Допуск разрешен')).toBeInTheDocument()
     expect(screen.getByText('№7')).toBeInTheDocument()
     expect(screen.getByText('AI_95')).toBeInTheDocument()
   })

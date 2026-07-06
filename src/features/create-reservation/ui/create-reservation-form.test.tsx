@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { STATIONS, useSelectedStation } from '@/features/select-station'
-import { getTomorrowDateInputValue } from '@/shared/lib/date'
+import { getTodayDateInputValue } from '@/shared/lib/date'
 
 import { CreateReservationForm } from './create-reservation-form'
 
@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   checkVehicleAccess: vi.fn(),
   refreshVehicleAccessCache: vi.fn(),
   getVehicleFuelingHistory: vi.fn(),
+  createOfflineReservation: vi.fn(),
   checkVehicleAccessOffline: vi.fn(),
   getVehicleFuelingHistoryOffline: vi.fn(),
   markOfflineResult: vi.fn((result: { status: string; reason: string }, error?: string) => ({
@@ -55,6 +56,7 @@ vi.mock('@/shared/lib/sync', () => ({
 }))
 
 vi.mock('@/shared/lib/offline-db', () => ({
+  createOfflineReservation: mocks.createOfflineReservation,
   checkVehicleAccessOffline: mocks.checkVehicleAccessOffline,
   getVehicleFuelingHistoryOffline: mocks.getVehicleFuelingHistoryOffline,
   markOfflineResult: mocks.markOfflineResult,
@@ -91,6 +93,7 @@ describe('CreateReservationForm', () => {
     mocks.checkVehicleAccess.mockReset()
     mocks.refreshVehicleAccessCache.mockReset()
     mocks.getVehicleFuelingHistory.mockReset()
+    mocks.createOfflineReservation.mockReset()
     mocks.checkVehicleAccessOffline.mockReset()
     mocks.getVehicleFuelingHistoryOffline.mockReset()
     mocks.markOfflineResult.mockClear()
@@ -103,22 +106,25 @@ describe('CreateReservationForm', () => {
     vi.clearAllMocks()
   })
 
-  it('disables submit until a station is selected', () => {
+  it('renders global queue fields without station or date requirements', () => {
     renderWithQueryClient(<CreateReservationForm />)
 
-    expect(screen.getByRole('button', { name: /создать запись/i })).toBeDisabled()
+    expect(screen.getByLabelText('Госномер')).toBeInTheDocument()
+    expect(screen.getByLabelText('Водитель')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Дата')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /создать запись/i })).toBeEnabled()
     expect(screen.getByRole('button', { name: /проверить/i })).toBeDisabled()
-    expect(screen.getByText('Выберите АЗС перед созданием записи.')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Выберите АЗС только для проверки допуска/),
+    ).toBeInTheDocument()
   })
 
-  it('submits reservation fields for the selected station', async () => {
-    mocks.currentProfile.stations = [STATIONS[0]]
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
+  it('submits reservation fields without station and date', async () => {
     mocks.createReservation.mockResolvedValue({
       data: {
         id: 'reservation-id',
-        date: getTomorrowDateInputValue(),
-        station_id: STATIONS[0].id,
+        date: null,
+        station_id: null,
         vehicle_id: 'vehicle-id',
         driver_id: 'driver-id',
         normalized_plate_number: 'А123ВС777',
@@ -141,8 +147,6 @@ describe('CreateReservationForm', () => {
     await waitFor(() => {
       expect(mocks.createReservation).toHaveBeenCalledWith(
         expect.objectContaining({
-          stationId: STATIONS[0].id,
-          targetDate: getTomorrowDateInputValue(),
           plateNumber: 'А123ВС777',
           driverFullName: 'Иван Иванов',
           fuelType: 'AI_95',
@@ -150,9 +154,14 @@ describe('CreateReservationForm', () => {
         }),
       )
     })
+    expect(mocks.createReservation.mock.calls[0][0]).not.toMatchObject({
+      stationId: expect.anything(),
+      targetDate: expect.anything(),
+    })
+    expect(await screen.findByText('Запись создана')).toBeInTheDocument()
   })
 
-  it('checks vehicle access for the selected station and reservation date', async () => {
+  it('checks vehicle access for the selected station and today', async () => {
     mocks.currentProfile.stations = [STATIONS[0]]
     useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
@@ -206,10 +215,10 @@ describe('CreateReservationForm', () => {
       expect(mocks.checkVehicleAccess).toHaveBeenCalledWith({
         plateNumber: 'А123ВС777',
         stationId: STATIONS[0].id,
-        checkDate: getTomorrowDateInputValue(),
+        checkDate: getTodayDateInputValue(),
       })
     })
-    expect(await screen.findByText('Допуск разрешён')).toBeInTheDocument()
+    expect(await screen.findByText('Допуск разрешен')).toBeInTheDocument()
     expect(await screen.findByText('Заправки')).toBeInTheDocument()
     expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({
       plateNumber: 'А123ВС777',
@@ -218,7 +227,7 @@ describe('CreateReservationForm', () => {
     })
   })
 
-  it('clears stale check result and history when check inputs change', async () => {
+  it('clears stale check result and history when plate or station changes', async () => {
     mocks.currentProfile.stations = [STATIONS[0], STATIONS[1]]
     useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
@@ -226,13 +235,13 @@ describe('CreateReservationForm', () => {
       data: {
         status: 'ALLOWED',
         reason: 'ACTIVE_RESERVATION',
-        normalized_plate_number: 'А123ВС77',
+        normalized_plate_number: 'А123ВС777',
       },
       error: null,
     })
     mocks.getVehicleFuelingHistory.mockResolvedValue({
       data: {
-        normalized_plate_number: 'А123ВС77',
+        normalized_plate_number: 'А123ВС777',
         vehicle_id: 'vehicle-id',
         vehicle_found: true,
         total_fueling_count: 0,
@@ -250,16 +259,19 @@ describe('CreateReservationForm', () => {
     })
 
     renderWithQueryClient(<CreateReservationForm />)
-    await userEvent.type(screen.getByLabelText('Госномер'), 'A123BC77')
+    const plateInput = screen.getByLabelText('Госномер')
+
+    await userEvent.type(plateInput, 'А123ВС777')
     await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
 
-    expect(await screen.findByText('Допуск разрешён')).toBeInTheDocument()
+    expect(await screen.findByText('Допуск разрешен')).toBeInTheDocument()
     expect(await screen.findByText('Заправок не найдено.')).toBeInTheDocument()
 
-    await userEvent.type(screen.getByLabelText('Госномер'), '8')
+    await userEvent.clear(plateInput)
+    await userEvent.type(plateInput, 'А123ВС778')
 
     await waitFor(() => {
-      expect(screen.queryByText('Допуск разрешён')).not.toBeInTheDocument()
+      expect(screen.queryByText('Допуск разрешен')).not.toBeInTheDocument()
       expect(screen.queryByText('Заправок не найдено.')).not.toBeInTheDocument()
     })
 
@@ -273,33 +285,14 @@ describe('CreateReservationForm', () => {
     })
 
     await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
-    expect(await screen.findByText('Допуск разрешён')).toBeInTheDocument()
-
-    await userEvent.clear(screen.getByLabelText('Дата'))
-    await userEvent.type(screen.getByLabelText('Дата'), '2026-07-10')
-
-    await waitFor(() => {
-      expect(screen.queryByText('Допуск разрешён')).not.toBeInTheDocument()
-    })
-
-    mocks.checkVehicleAccess.mockResolvedValueOnce({
-      data: {
-        status: 'ALLOWED',
-        reason: 'ACTIVE_RESERVATION',
-        normalized_plate_number: 'А123ВС778',
-      },
-      error: null,
-    })
-
-    await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
-    expect(await screen.findByText('Допуск разрешён')).toBeInTheDocument()
+    expect(await screen.findByText('Допуск разрешен')).toBeInTheDocument()
 
     act(() => {
       useSelectedStation.setState({ selectedStationId: STATIONS[1].id })
     })
 
     await waitFor(() => {
-      expect(screen.queryByText('Допуск разрешён')).not.toBeInTheDocument()
+      expect(screen.queryByText('Допуск разрешен')).not.toBeInTheDocument()
     })
   })
 })

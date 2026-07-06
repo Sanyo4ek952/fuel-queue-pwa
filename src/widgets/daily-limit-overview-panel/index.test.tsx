@@ -5,7 +5,6 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  selectedStationId: 'station-id',
   useDailyLimitOverview: vi.fn(),
 }))
 
@@ -13,29 +12,18 @@ vi.mock('@/entities/daily-limit', () => ({
   useDailyLimitOverview: mocks.useDailyLimitOverview,
 }))
 
-vi.mock('@/features/select-station', () => ({
-  StationSelect: () => <div data-testid="station-select" />,
-  useSelectedStation: (selector: (state: { selectedStationId: string }) => string) =>
-    selector({ selectedStationId: mocks.selectedStationId }),
-}))
-
 import { DailyLimitOverviewPanel } from './index'
 
 describe('DailyLimitOverviewPanel', () => {
   beforeEach(() => {
-    mocks.selectedStationId = 'station-id'
     mocks.useDailyLimitOverview.mockReturnValue({
       data: {
         exists: false,
         id: null,
         date: '2026-07-05',
-        station_id: 'station-id',
+        station_id: null,
         status: null,
-        total_vehicle_limit: null,
-        max_liters_per_vehicle: null,
-        occupied_vehicle_count: 0,
-        remaining_vehicle_count: null,
-        fuel_type_overviews: [],
+        category_overviews: [],
         updated_at: null,
         source: 'online',
         is_estimated: false,
@@ -59,28 +47,29 @@ describe('DailyLimitOverviewPanel', () => {
     expect(screen.getByText('Лимит не создан')).toBeInTheDocument()
   })
 
-  it('renders a closed limit and filled fuel type', () => {
+  it('renders a category forecast', () => {
     mocks.useDailyLimitOverview.mockReturnValue({
       data: {
         exists: true,
         id: 'limit-id',
         date: '2026-07-05',
-        station_id: 'station-id',
+        station_id: null,
         status: 'CLOSED',
-        total_vehicle_limit: 5,
-        max_liters_per_vehicle: 50,
-        occupied_vehicle_count: 5,
-        remaining_vehicle_count: 0,
         updated_at: null,
-        fuel_type_overviews: [
+        category_overviews: [
           {
-            fuel_type: 'AI_95',
-            vehicle_limit: 5,
-            occupied_vehicle_count: 5,
-            remaining_vehicle_count: 0,
+            fuel_category: 'GASOLINE',
+            label: 'Бензин',
+            limit_mode: 'fuel_liters',
+            vehicle_limit: 0,
             liters_limit: 250,
-            reserved_liters: 250,
+            queue_count: 8,
+            queued_liters: 300,
+            covered_vehicle_count: 5,
+            covered_liters: 250,
+            remaining_vehicle_count: null,
             remaining_liters: 0,
+            projected_queue_number: 12,
           },
         ],
         source: 'online',
@@ -96,8 +85,10 @@ describe('DailyLimitOverviewPanel', () => {
     render(<DailyLimitOverviewPanel />)
 
     expect(screen.getByText('Закрыт')).toBeInTheDocument()
-    expect(screen.getByText('Лимит не открыт')).toBeInTheDocument()
-    expect(screen.getByText('АИ-95')).toBeInTheDocument()
+    expect(screen.getByText('Прогноз дня')).toBeInTheDocument()
+    expect(screen.getByText('Бензин')).toBeInTheDocument()
+    expect(screen.getByText('Хватит до №')).toBeInTheDocument()
+    expect(screen.getAllByText('12')[0]).toBeInTheDocument()
   })
 
   it('shows offline and estimated snapshot warnings', () => {
@@ -106,14 +97,10 @@ describe('DailyLimitOverviewPanel', () => {
         exists: true,
         id: 'limit-id',
         date: '2026-07-05',
-        station_id: 'station-id',
+        station_id: null,
         status: 'OPEN',
-        total_vehicle_limit: 10,
-        max_liters_per_vehicle: 50,
-        occupied_vehicle_count: 3,
-        remaining_vehicle_count: 7,
         updated_at: null,
-        fuel_type_overviews: [],
+        category_overviews: [],
         source: 'offline',
         is_estimated: true,
         unsynced_reservation_count: 1,
@@ -127,6 +114,6 @@ describe('DailyLimitOverviewPanel', () => {
     render(<DailyLimitOverviewPanel />)
 
     expect(screen.getByText('Offline snapshot')).toBeInTheDocument()
-    expect(screen.getByText('Оценочный остаток')).toBeInTheDocument()
+    expect(screen.getByText('Оценочный прогноз')).toBeInTheDocument()
   })
 })

@@ -5,7 +5,6 @@ import { createReservationSchema } from './schema'
 describe('createReservationSchema', () => {
   it('coerces requested liters', () => {
     const result = createReservationSchema.parse({
-      targetDate: '2026-07-06',
       plateNumber: 'a-123-bc-777',
       driverFullName: 'Иван Иванов',
       driverPhone: '',
@@ -20,7 +19,6 @@ describe('createReservationSchema', () => {
 
   it('rejects missing plate and driver', () => {
     const result = createReservationSchema.safeParse({
-      targetDate: '2026-07-06',
       plateNumber: '',
       driverFullName: '',
       fuelType: 'AI_95',
@@ -35,7 +33,6 @@ describe('createReservationSchema', () => {
     (plateNumber) => {
       expect(
         createReservationSchema.safeParse({
-          targetDate: '2026-07-06',
           plateNumber,
           driverFullName: 'Иван Иванов',
           fuelType: 'AI_95',

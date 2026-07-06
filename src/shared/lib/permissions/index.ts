@@ -7,6 +7,9 @@ const checkVehicleRoles = allRoles
 
 const createFuelingRecordRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier'])
 const stationManagerRoles = new Set<UserRole>(['mayor', 'station_manager'])
+const dailyLimitManagerRoles = new Set<UserRole>(['mayor'])
+const personalLiterLimitRoles = new Set<UserRole>(['mayor', 'mayor_assistant'])
+const limitRouteRoles = new Set<UserRole>(['mayor', 'station_manager', 'mayor_assistant'])
 const userManagerRoles = new Set<UserRole>(['mayor', 'station_manager'])
 
 const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
@@ -15,7 +18,7 @@ const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
   [ROUTES.queue]: createReservationRoles,
   [ROUTES.reservations]: createReservationRoles,
   [ROUTES.fueling]: createFuelingRecordRoles,
-  [ROUTES.limits]: stationManagerRoles,
+  [ROUTES.limits]: limitRouteRoles,
   [ROUTES.history]: allRoles,
   [ROUTES.reports]: allRoles,
   [ROUTES.users]: userManagerRoles,
@@ -34,7 +37,11 @@ export function canCreateFuelingRecord(role: UserRole) {
 }
 
 export function canCreateDailyLimit(role: UserRole) {
-  return stationManagerRoles.has(role)
+  return dailyLimitManagerRoles.has(role)
+}
+
+export function canCreatePersonalVehicleLiterLimit(role: UserRole) {
+  return personalLiterLimitRoles.has(role)
 }
 
 export function canCreateManualOverride(role: UserRole) {

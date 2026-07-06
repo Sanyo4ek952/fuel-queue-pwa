@@ -5,21 +5,21 @@ import { Controller, useForm } from 'react-hook-form'
 
 import { PlateNumberInput } from '@/entities/vehicle'
 import {
-  type CreateReservationFormInput,
-  type CreateReservationFormValues,
-  createReservationSchema,
-  useCreateReservation,
-} from '@/features/create-reservation'
-import {
   buildVehicleFuelingHistoryViewResult,
   useCheckVehicleAccess,
   useVehicleFuelingHistory,
   VehicleAccessResultView,
   VehicleFuelingHistoryPanel,
 } from '@/features/check-vehicle'
+import {
+  type CreateReservationFormInput,
+  type CreateReservationFormValues,
+  createReservationSchema,
+  useCreateReservation,
+} from '@/features/create-reservation'
 import { StationSelect, useSelectedStation } from '@/features/select-station'
-import { FUEL_TYPES, type FuelType } from '@/shared/constants'
-import { getTomorrowDateInputValue } from '@/shared/lib/date'
+import { QUEUE_FUEL_TYPES, type FuelType, type QueueFuelType } from '@/shared/constants'
+import { getTodayDateInputValue } from '@/shared/lib/date'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
@@ -57,7 +57,6 @@ export function CreateReservationForm() {
     resolver: zodResolver(createReservationSchema),
     mode: 'onBlur',
     defaultValues: {
-      targetDate: getTomorrowDateInputValue(),
       plateNumber: '',
       driverFullName: '',
       driverPhone: '',
@@ -67,21 +66,14 @@ export function CreateReservationForm() {
     },
   })
   const watchedPlateNumber = form.watch('plateNumber')
-  const watchedTargetDate = form.watch('targetDate')
 
   useEffect(() => {
     resetCheckVehicleAccess()
     setHistoryPlateNumber('')
-  }, [watchedPlateNumber, watchedTargetDate, selectedStationId, resetCheckVehicleAccess])
+  }, [watchedPlateNumber, selectedStationId, resetCheckVehicleAccess])
 
   async function handleSubmit(values: CreateReservationFormValues) {
-    if (!selectedStationId) {
-      return
-    }
-
     await createReservationMutation.mutateAsync({
-      targetDate: values.targetDate,
-      stationId: selectedStationId,
       plateNumber: values.plateNumber,
       driverFullName: values.driverFullName,
       driverPhone: values.driverPhone,
@@ -93,29 +85,24 @@ export function CreateReservationForm() {
   }
 
   async function handleCheckVehicle() {
-    const canCheck = await form.trigger(['targetDate', 'plateNumber'])
+    const canCheck = await form.trigger('plateNumber')
 
     if (!selectedStationId || !canCheck) {
       return
     }
 
-    const values = form.getValues()
-    const normalizedPlateNumber = normalizePlateNumber(values.plateNumber)
+    const normalizedPlateNumber = normalizePlateNumber(form.getValues('plateNumber'))
     setHistoryPlateNumber(normalizedPlateNumber)
 
     await checkVehicleAccessMutation.mutateAsync({
       plateNumber: normalizedPlateNumber,
       stationId: selectedStationId,
-      checkDate: values.targetDate,
+      checkDate: getTodayDateInputValue(),
     })
   }
 
-  const isSubmitDisabled = !selectedStationId || createReservationMutation.isPending
   const isCheckDisabled =
-    !selectedStationId ||
-    !watchedPlateNumber.trim() ||
-    !watchedTargetDate ||
-    checkVehicleAccessMutation.isPending
+    !selectedStationId || !watchedPlateNumber.trim() || checkVehicleAccessMutation.isPending
   const accessResult = checkVehicleAccessMutation.data
   const fuelingHistoryViewResult = buildVehicleFuelingHistoryViewResult(
     vehicleFuelingHistoryQuery.data,
@@ -128,57 +115,53 @@ export function CreateReservationForm() {
           <CalendarPlus className="size-5 text-slate-500" aria-hidden="true" />
           Предварительная запись
         </CardTitle>
-        <CardDescription>Дата по умолчанию открывается на завтра.</CardDescription>
+        <CardDescription>Добавление автомобиля в общую очередь.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
             <StationSelect />
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormItem>
-                <FormLabel htmlFor="targetDate">Дата</FormLabel>
-                <Input id="targetDate" type="date" {...form.register('targetDate')} />
-                {form.formState.errors.targetDate ? (
-                  <FormMessage>{form.formState.errors.targetDate.message}</FormMessage>
-                ) : null}
-              </FormItem>
-              <FormItem>
-                <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
-                <div className="flex gap-2">
-                  <Controller
-                    control={form.control}
-                    name="plateNumber"
-                    render={({ field }) => (
-                      <PlateNumberInput
-                        id="plateNumber"
-                        className="uppercase"
-                        value={field.value}
-                        onChange={field.onChange}
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        ref={field.ref}
-                      />
-                    )}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="shrink-0 gap-2"
-                    disabled={isCheckDisabled}
-                    onClick={() => {
-                      void handleCheckVehicle()
-                    }}
-                  >
-                    <Search className="size-4" aria-hidden="true" />
-                    {checkVehicleAccessMutation.isPending ? 'Проверяем...' : 'Проверить'}
-                  </Button>
-                </div>
-                {form.formState.errors.plateNumber ? (
-                  <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>
-                ) : null}
-              </FormItem>
-            </div>
+            <FormItem>
+              <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Controller
+                  control={form.control}
+                  name="plateNumber"
+                  render={({ field }) => (
+                    <PlateNumberInput
+                      id="plateNumber"
+                      className="uppercase"
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                    />
+                  )}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 shrink-0 gap-2"
+                  disabled={isCheckDisabled}
+                  onClick={() => {
+                    void handleCheckVehicle()
+                  }}
+                >
+                  <Search className="size-4" aria-hidden="true" />
+                  {checkVehicleAccessMutation.isPending ? 'Проверяем...' : 'Проверить'}
+                </Button>
+              </div>
+              {form.formState.errors.plateNumber ? (
+                <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>
+              ) : null}
+              {!selectedStationId ? (
+                <p className="text-sm text-slate-500">
+                  Выберите АЗС только для проверки допуска. Запись останется в общей очереди.
+                </p>
+              ) : null}
+            </FormItem>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FormItem>
@@ -208,14 +191,14 @@ export function CreateReservationForm() {
                 <Select
                   value={form.watch('fuelType')}
                   onValueChange={(value) =>
-                    form.setValue('fuelType', value as FuelType, { shouldValidate: true })
+                    form.setValue('fuelType', value as QueueFuelType, { shouldValidate: true })
                   }
                 >
                   <SelectTrigger id="fuelType" className="h-10 w-full bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper" align="start">
-                    {FUEL_TYPES.map((fuelType) => (
+                    {QUEUE_FUEL_TYPES.map((fuelType) => (
                       <SelectItem key={fuelType} value={fuelType}>
                         {fuelTypeLabels[fuelType]}
                       </SelectItem>
@@ -250,11 +233,11 @@ export function CreateReservationForm() {
               ) : null}
             </FormItem>
 
-            {!selectedStationId ? (
-              <p className="text-sm text-slate-500">Выберите АЗС перед созданием записи.</p>
-            ) : null}
-
-            <Button type="submit" className="h-11 w-full gap-2" disabled={isSubmitDisabled}>
+            <Button
+              type="submit"
+              className="h-11 w-full gap-2"
+              disabled={createReservationMutation.isPending}
+            >
               <Ticket className="size-4" aria-hidden="true" />
               {createReservationMutation.isPending ? 'Записываем...' : 'Создать запись'}
             </Button>

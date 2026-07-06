@@ -4,15 +4,26 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   getDailyLimitOverview,
-  type DailyLimitFuelTypeOverview,
+  type DailyLimitCategoryOverview,
   type DailyLimitOverview,
 } from '@/shared/api/rpc'
-import { FUEL_TYPES, type FuelType } from '@/shared/constants'
+import {
+  FUEL_QUEUE_CATEGORIES,
+  getFuelQueueCategory,
+  type DailyLimitMode,
+  type FuelQueueCategory,
+} from '@/shared/constants'
 import { offlineDb, type LocalDailyLimit, type LocalReservation } from '@/shared/lib/offline-db'
 import { useOnlineStatus } from '@/shared/lib/sync'
 
 const activeReservationStatuses = new Set(['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'])
 const unsyncedStatuses = new Set(['PENDING', 'SYNCING', 'FAILED', 'CONFLICT'])
+
+const categoryLabels: Record<FuelQueueCategory, string> = {
+  GASOLINE: 'Бензин',
+  DIESEL: 'Дизель',
+  GAS: 'Газ',
+}
 
 export type DailyLimitOverviewSource = 'online' | 'offline'
 
@@ -22,28 +33,24 @@ export type DailyLimitOverviewResult = DailyLimitOverview & {
   unsynced_reservation_count: number
 }
 
-export const dailyLimitOverviewQueryKey = (stationId: string, date: string) =>
-  ['daily-limit-overview', stationId, date] as const
+export const dailyLimitOverviewQueryKey = (date: string) =>
+  ['daily-limit-overview', date] as const
 
 function toNumber(value: unknown) {
   return typeof value === 'number' ? value : Number(value)
 }
 
 function toLocalDailyLimit(overview: DailyLimitOverview): LocalDailyLimit | null {
-  if (!overview.exists || !overview.id || !overview.status || overview.max_liters_per_vehicle == null) {
+  if (!overview.exists || !overview.id || !overview.status) {
     return null
   }
 
   return {
     id: overview.id,
-    station_id: overview.station_id,
+    station_id: null,
     date: overview.date,
     status: overview.status,
-    total_vehicle_limit: overview.total_vehicle_limit,
-    max_liters_per_vehicle: overview.max_liters_per_vehicle,
-    occupied_vehicle_count: overview.occupied_vehicle_count,
-    remaining_vehicle_count: overview.remaining_vehicle_count,
-    fuel_type_overviews: overview.fuel_type_overviews,
+    category_overviews: overview.category_overviews,
     cached_at: new Date().toISOString(),
     updated_at: overview.updated_at ?? undefined,
   }
@@ -54,37 +61,34 @@ function fromLocalDailyLimit(row: LocalDailyLimit): DailyLimitOverview {
     exists: true,
     id: row.id,
     date: row.date,
-    station_id: row.station_id,
+    station_id: row.station_id ?? null,
     status: row.status as DailyLimitOverview['status'],
-    total_vehicle_limit: row.total_vehicle_limit ?? null,
-    max_liters_per_vehicle: row.max_liters_per_vehicle,
-    occupied_vehicle_count: row.occupied_vehicle_count ?? 0,
-    remaining_vehicle_count: row.remaining_vehicle_count ?? null,
-    fuel_type_overviews: (row.fuel_type_overviews ?? []).map((item) => ({
-      fuel_type: item.fuel_type as FuelType,
+    category_overviews: (row.category_overviews ?? []).map((item) => ({
+      fuel_category: item.fuel_category as FuelQueueCategory,
+      label: item.label,
+      limit_mode: item.limit_mode as DailyLimitMode,
       vehicle_limit: item.vehicle_limit,
-      occupied_vehicle_count: item.occupied_vehicle_count,
-      remaining_vehicle_count: item.remaining_vehicle_count,
       liters_limit: item.liters_limit,
-      reserved_liters: item.reserved_liters,
+      queue_count: item.queue_count,
+      queued_liters: item.queued_liters,
+      covered_vehicle_count: item.covered_vehicle_count,
+      covered_liters: item.covered_liters,
+      remaining_vehicle_count: item.remaining_vehicle_count,
       remaining_liters: item.remaining_liters,
+      projected_queue_number: item.projected_queue_number,
     })),
     updated_at: row.updated_at ?? row.cached_at ?? null,
   }
 }
 
-function makeMissingOverview(stationId: string, date: string): DailyLimitOverview {
+function makeMissingOverview(date: string): DailyLimitOverview {
   return {
     exists: false,
     id: null,
     date,
-    station_id: stationId,
+    station_id: null,
     status: null,
-    total_vehicle_limit: null,
-    max_liters_per_vehicle: null,
-    occupied_vehicle_count: 0,
-    remaining_vehicle_count: null,
-    fuel_type_overviews: [],
+    category_overviews: [],
     updated_at: null,
   }
 }
@@ -98,15 +102,20 @@ function getUnsyncedActiveReservations(rows: LocalReservation[]) {
   )
 }
 
-function makeEmptyFuelTypeOverview(fuelType: FuelType): DailyLimitFuelTypeOverview {
+function makeEmptyCategoryOverview(fuelCategory: FuelQueueCategory): DailyLimitCategoryOverview {
   return {
-    fuel_type: fuelType,
+    fuel_category: fuelCategory,
+    label: categoryLabels[fuelCategory],
+    limit_mode: 'vehicle_count',
     vehicle_limit: 0,
-    occupied_vehicle_count: 0,
-    remaining_vehicle_count: 0,
     liters_limit: null,
-    reserved_liters: 0,
+    queue_count: 0,
+    queued_liters: 0,
+    covered_vehicle_count: 0,
+    covered_liters: 0,
+    remaining_vehicle_count: 0,
     remaining_liters: null,
+    projected_queue_number: null,
   }
 }
 
@@ -126,34 +135,58 @@ export function applyUnsyncedReservationEstimate(
     }
   }
 
-  const fuelTypeOverviewsByType = new Map(
-    overview.fuel_type_overviews.map((item) => [item.fuel_type, { ...item }]),
+  const overviewsByCategory = new Map(
+    overview.category_overviews.map((item) => [item.fuel_category, { ...item }]),
   )
 
   for (const reservation of unsyncedReservations) {
-    const fuelType = reservation.fuel_type as FuelType
-    const item = fuelTypeOverviewsByType.get(fuelType) ?? makeEmptyFuelTypeOverview(fuelType)
+    const fuelCategory = getFuelQueueCategory(reservation.fuel_type)
+
+    if (!fuelCategory) {
+      continue
+    }
+
+    const item =
+      overviewsByCategory.get(fuelCategory) ?? makeEmptyCategoryOverview(fuelCategory)
     const requestedLiters = toNumber(reservation.requested_liters)
 
-    item.occupied_vehicle_count += 1
-    item.remaining_vehicle_count = Math.max(item.vehicle_limit - item.occupied_vehicle_count, 0)
-    item.reserved_liters += requestedLiters
-    item.remaining_liters =
-      item.liters_limit == null ? null : Math.max(item.liters_limit - item.reserved_liters, 0)
-    fuelTypeOverviewsByType.set(fuelType, item)
-  }
+    item.queue_count += 1
+    item.queued_liters += requestedLiters
 
-  const occupiedVehicleCount = overview.occupied_vehicle_count + unsyncedReservations.length
+    if (item.limit_mode === 'vehicle_count') {
+      if (item.covered_vehicle_count < item.vehicle_limit) {
+        item.covered_vehicle_count += 1
+        item.covered_liters += requestedLiters
+        item.projected_queue_number = Math.max(
+          item.projected_queue_number ?? 0,
+          reservation.queue_number,
+        )
+      }
+
+      item.remaining_vehicle_count = Math.max(item.vehicle_limit - item.covered_vehicle_count, 0)
+    } else {
+      const nextLiters = item.covered_liters + requestedLiters
+
+      if (item.liters_limit != null && nextLiters <= item.liters_limit) {
+        item.covered_vehicle_count += 1
+        item.covered_liters = nextLiters
+        item.projected_queue_number = Math.max(
+          item.projected_queue_number ?? 0,
+          reservation.queue_number,
+        )
+      }
+
+      item.remaining_liters =
+        item.liters_limit == null ? null : Math.max(item.liters_limit - item.covered_liters, 0)
+    }
+
+    overviewsByCategory.set(fuelCategory, item)
+  }
 
   return {
     ...overview,
-    occupied_vehicle_count: occupiedVehicleCount,
-    remaining_vehicle_count:
-      overview.total_vehicle_limit == null
-        ? null
-        : Math.max(overview.total_vehicle_limit - occupiedVehicleCount, 0),
-    fuel_type_overviews: FUEL_TYPES.map(
-      (fuelType) => fuelTypeOverviewsByType.get(fuelType) ?? makeEmptyFuelTypeOverview(fuelType),
+    category_overviews: FUEL_QUEUE_CATEGORIES.map(
+      (fuelCategory) => overviewsByCategory.get(fuelCategory) ?? makeEmptyCategoryOverview(fuelCategory),
     ),
     source,
     is_estimated: true,
@@ -171,13 +204,13 @@ async function cacheDailyLimitOverview(overview: DailyLimitOverview) {
   await offlineDb.local_daily_limits.put(localDailyLimit)
 }
 
-export function useDailyLimitOverview({ stationId, date }: { stationId: string; date: string }) {
+export function useDailyLimitOverview({ date }: { date: string }) {
   const isOnline = useOnlineStatus()
   const [localOverview, setLocalOverview] = useState<DailyLimitOverview | null>(null)
   const [localReservations, setLocalReservations] = useState<LocalReservation[]>([])
   const [localError, setLocalError] = useState<Error | null>(null)
   const [isLocalReady, setIsLocalReady] = useState(false)
-  const enabled = Boolean(stationId && date)
+  const enabled = Boolean(date)
 
   useEffect(() => {
     if (!enabled) {
@@ -189,8 +222,8 @@ export function useDailyLimitOverview({ stationId, date }: { stationId: string; 
 
     const subscription = liveQuery(async () => {
       const [dailyLimit, reservations] = await Promise.all([
-        offlineDb.local_daily_limits.where('[station_id+date]').equals([stationId, date]).first(),
-        offlineDb.local_reservations.where('[station_id+date]').equals([stationId, date]).toArray(),
+        offlineDb.local_daily_limits.where('date').equals(date).first(),
+        offlineDb.local_reservations.toArray(),
       ])
 
       return {
@@ -215,13 +248,13 @@ export function useDailyLimitOverview({ stationId, date }: { stationId: string; 
     })
 
     return () => subscription.unsubscribe()
-  }, [date, enabled, stationId])
+  }, [date, enabled])
 
   const onlineQuery = useQuery({
-    queryKey: dailyLimitOverviewQueryKey(stationId, date),
+    queryKey: dailyLimitOverviewQueryKey(date),
     enabled: enabled && isOnline,
     queryFn: async () => {
-      const result = await getDailyLimitOverview({ stationId, date })
+      const result = await getDailyLimitOverview({ date })
 
       if (result.error || !result.data) {
         throw new Error(result.error ?? 'Не удалось загрузить обзор лимита.')
@@ -241,9 +274,9 @@ export function useDailyLimitOverview({ stationId, date }: { stationId: string; 
       return applyUnsyncedReservationEstimate(onlineQuery.data, localReservations, 'online')
     }
 
-    const overview = localOverview ?? makeMissingOverview(stationId, date)
+    const overview = localOverview ?? makeMissingOverview(date)
     return applyUnsyncedReservationEstimate(overview, localReservations, 'offline')
-  }, [date, enabled, isOnline, localOverview, localReservations, onlineQuery.data, stationId])
+  }, [date, enabled, isOnline, localOverview, localReservations, onlineQuery.data])
 
   return {
     data,

@@ -7,8 +7,6 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { STATIONS, useSelectedStation } from '@/features/select-station'
-
 import { CreateDailyLimitForm } from './create-daily-limit-form'
 
 const mocks = vi.hoisted(() => ({
@@ -36,8 +34,6 @@ function renderWithQueryClient(children: ReactNode) {
 
 describe('CreateDailyLimitForm', () => {
   beforeEach(() => {
-    localStorage.clear()
-    useSelectedStation.setState({ selectedStationId: '' })
     mocks.createDailyLimit.mockReset()
   })
 
@@ -46,25 +42,24 @@ describe('CreateDailyLimitForm', () => {
     vi.clearAllMocks()
   })
 
-  it('disables submit until a station is selected', () => {
+  it('renders the three fuel category limits', () => {
     renderWithQueryClient(<CreateDailyLimitForm />)
 
-    expect(screen.getByRole('button', { name: /сохранить лимит/i })).toBeDisabled()
-    expect(screen.getByText('Выберите АЗС перед созданием лимита.')).toBeInTheDocument()
+    expect(screen.getByText('Бензин')).toBeInTheDocument()
+    expect(screen.getByText('Дизель')).toBeInTheDocument()
+    expect(screen.getByText('Газ')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /сохранить лимит/i })).toBeEnabled()
   })
 
-  it('submits default limit values for the selected station', async () => {
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
+  it('submits default category limit values', async () => {
     mocks.createDailyLimit.mockResolvedValue({
       data: {
         id: 'limit-id',
         date: '2026-07-05',
-        station_id: STATIONS[0].id,
-        total_vehicle_limit: 100,
-        max_liters_per_vehicle: 50,
+        station_id: null,
         status: 'OPEN',
         client_mutation_id: 'mutation-id',
-        fuel_type_limits: [],
+        category_limits: [],
       },
       error: null,
     })
@@ -75,9 +70,23 @@ describe('CreateDailyLimitForm', () => {
     await waitFor(() => {
       expect(mocks.createDailyLimit).toHaveBeenCalledWith(
         expect.objectContaining({
-          stationId: STATIONS[0].id,
-          totalVehicleLimit: 100,
-          maxLitersPerVehicle: 50,
+          categoryLimits: [
+            expect.objectContaining({
+              fuelCategory: 'GASOLINE',
+              limitMode: 'fuel_liters',
+              litersLimit: 400,
+            }),
+            expect.objectContaining({
+              fuelCategory: 'DIESEL',
+              limitMode: 'fuel_liters',
+              litersLimit: 400,
+            }),
+            expect.objectContaining({
+              fuelCategory: 'GAS',
+              limitMode: 'fuel_liters',
+              litersLimit: 400,
+            }),
+          ],
         }),
       )
     })

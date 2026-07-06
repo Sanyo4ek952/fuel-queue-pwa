@@ -21,8 +21,8 @@ type RelatedProfile = {
 
 type ReservationRow = {
   id: string
-  date: string
-  station_id: string
+  date?: string | null
+  station_id?: string | null
   vehicle_id: string
   driver_id?: string | null
   operator_id: string
@@ -42,8 +42,8 @@ type ReservationRow = {
 
 export type TodayQueueRow = {
   id: string
-  date: string
-  station_id: string
+  date: string | null
+  station_id: string | null
   vehicle_id: string
   driver_id: string | null
   created_by_profile_id: string | null
@@ -79,8 +79,8 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
 
   return {
     id: row.id,
-    date: row.date,
-    station_id: row.station_id,
+    date: row.date ?? null,
+    station_id: row.station_id ?? null,
     vehicle_id: row.vehicle_id,
     driver_id: row.driver_id ?? null,
     created_by_profile_id: row.operator_id,
@@ -105,8 +105,8 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
 export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
   return {
     id: row.id,
-    date: row.date,
-    station_id: row.station_id,
+    date: row.date ?? null,
+    station_id: row.station_id ?? null,
     vehicle_id: row.vehicle_id,
     driver_id: row.driver_id ?? null,
     created_by_profile_id: row.created_by_profile_id ?? null,
@@ -128,13 +128,7 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
   }
 }
 
-export async function listTodayQueueRows({
-  stationId,
-  date,
-}: {
-  stationId: string
-  date: string
-}) {
+export async function listTodayQueueRows() {
   if (!isSupabaseConfigured) {
     throw new Error('Supabase is not configured.')
   }
@@ -144,8 +138,7 @@ export async function listTodayQueueRows({
     .select(
       'id,date,station_id,vehicle_id,driver_id,operator_id,fuel_type,requested_liters,queue_number,status,comment,client_mutation_id,sync_status,created_at,updated_at,vehicles(normalized_plate_number),drivers(full_name,phone),operator:profiles!fuel_reservations_operator_id_fkey(full_name,role,signature_name)',
     )
-    .eq('station_id', stationId)
-    .eq('date', date)
+    .in('status', ['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'])
     .order('queue_number', { ascending: true })
 
   if (error) {

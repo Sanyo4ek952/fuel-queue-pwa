@@ -3,15 +3,13 @@ export type VehicleAccessStatus = 'ALLOWED' | 'BLOCKED' | 'WARNING'
 export type VehicleAccessReason =
   | 'ACTIVE_RESERVATION'
   | 'ALREADY_FUELED'
-  | 'DAILY_LIMIT_NOT_OPEN'
   | 'INVALID_PLATE_NUMBER'
-  | 'LITERS_LIMIT_EXCEEDED'
   | 'MANUAL_OVERRIDE_ACTIVE'
+  | 'NO_GLOBAL_DAILY_LIMIT'
   | 'NO_ACTIVE_RESERVATION'
-  | 'NO_DAILY_LIMIT'
   | 'OFFLINE_UNCONFIRMED'
+  | 'OUTSIDE_TODAY_LIMIT'
   | 'PROFILE_NOT_FOUND'
-  | 'RESERVATION_AT_OTHER_STATION'
   | 'STATION_ACCESS_DENIED'
   | 'VEHICLE_BLOCKED'
   | 'RPC_ERROR'
@@ -29,7 +27,11 @@ export type VehicleAccessResult = {
   daily_limit_status?: string
   queue_number?: number
   fuel_type?: string
+  fuel_category?: string
   requested_liters?: number
+  effective_liters?: number
+  category_position?: number
+  category_liters?: number
   max_liters_per_vehicle?: number
   manual_override_id?: string
   block_reason?: string | null

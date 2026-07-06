@@ -5,7 +5,6 @@ import { Controller, useForm } from 'react-hook-form'
 
 import { PlateNumberInput } from '@/entities/vehicle'
 import {
-  type VehicleAccessReason,
   type VehicleAccessResult,
   useCheckVehicleAccess,
 } from '@/features/check-vehicle'
@@ -42,16 +41,18 @@ const fuelTypeLabels: Record<FuelType, string> = {
   OTHER: 'Другое',
 }
 
-const reasonLabels: Record<VehicleAccessReason, string> = {
+const reasonLabels: Record<string, string> = {
   ACTIVE_RESERVATION: 'Есть активная запись на выбранную АЗС.',
   ALREADY_FUELED: 'Автомобиль уже заправлялся сегодня.',
   DAILY_LIMIT_NOT_OPEN: 'Лимит на выбранную дату не открыт.',
   INVALID_PLATE_NUMBER: 'Госномер не распознан.',
   LITERS_LIMIT_EXCEEDED: 'Запрошенный объём превышает лимит.',
   MANUAL_OVERRIDE_ACTIVE: 'Действует ручное разрешение.',
+  NO_GLOBAL_DAILY_LIMIT: 'На сегодня не задан общий лимит топлива.',
   NO_ACTIVE_RESERVATION: 'Нет активной записи на сегодня.',
   NO_DAILY_LIMIT: 'На сегодня не задан лимит по выбранной АЗС.',
   OFFLINE_UNCONFIRMED: 'Offline-решение требует серверной перепроверки.',
+  OUTSIDE_TODAY_LIMIT: 'Автомобиль не попадает в сегодняшний лимит своей очереди.',
   PROFILE_NOT_FOUND: 'Профиль пользователя не найден.',
   RESERVATION_AT_OTHER_STATION: 'Запись найдена на другой АЗС.',
   RPC_ERROR: 'Не удалось выполнить серверную проверку.',

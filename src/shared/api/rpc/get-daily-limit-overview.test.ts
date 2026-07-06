@@ -15,35 +15,36 @@ describe('parseDailyLimitOverview', () => {
         exists: true,
         id: 'limit-id',
         date: '2026-07-05',
-        station_id: 'station-id',
+        station_id: null,
         status: 'OPEN',
-        total_vehicle_limit: '100',
-        max_liters_per_vehicle: '50.5',
-        occupied_vehicle_count: 12,
-        remaining_vehicle_count: 88,
         updated_at: '2026-07-05T10:00:00.000Z',
-        fuel_type_overviews: [
+        category_overviews: [
           {
-            fuel_type: 'AI_95',
-            vehicle_limit: '30',
-            occupied_vehicle_count: '10',
-            remaining_vehicle_count: '20',
+            fuel_category: 'GASOLINE',
+            label: 'Бензин',
+            limit_mode: 'fuel_liters',
+            vehicle_limit: '0',
             liters_limit: '1500.5',
-            reserved_liters: '420.25',
-            remaining_liters: '1080.25',
+            queue_count: '12',
+            queued_liters: '420.25',
+            covered_vehicle_count: '10',
+            covered_liters: '400.25',
+            remaining_vehicle_count: null,
+            remaining_liters: '1100.25',
+            projected_queue_number: '12',
           },
         ],
       }),
     ).toMatchObject({
       exists: true,
       id: 'limit-id',
-      total_vehicle_limit: 100,
-      max_liters_per_vehicle: 50.5,
-      fuel_type_overviews: [
+      category_overviews: [
         {
-          fuel_type: 'AI_95',
-          vehicle_limit: 30,
-          reserved_liters: 420.25,
+          fuel_category: 'GASOLINE',
+          limit_mode: 'fuel_liters',
+          liters_limit: 1500.5,
+          queued_liters: 420.25,
+          projected_queue_number: 12,
         },
       ],
     })
@@ -54,20 +55,15 @@ describe('parseDailyLimitOverview', () => {
       parseDailyLimitOverview({
         exists: false,
         date: '2026-07-05',
-        station_id: 'station-id',
         status: null,
-        total_vehicle_limit: null,
-        max_liters_per_vehicle: null,
-        occupied_vehicle_count: 0,
-        remaining_vehicle_count: null,
-        fuel_type_overviews: [],
+        category_overviews: [],
         updated_at: null,
       }),
     ).toMatchObject({
       exists: false,
       id: null,
       status: null,
-      fuel_type_overviews: [],
+      category_overviews: [],
     })
   })
 
