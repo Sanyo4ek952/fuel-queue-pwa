@@ -12,6 +12,8 @@ import { getTodayDateInputValue } from '@/shared/lib/date'
 
 import { CreateReservationForm } from './create-reservation-form'
 
+const duplicateQueueMessageText = 'Автомобиль уже есть в очереди. Повторная запись запрещена.'
+
 const mocks = vi.hoisted(() => ({
   onlineStatus: { value: true },
   createReservation: vi.fn(),
@@ -187,7 +189,7 @@ describe('CreateReservationForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /создать запись/i }))
 
     expect(
-      await screen.findByText('Автомобиль уже есть в очереди. Повторная запись запрещена.'),
+      await screen.findByText(duplicateQueueMessageText),
     ).toBeInTheDocument()
     expect(screen.queryByText('Запись создана')).not.toBeInTheDocument()
     expect(mocks.createOfflineReservation).not.toHaveBeenCalled()
@@ -249,8 +251,13 @@ describe('CreateReservationForm', () => {
         checkDate: getTodayDateInputValue(),
       })
     })
-    expect(await screen.findByText('Допуск разрешен')).toBeInTheDocument()
-    expect(screen.getByText('Допуск разрешен').compareDocumentPosition(screen.getByLabelText('Водитель'))).toBe(
+    const duplicateQueueMessage = await screen.findByText(
+      duplicateQueueMessageText,
+    )
+    expect(duplicateQueueMessage).toBeInTheDocument()
+    expect(screen.queryByText('Допуск разрешен')).not.toBeInTheDocument()
+    expect(duplicateQueueMessage.closest('.border-red-200')).toBeInTheDocument()
+    expect(duplicateQueueMessage.compareDocumentPosition(screen.getByLabelText('Водитель'))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
     expect(mocks.getVehicleFuelingHistory).not.toHaveBeenCalled()
@@ -271,7 +278,7 @@ describe('CreateReservationForm', () => {
     mocks.checkVehicleAccess.mockResolvedValue({
       data: {
         status: 'ALLOWED',
-        reason: 'ACTIVE_RESERVATION',
+        reason: 'MANUAL_OVERRIDE_ACTIVE',
         normalized_plate_number: 'А123ВС777',
       },
       error: null,
@@ -373,7 +380,7 @@ describe('CreateReservationForm', () => {
     mocks.checkVehicleAccess.mockResolvedValue({
       data: {
         status: 'ALLOWED',
-        reason: 'ACTIVE_RESERVATION',
+        reason: 'MANUAL_OVERRIDE_ACTIVE',
         normalized_plate_number: 'А123ВС777',
       },
       error: null,
@@ -418,7 +425,7 @@ describe('CreateReservationForm', () => {
     mocks.checkVehicleAccess.mockResolvedValueOnce({
       data: {
         status: 'ALLOWED',
-        reason: 'ACTIVE_RESERVATION',
+        reason: 'MANUAL_OVERRIDE_ACTIVE',
         normalized_plate_number: 'А123ВС778',
       },
       error: null,

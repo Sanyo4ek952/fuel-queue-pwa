@@ -47,6 +47,12 @@ const fuelTypeLabels: Record<FuelType, string> = {
 
 const HISTORY_ACCORDION_VALUE = 'fueling-history'
 const RESERVATION_HISTORY_PAGE_SIZE = 5
+const reservationCheckReasonLabelOverrides = {
+  ACTIVE_RESERVATION: 'Автомобиль уже есть в очереди. Повторная запись запрещена.',
+} as const
+const reservationCheckBlockedReasonOverrides = {
+  ACTIVE_RESERVATION: 'Автомобиль уже есть в очереди. Повторная запись запрещена.',
+} as const
 
 export function CreateReservationForm() {
   const currentProfileQuery = useCurrentProfile()
@@ -187,7 +193,13 @@ export function CreateReservationForm() {
               ) : null}
             </FormItem>
 
-            {accessResult ? <VehicleAccessResultView result={accessResult} /> : null}
+            {accessResult ? (
+              <VehicleAccessResultView
+                result={accessResult}
+                blockedReasonOverrides={reservationCheckBlockedReasonOverrides}
+                reasonLabelOverrides={reservationCheckReasonLabelOverrides}
+              />
+            ) : null}
 
             {historyPlateNumber ? (
               <VehicleFuelingHistoryAccordion

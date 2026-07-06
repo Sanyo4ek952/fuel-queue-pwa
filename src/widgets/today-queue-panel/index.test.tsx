@@ -60,6 +60,19 @@ function makeQueueRow(overrides: Partial<TodayQueueRow>): TodayQueueRow {
   }
 }
 
+function makeGasolineQueueRows(count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const number = index + 1
+
+    return makeQueueRow({
+      id: `gasoline-row-${number}`,
+      created_by_profile_id: `profile-${number}`,
+      queue_number: number,
+      normalized_plate_number: `QUEUE-${String(number).padStart(3, '0')}`,
+    })
+  })
+}
+
 describe('TodayQueuePanel', () => {
   beforeEach(() => {
     mocks.useTodayQueue.mockReturnValue({
@@ -257,6 +270,83 @@ describe('TodayQueuePanel', () => {
     expect(
       within(secondRow as HTMLElement).queryByText('3'),
     ).not.toBeInTheDocument()
+  })
+
+  it('shows only the first ten rows in a category before loading more', () => {
+    mocks.useTodayQueue.mockReturnValue({
+      rows: makeGasolineQueueRows(11),
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    expect(screen.getByText('QUEUE-010')).toBeInTheDocument()
+    expect(screen.queryByText('QUEUE-011')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Показать еще' }),
+    ).toBeInTheDocument()
+  })
+
+  it('loads the next ten category rows after clicking show more', async () => {
+    mocks.useTodayQueue.mockReturnValue({
+      rows: makeGasolineQueueRows(11),
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Показать еще' }))
+
+    expect(screen.getByText('QUEUE-011')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Показать еще' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('hides the show more button when a category has ten rows or fewer', () => {
+    mocks.useTodayQueue.mockReturnValue({
+      rows: makeGasolineQueueRows(10),
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    expect(screen.getByText('QUEUE-010')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Показать еще' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('resets visible category rows after applying a filter', async () => {
+    mocks.useTodayQueue.mockReturnValue({
+      rows: makeGasolineQueueRows(12),
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Показать еще' }))
+
+    expect(screen.getByText('QUEUE-012')).toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText('Поиск по госномеру'), '0')
+
+    expect(screen.queryByText('QUEUE-012')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Показать еще' }),
+    ).toBeInTheDocument()
   })
 
   it('shows an empty state when filters match no rows', async () => {

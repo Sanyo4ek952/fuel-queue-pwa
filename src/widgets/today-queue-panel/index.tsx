@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { CloudOff, ListChecks, Phone } from 'lucide-react'
 
@@ -52,10 +52,19 @@ const categoryLabels: Record<FuelQueueCategory, string> = {
 
 const categoryOrder: FuelQueueCategory[] = ['GASOLINE', 'DIESEL', 'GAS']
 const ALL_AUTHORS_FILTER = 'all'
+const QUEUE_PAGE_SIZE = 10
 
 type QueueAuthorOption = {
   value: string
   label: string
+}
+
+function getInitialVisibleCountByCategory(): Record<FuelQueueCategory, number> {
+  return {
+    GASOLINE: QUEUE_PAGE_SIZE,
+    DIESEL: QUEUE_PAGE_SIZE,
+    GAS: QUEUE_PAGE_SIZE,
+  }
 }
 
 function SummaryTile({ label, value }: { label: string; value: number }) {
@@ -232,6 +241,9 @@ function QueueRowCard({
 export function TodayQueuePanel() {
   const [plateSearch, setPlateSearch] = useState('')
   const [authorFilter, setAuthorFilter] = useState(ALL_AUTHORS_FILTER)
+  const [visibleCountByCategory, setVisibleCountByCategory] = useState(
+    getInitialVisibleCountByCategory,
+  )
   const queue = useTodayQueue()
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
   const authorOptions = useMemo(
@@ -261,6 +273,17 @@ export function TodayQueuePanel() {
   }))
   const hasActiveFilters =
     normalizedPlateSearch.length > 0 || authorFilter !== ALL_AUTHORS_FILTER
+
+  useEffect(() => {
+    setVisibleCountByCategory(getInitialVisibleCountByCategory())
+  }, [authorFilter, normalizedPlateSearch])
+
+  function showMoreRows(fuelCategory: FuelQueueCategory) {
+    setVisibleCountByCategory((current) => ({
+      ...current,
+      [fuelCategory]: current[fuelCategory] + QUEUE_PAGE_SIZE,
+    }))
+  }
 
   return (
     <div className="space-y-4">
@@ -370,27 +393,45 @@ export function TodayQueuePanel() {
               </TabsTrigger>
             ))}
           </TabsList>
-          {rowsByCategory.map(({ fuelCategory, rows }) => (
-            <TabsContent
-              key={fuelCategory}
-              value={fuelCategory}
-              className="space-y-3"
-            >
-              {rows.length > 0 ? (
-                rows.map((row, index) => (
-                  <QueueRowCard
-                    key={row.id}
-                    row={row}
-                    displayNumber={index + 1}
-                  />
-                ))
-              ) : (
-                <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-                  В этой очереди нет активных записей.
-                </div>
-              )}
-            </TabsContent>
-          ))}
+          {rowsByCategory.map(({ fuelCategory, rows }) => {
+            const visibleCount = visibleCountByCategory[fuelCategory]
+            const visibleRows = rows.slice(0, visibleCount)
+            const hasMoreRows = rows.length > visibleCount
+
+            return (
+              <TabsContent
+                key={fuelCategory}
+                value={fuelCategory}
+                className="space-y-3"
+              >
+                {rows.length > 0 ? (
+                  <>
+                    {visibleRows.map((row, index) => (
+                      <QueueRowCard
+                        key={row.id}
+                        row={row}
+                        displayNumber={index + 1}
+                      />
+                    ))}
+                    {hasMoreRows ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => showMoreRows(fuelCategory)}
+                      >
+                        Показать еще
+                      </Button>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
+                    В этой очереди нет активных записей.
+                  </div>
+                )}
+              </TabsContent>
+            )
+          })}
         </Tabs>
       ) : null}
     </div>

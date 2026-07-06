@@ -49,10 +49,29 @@ function getResultTone(result: VehicleAccessResult) {
   }
 }
 
-export function VehicleAccessResultView({ result }: { result: VehicleAccessResult }) {
-  const { Icon, title, className } = getResultTone(result)
+type VehicleAccessResultViewProps = {
+  result: VehicleAccessResult
+  reasonLabelOverrides?: Partial<Record<VehicleAccessReason, string>>
+  blockedReasonOverrides?: Partial<Record<VehicleAccessReason, string>>
+}
+
+export function VehicleAccessResultView({
+  result,
+  reasonLabelOverrides,
+  blockedReasonOverrides,
+}: VehicleAccessResultViewProps) {
+  const blockedTitle = blockedReasonOverrides?.[result.reason]
+  const { Icon, title, className } = blockedTitle
+    ? {
+        Icon: XCircle,
+        title: blockedTitle,
+        className: 'border-red-200 bg-red-50 text-red-950',
+      }
+    : getResultTone(result)
   const reason = result.offline_reason ?? result.reason
   const isPreferentialQueueResult = result.reason === 'PREFERENTIAL_QUEUE_ACTIVE'
+  const getReasonLabel = (accessReason: VehicleAccessReason) =>
+    reasonLabelOverrides?.[accessReason] ?? reasonLabels[accessReason]
 
   return (
     <div className={`rounded-lg border p-4 ${className}`}>
@@ -61,8 +80,8 @@ export function VehicleAccessResultView({ result }: { result: VehicleAccessResul
         <div className="min-w-0 flex-1 space-y-3">
           <div>
             <p className="font-medium">{title}</p>
-            {!isPreferentialQueueResult ? (
-              <p className="text-sm opacity-80">{reasonLabels[result.reason]}</p>
+            {!isPreferentialQueueResult && !blockedTitle ? (
+              <p className="text-sm opacity-80">{getReasonLabel(result.reason)}</p>
             ) : null}
             {result.offline_reason ? (
               <p className="mt-1 text-sm opacity-80">
