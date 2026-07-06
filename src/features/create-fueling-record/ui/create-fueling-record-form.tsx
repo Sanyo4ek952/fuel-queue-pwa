@@ -3,20 +3,22 @@ import { AlertTriangle, CheckCircle2, Fuel, Search, XCircle } from 'lucide-react
 import { useMemo } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
+import { useCurrentProfile } from '@/entities/profile'
 import { PlateNumberInput } from '@/entities/vehicle'
 import {
   type VehicleAccessResult,
   useCheckVehicleAccess,
 } from '@/features/check-vehicle'
-import { StationSelect, useSelectedStation } from '@/features/select-station'
 import { FUEL_TYPES, type FuelType } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
+import { useProfileStationSelection } from '@/shared/lib/station-selection'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { StationSelectField } from '@/shared/ui/station-select-field'
 import {
   Select,
   SelectContent,
@@ -133,7 +135,9 @@ function AccessResultCard({ result }: { result: VehicleAccessResult }) {
 }
 
 export function CreateFuelingRecordForm() {
-  const selectedStationId = useSelectedStation((state) => state.selectedStationId)
+  const currentProfileQuery = useCurrentProfile()
+  const stations = currentProfileQuery.data?.stations ?? []
+  const [selectedStationId, setSelectedStationId] = useProfileStationSelection(stations)
   const checkVehicleAccessMutation = useCheckVehicleAccess()
   const createFuelingRecordMutation = useCreateFuelingRecord()
   const form = useForm<CreateFuelingRecordFormInput, unknown, CreateFuelingRecordFormValues>({
@@ -216,7 +220,13 @@ export function CreateFuelingRecordForm() {
       <CardContent>
         <Form {...form}>
           <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
-            <StationSelect />
+            <StationSelectField
+              id="fuelingStationId"
+              value={selectedStationId}
+              stations={stations}
+              onValueChange={setSelectedStationId}
+              emptyMessage="АЗС не назначена. Фиксация заправки недоступна."
+            />
 
             <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
               <FormItem>
@@ -306,10 +316,6 @@ export function CreateFuelingRecordForm() {
                 <FormMessage>{form.formState.errors.comment.message}</FormMessage>
               ) : null}
             </FormItem>
-
-            {!selectedStationId ? (
-              <p className="text-sm text-slate-500">Выберите АЗС перед фиксацией заправки.</p>
-            ) : null}
 
             <Button type="submit" className="h-11 w-full gap-2" disabled={isSubmitDisabled}>
               <Fuel className="size-4" aria-hidden="true" />

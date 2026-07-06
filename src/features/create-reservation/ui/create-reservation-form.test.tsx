@@ -2,12 +2,12 @@
 import '@testing-library/jest-dom/vitest'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { STATIONS, useSelectedStation } from '@/features/select-station'
+import { STATIONS } from '@/shared/config/stations'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 
 import { CreateReservationForm } from './create-reservation-form'
@@ -86,9 +86,24 @@ function renderWithQueryClient(children: ReactNode) {
 
 describe('CreateReservationForm', () => {
   beforeEach(() => {
+    if (!Element.prototype.hasPointerCapture) {
+      Element.prototype.hasPointerCapture = () => false
+    }
+
+    if (!Element.prototype.setPointerCapture) {
+      Element.prototype.setPointerCapture = () => undefined
+    }
+
+    if (!Element.prototype.releasePointerCapture) {
+      Element.prototype.releasePointerCapture = () => undefined
+    }
+
+    if (!Element.prototype.scrollIntoView) {
+      Element.prototype.scrollIntoView = () => undefined
+    }
+
     localStorage.clear()
     mocks.onlineStatus.value = true
-    useSelectedStation.setState({ selectedStationId: '' })
     mocks.createReservation.mockReset()
     mocks.checkVehicleAccess.mockReset()
     mocks.refreshVehicleAccessCache.mockReset()
@@ -115,9 +130,7 @@ describe('CreateReservationForm', () => {
     expect(screen.queryByLabelText('Дата')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /создать запись/i })).toBeEnabled()
     expect(screen.getByRole('button', { name: /проверить/i })).toBeDisabled()
-    expect(
-      screen.getByText(/Выберите АЗС в верхнем селекторе только для проверки допуска/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/АЗС не назначена. Проверка допуска недоступна/)).toBeInTheDocument()
   })
 
   it('submits reservation fields without station and date', async () => {
@@ -164,7 +177,6 @@ describe('CreateReservationForm', () => {
 
   it('checks vehicle access for the selected station and today', async () => {
     mocks.currentProfile.stations = [STATIONS[0]]
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
     mocks.checkVehicleAccess.mockResolvedValue({
       data: {
@@ -237,7 +249,6 @@ describe('CreateReservationForm', () => {
 
   it('loads fueling history in batches of five from the accordion', async () => {
     mocks.currentProfile.stations = [STATIONS[0]]
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
     mocks.checkVehicleAccess.mockResolvedValue({
       data: {
@@ -340,7 +351,6 @@ describe('CreateReservationForm', () => {
 
   it('clears stale check result and history when plate or station changes', async () => {
     mocks.currentProfile.stations = [STATIONS[0], STATIONS[1]]
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
     mocks.checkVehicleAccess.mockResolvedValue({
       data: {
@@ -399,9 +409,8 @@ describe('CreateReservationForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
     expect(await screen.findByText('Допуск разрешен')).toBeInTheDocument()
 
-    act(() => {
-      useSelectedStation.setState({ selectedStationId: STATIONS[1].id })
-    })
+    await userEvent.click(screen.getByLabelText('АЗС'))
+    await userEvent.click(await screen.findByRole('option', { name: STATIONS[1].name }))
 
     await waitFor(() => {
       expect(screen.queryByText('Допуск разрешен')).not.toBeInTheDocument()

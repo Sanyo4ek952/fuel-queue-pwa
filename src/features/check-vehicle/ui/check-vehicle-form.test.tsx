@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { STATIONS, useSelectedStation } from '@/features/select-station'
+import { STATIONS } from '@/shared/config/stations'
 
 import { CheckVehicleForm } from './check-vehicle-form'
 
@@ -32,10 +32,16 @@ const mocks = vi.hoisted(() => ({
     offline: true,
     error,
   })),
+  currentProfile: {
+    id: 'profile-id',
+    full_name: 'Петрова М.',
+    role: 'cashier',
+    stations: [] as Array<{ id: string; name: string; address: string | null }>,
+  },
 }))
 
 vi.mock('@/entities/profile', () => ({
-  useCurrentProfile: () => ({ data: null }),
+  useCurrentProfile: () => ({ data: mocks.currentProfile }),
 }))
 
 vi.mock('@/shared/lib/sync', () => ({
@@ -86,7 +92,7 @@ describe('CheckVehicleForm', () => {
     mocks.getVehicleFuelingHistoryOffline.mockReset()
     mocks.markOfflineResult.mockClear()
     mocks.markFuelingHistoryOfflineResult.mockClear()
-    useSelectedStation.setState({ selectedStationId: '' })
+    mocks.currentProfile.stations = [STATIONS[0]]
   })
 
   afterEach(() => {
@@ -95,17 +101,17 @@ describe('CheckVehicleForm', () => {
   })
 
   it('requires a selected cashier station before checking access', async () => {
+    mocks.currentProfile.stations = []
     renderWithQueryClient(<CheckVehicleForm />)
     await userEvent.type(screen.getByLabelText('Госномер'), 'А123ВС777')
 
     expect(screen.getByRole('button', { name: /проверить/i })).toBeDisabled()
-    expect(screen.getByText('Выберите АЗС кассира перед проверкой.')).toBeInTheDocument()
+    expect(screen.getByText('АЗС не назначена. Проверка недоступна.')).toBeInTheDocument()
     expect(mocks.getVehicleFuelingHistory).not.toHaveBeenCalled()
     expect(mocks.checkVehicleAccess).not.toHaveBeenCalled()
   })
 
   it('loads more fueling history items from the accordion', async () => {
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
     mocks.checkVehicleAccess.mockResolvedValue({
       data: {
@@ -193,7 +199,6 @@ describe('CheckVehicleForm', () => {
   })
 
   it('shows loading state while online station check is pending', async () => {
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
     mocks.checkVehicleAccess.mockReturnValue(new Promise(() => undefined))
 
@@ -204,7 +209,6 @@ describe('CheckVehicleForm', () => {
   })
 
   it('formats plate input for display and submits the normalized value', async () => {
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
     mocks.checkVehicleAccess.mockResolvedValue({
       data: {
@@ -247,7 +251,6 @@ describe('CheckVehicleForm', () => {
   })
 
   it('renders an allowed online result for a selected station', async () => {
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
     mocks.checkVehicleAccess.mockResolvedValue({
       data: {
@@ -271,7 +274,6 @@ describe('CheckVehicleForm', () => {
 
   it('renders an offline warning result for a selected station', async () => {
     mocks.onlineStatus.value = false
-    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.checkVehicleAccessOffline.mockResolvedValue({
       status: 'ALLOWED',
       reason: 'ACTIVE_RESERVATION',

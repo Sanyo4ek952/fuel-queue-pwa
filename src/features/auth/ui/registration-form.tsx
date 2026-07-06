@@ -9,8 +9,8 @@ import {
   registerSchema,
   useRegister,
 } from '@/features/auth'
-import { STATIONS } from '@/features/select-station'
 import { ROLE_LABELS } from '@/shared/config/roles'
+import { STATIONS } from '@/shared/config/stations'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'

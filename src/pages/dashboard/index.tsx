@@ -2,7 +2,6 @@ import { ArrowRight, Fuel, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { useCurrentProfile } from '@/entities/profile'
-import { useSelectedStation } from '@/features/select-station'
 import { MAIN_SECTION_LINKS } from '@/shared/config/routes'
 import { ROLE_LABELS } from '@/shared/config/roles'
 import { canAccessRoute } from '@/shared/lib/permissions'
@@ -10,12 +9,23 @@ import { useOnlineStatus } from '@/shared/lib/sync'
 import { Badge } from '@/shared/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 
+function getStationContextLabel(stations: Array<{ name: string }>) {
+  if (stations.length === 0) {
+    return 'АЗС не назначена'
+  }
+
+  if (stations.length === 1) {
+    return stations[0].name
+  }
+
+  return 'Все доступные АЗС'
+}
+
 export function DashboardPage() {
   const isOnline = useOnlineStatus()
   const currentProfileQuery = useCurrentProfile()
-  const selectedStationId = useSelectedStation((state) => state.selectedStationId)
   const profile = currentProfileQuery.data
-  const selectedStation = profile?.stations.find((station) => station.id === selectedStationId)
+  const stationContextLabel = getStationContextLabel(profile?.stations ?? [])
   const visibleLinks = profile
     ? MAIN_SECTION_LINKS.filter((item) => canAccessRoute(profile.role, item.path))
     : MAIN_SECTION_LINKS
@@ -35,7 +45,7 @@ export function DashboardPage() {
         <div className="mt-5 flex flex-wrap gap-2">
           <Badge className="gap-1.5 rounded-md bg-white text-slate-950 hover:bg-white">
             <MapPin className="size-3.5" aria-hidden="true" />
-            {selectedStation?.name ?? profile?.stations[0]?.name ?? 'АЗС не выбрана'}
+            {stationContextLabel}
           </Badge>
           {profile ? (
             <Badge

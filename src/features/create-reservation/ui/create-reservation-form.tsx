@@ -3,6 +3,7 @@ import { CalendarPlus, Search, Ticket } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 
+import { useCurrentProfile } from '@/entities/profile'
 import { PlateNumberInput } from '@/entities/vehicle'
 import {
   buildVehicleFuelingHistoryViewResult,
@@ -17,15 +18,16 @@ import {
   createReservationSchema,
   useCreateReservation,
 } from '@/features/create-reservation'
-import { useSelectedStation } from '@/features/select-station'
 import { QUEUE_FUEL_TYPES, type FuelType, type QueueFuelType } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
+import { useProfileStationSelection } from '@/shared/lib/station-selection'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { StationSelectField } from '@/shared/ui/station-select-field'
 import {
   Select,
   SelectContent,
@@ -47,7 +49,9 @@ const HISTORY_ACCORDION_VALUE = 'fueling-history'
 const RESERVATION_HISTORY_PAGE_SIZE = 5
 
 export function CreateReservationForm() {
-  const selectedStationId = useSelectedStation((state) => state.selectedStationId)
+  const currentProfileQuery = useCurrentProfile()
+  const stations = currentProfileQuery.data?.stations ?? []
+  const [selectedStationId, setSelectedStationId] = useProfileStationSelection(stations)
   const createReservationMutation = useCreateReservation()
   const checkVehicleAccessMutation = useCheckVehicleAccess()
   const resetCheckVehicleAccess = checkVehicleAccessMutation.reset
@@ -136,6 +140,13 @@ export function CreateReservationForm() {
       <CardContent>
         <Form {...form}>
           <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
+            <StationSelectField
+              id="reservationCheckStationId"
+              value={selectedStationId}
+              stations={stations}
+              onValueChange={setSelectedStationId}
+              emptyMessage="АЗС не назначена. Проверка допуска недоступна."
+            />
             <FormItem>
               <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -169,11 +180,6 @@ export function CreateReservationForm() {
               </div>
               {form.formState.errors.plateNumber ? (
                 <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>
-              ) : null}
-              {!selectedStationId ? (
-                <p className="text-sm text-slate-500">
-                  Выберите АЗС в верхнем селекторе только для проверки допуска. Запись останется в общей очереди.
-                </p>
               ) : null}
             </FormItem>
 

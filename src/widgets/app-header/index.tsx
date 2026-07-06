@@ -3,22 +3,28 @@ import { Link } from 'react-router-dom'
 
 import { useCurrentProfile } from '@/entities/profile'
 import { useLogout } from '@/features/auth'
-import { StationSelect, useSelectedStation } from '@/features/select-station'
 import { ROUTES } from '@/shared/config/routes'
 import { ROLE_LABELS } from '@/shared/config/roles'
 import { Button } from '@/shared/ui/button'
 import { SyncStatusPanel } from '@/widgets/sync-status-panel'
 
+function getStationContextLabel(stations: Array<{ name: string }>) {
+  if (stations.length === 0) {
+    return 'АЗС не назначена'
+  }
+
+  if (stations.length === 1) {
+    return stations[0].name
+  }
+
+  return 'Все доступные АЗС'
+}
+
 export function AppHeader() {
   const currentProfileQuery = useCurrentProfile()
-  const selectedStationId = useSelectedStation(
-    (state) => state.selectedStationId,
-  )
   const logoutMutation = useLogout()
   const profile = currentProfileQuery.data
-  const selectedStation = profile?.stations.find(
-    (station) => station.id === selectedStationId,
-  )
+  const stationContextLabel = getStationContextLabel(profile?.stations ?? [])
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -36,17 +42,10 @@ export function AppHeader() {
                 Fuel Queue
               </span>
               <span className="block truncate text-xs text-slate-500">
-                {selectedStation?.name ??
-                  profile?.stations[0]?.name ??
-                  'АЗС не выбрана'}
+                {stationContextLabel}
               </span>
             </span>
           </Link>
-          <StationSelect
-            showLabel={false}
-            className="hidden max-w-56 min-w-44 flex-1 space-y-0 sm:block"
-            triggerClassName="h-10"
-          />
           <div className="flex shrink-0 items-center gap-2">
             {profile ? (
               <span className="hidden max-w-36 text-right sm:block">
@@ -77,11 +76,6 @@ export function AppHeader() {
             </Button>
           </div>
         </div>
-        <StationSelect
-          showLabel={false}
-          className="space-y-0 sm:hidden"
-          triggerClassName="h-10"
-        />
       </div>
     </header>
   )

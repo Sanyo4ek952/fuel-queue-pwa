@@ -16,18 +16,21 @@ import {
   VehicleFuelingHistoryAccordion,
 } from '@/features/check-vehicle'
 import { CreateManualOverrideForm } from '@/features/create-manual-override'
-import { StationSelect, useSelectedStation } from '@/features/select-station'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { canCreateManualOverride } from '@/shared/lib/permissions'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
+import { useProfileStationSelection } from '@/shared/lib/station-selection'
 import { Button } from '@/shared/ui/button'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
+import { StationSelectField } from '@/shared/ui/station-select-field'
 
 const HISTORY_ACCORDION_VALUE = 'fueling-history'
 
 export function CheckVehicleForm() {
-  const selectedStationId = useSelectedStation((state) => state.selectedStationId)
   const currentProfileQuery = useCurrentProfile()
+  const currentProfile = currentProfileQuery.data
+  const stations = currentProfile?.stations ?? []
+  const [selectedStationId, setSelectedStationId] = useProfileStationSelection(stations)
   const [historyPlateNumber, setHistoryPlateNumber] = useState('')
   const [historyAccordionValue, setHistoryAccordionValue] = useState<string | undefined>()
   const checkVehicleAccessMutation = useCheckVehicleAccess()
@@ -64,7 +67,6 @@ export function CheckVehicleForm() {
   const fuelingHistoryViewResult = buildVehicleFuelingHistoryViewResult(
     vehicleFuelingHistoryQuery.data,
   )
-  const currentProfile = currentProfileQuery.data
   const canShowManualOverride =
     Boolean(
       selectedStationId &&
@@ -78,7 +80,13 @@ export function CheckVehicleForm() {
   return (
     <Form {...form}>
       <form className="space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
-        <StationSelect />
+        <StationSelectField
+          id="checkStationId"
+          value={selectedStationId}
+          stations={stations}
+          onValueChange={setSelectedStationId}
+          emptyMessage="АЗС не назначена. Проверка недоступна."
+        />
         <FormItem>
           <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
           <Controller
@@ -108,9 +116,6 @@ export function CheckVehicleForm() {
           <Search className="size-4" aria-hidden="true" />
           {checkVehicleAccessMutation.isPending ? 'Проверяем...' : 'Проверить'}
         </Button>
-        {!selectedStationId ? (
-          <p className="text-sm text-slate-500">Выберите АЗС кассира перед проверкой.</p>
-        ) : null}
         {accessResult ? <VehicleAccessResultView result={accessResult} /> : null}
         {historyPlateNumber ? (
           <VehicleFuelingHistoryAccordion
