@@ -7,6 +7,7 @@ import {
   type LocalReservation,
   type LocalStation,
   type LocalVehicle,
+  cacheNoShowGraceSetting,
   cacheRefuelCooldownSetting,
   offlineDb,
 } from '@/shared/lib/offline-db'
@@ -30,6 +31,12 @@ export async function refreshVehicleAccessCache({
     return
   }
 
+  const policyResult = await supabase.rpc('apply_reservation_no_show_policy')
+
+  if (policyResult.error) {
+    throw new Error(policyResult.error.message)
+  }
+
   const [
     stationsResult,
     vehiclesResult,
@@ -38,6 +45,7 @@ export async function refreshVehicleAccessCache({
     manualOverridesResult,
     dailyLimitOverviewResult,
     refuelCooldownResult,
+    noShowGraceResult,
   ] = await Promise.all([
     supabase.from('stations').select('id,name,address,is_active,updated_at').eq('is_active', true),
     supabase
@@ -62,6 +70,7 @@ export async function refreshVehicleAccessCache({
       .eq('date', checkDate),
     getDailyLimitOverview({ date: checkDate }),
     supabase.rpc('get_reservation_refuel_cooldown'),
+    supabase.rpc('get_reservation_no_show_grace_days'),
   ])
 
   const firstError =
@@ -71,7 +80,8 @@ export async function refreshVehicleAccessCache({
     fuelingRecordsResult.error ??
     manualOverridesResult.error ??
     (dailyLimitOverviewResult.error ? new Error(dailyLimitOverviewResult.error) : null) ??
-    refuelCooldownResult.error
+    refuelCooldownResult.error ??
+    noShowGraceResult.error
 
   if (firstError) {
     throw new Error(firstError.message)
@@ -127,6 +137,7 @@ export async function refreshVehicleAccessCache({
         toRows<LocalManualOverride>(manualOverridesResult.data),
       )
       await cacheRefuelCooldownSetting(toNumber(refuelCooldownResult.data))
+      await cacheNoShowGraceSetting(toNumber(noShowGraceResult.data))
     },
   )
 }

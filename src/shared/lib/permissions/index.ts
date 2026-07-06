@@ -7,6 +7,7 @@ const checkVehicleRoles = allRoles
 
 const createFuelingRecordRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier'])
 const stationManagerRoles = new Set<UserRole>(['mayor', 'station_manager'])
+const mayorOnlyRoles = new Set<UserRole>(['mayor'])
 const dailyLimitManagerRoles = new Set<UserRole>(['mayor'])
 const personalLiterLimitRoles = new Set<UserRole>(['mayor', 'mayor_assistant'])
 const limitRouteRoles = new Set<UserRole>(['mayor', 'station_manager', 'mayor_assistant'])
@@ -20,7 +21,7 @@ const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
   [ROUTES.fueling]: createFuelingRecordRoles,
   [ROUTES.limits]: limitRouteRoles,
   [ROUTES.history]: allRoles,
-  [ROUTES.reports]: allRoles,
+  [ROUTES.reports]: mayorOnlyRoles,
   [ROUTES.users]: userManagerRoles,
   [ROUTES.sync]: stationManagerRoles,
   [ROUTES.settings]: allRoles,

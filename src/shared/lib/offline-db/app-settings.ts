@@ -1,6 +1,7 @@
 import { offlineDb } from './db'
 
 const REFUEL_COOLDOWN_KEY = 'reservation_refuel_cooldown_days'
+const NO_SHOW_GRACE_KEY = 'reservation_no_show_grace_days'
 
 function parseDays(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -25,5 +26,22 @@ export async function cacheRefuelCooldownSetting(days: number) {
 
 export async function getCachedRefuelCooldownDays() {
   const setting = await offlineDb.local_app_settings.get(REFUEL_COOLDOWN_KEY)
+  return parseDays(setting?.value)
+}
+
+export async function cacheNoShowGraceSetting(days: number) {
+  const safeDays = Number.isFinite(days) && days > 0 ? Math.trunc(days) : 0
+  const now = new Date().toISOString()
+
+  await offlineDb.local_app_settings.put({
+    key: NO_SHOW_GRACE_KEY,
+    value: { days: safeDays },
+    updated_at: now,
+    cached_at: now,
+  })
+}
+
+export async function getCachedNoShowGraceDays() {
+  const setting = await offlineDb.local_app_settings.get(NO_SHOW_GRACE_KEY)
   return parseDays(setting?.value)
 }

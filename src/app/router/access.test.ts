@@ -102,6 +102,18 @@ describe('getProtectedRouteState', () => {
     ).toBe('forbidden')
   })
 
+  it('blocks reports for mayor assistant', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: activeProfile,
+        route: ROUTES.reports,
+      }),
+    ).toBe('forbidden')
+  })
+
   it('allows authenticated active profile with route permission', () => {
     expect(
       getProtectedRouteState({
@@ -110,6 +122,18 @@ describe('getProtectedRouteState', () => {
         profileLoading: false,
         profile: activeProfile,
         route: ROUTES.reservations,
+      }),
+    ).toBe('allowed')
+  })
+
+  it('allows reports for mayor', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: { ...activeProfile, role: 'mayor' },
+        route: ROUTES.reports,
       }),
     ).toBe('allowed')
   })

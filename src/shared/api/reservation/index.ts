@@ -133,6 +133,12 @@ export async function listTodayQueueRows() {
     throw new Error('Supabase is not configured.')
   }
 
+  const policyResult = await supabase.rpc('apply_reservation_no_show_policy')
+
+  if (policyResult.error) {
+    throw new Error(policyResult.error.message)
+  }
+
   const { data, error } = await supabase
     .from('fuel_reservations')
     .select(

@@ -1,15 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
+  getNoShowGrace,
   getRefuelCooldown,
+  setNoShowGrace,
   setRefuelCooldown,
+  type NoShowGraceSetting,
   type RefuelCooldownSetting,
+  type SetNoShowGraceParams,
   type SetRefuelCooldownParams,
 } from '@/shared/api/rpc'
 
-export type { RefuelCooldownSetting, SetRefuelCooldownParams }
+export type {
+  NoShowGraceSetting,
+  RefuelCooldownSetting,
+  SetNoShowGraceParams,
+  SetRefuelCooldownParams,
+}
 
 export const refuelCooldownQueryKey = ['refuel-cooldown'] as const
+export const noShowGraceQueryKey = ['no-show-grace'] as const
 
 export function useRefuelCooldown() {
   return useQuery({
@@ -19,6 +29,21 @@ export function useRefuelCooldown() {
 
       if (result.error || !result.data) {
         throw new Error(result.error ?? 'Не удалось загрузить интервал между заправками.')
+      }
+
+      return result.data
+    },
+  })
+}
+
+export function useNoShowGrace() {
+  return useQuery({
+    queryKey: noShowGraceQueryKey,
+    queryFn: async () => {
+      const result = await getNoShowGrace()
+
+      if (result.error || !result.data) {
+        throw new Error(result.error ?? 'Не удалось загрузить лимит пропусков заправки.')
       }
 
       return result.data
@@ -41,6 +66,29 @@ export function useSetRefuelCooldown() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: refuelCooldownQueryKey })
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === 'vehicle-access',
+      })
+    },
+  })
+}
+
+export function useSetNoShowGrace() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: SetNoShowGraceParams) => {
+      const result = await setNoShowGrace(params)
+
+      if (result.error || !result.data) {
+        throw new Error(result.error ?? 'Не удалось сохранить лимит пропусков заправки.')
+      }
+
+      return result.data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: noShowGraceQueryKey })
+      void queryClient.invalidateQueries({ queryKey: ['today-queue'] })
       void queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === 'vehicle-access',
       })
