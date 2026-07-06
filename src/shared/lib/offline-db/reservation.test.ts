@@ -10,8 +10,11 @@ const mocks = vi.hoisted(() => {
     const table = {
       rows: [] as MutableRecord[],
       toArray: vi.fn(async () => table.rows),
+      get: vi.fn(async (id: string) => table.rows.find((item) => item.id === id || item.key === id)),
       put: vi.fn(async (row: MutableRecord) => {
-        const index = table.rows.findIndex((item) => item.id === row.id)
+        const index = table.rows.findIndex(
+          (item) => item.id === row.id || (item.key && item.key === row.key),
+        )
 
         if (index >= 0) {
           table.rows[index] = row
@@ -28,6 +31,8 @@ const mocks = vi.hoisted(() => {
     local_vehicles: makeTable(),
     local_reservations: makeTable(),
     local_daily_limits: makeTable(),
+    local_fueling_records: makeTable(),
+    local_app_settings: makeTable(),
     sync_outbox: makeTable(),
   }
 
@@ -46,6 +51,8 @@ vi.mock('./db', () => ({
   offlineDb: mocks.offlineDb,
 }))
 
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
+
 import { createOfflineReservation } from './reservation'
 
 describe('createOfflineReservation', () => {
@@ -53,6 +60,7 @@ describe('createOfflineReservation', () => {
     Object.values(mocks.tables).forEach((table) => {
       table.rows = []
       table.toArray.mockClear()
+      table.get.mockClear()
       table.put.mockClear()
     })
   })
@@ -129,5 +137,43 @@ describe('createOfflineReservation', () => {
     })
 
     expect(result.queue_number).toBe(11)
+  })
+
+  it('blocks a local reservation when cached refuel cooldown is active', async () => {
+    const yesterday = new Date()
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+    const yesterdayValue = yesterday.toISOString().slice(0, 10)
+    const normalizedPlateNumber = normalizePlateNumber('A123BC777')
+    const vehicleId = `local-vehicle-${normalizedPlateNumber}`
+
+    mocks.tables.local_vehicles.rows.push({
+      id: vehicleId,
+      normalized_plate_number: normalizedPlateNumber,
+      is_blocked: false,
+    })
+    mocks.tables.local_fueling_records.rows.push({
+      id: 'fueling-id',
+      vehicle_id: vehicleId,
+      station_id: 'station-id',
+      date: yesterdayValue,
+      fueled_at: `${yesterdayValue}T10:00:00.000Z`,
+      is_manual_override: false,
+    })
+    mocks.tables.local_app_settings.rows.push({
+      id: 'reservation_refuel_cooldown_days',
+      key: 'reservation_refuel_cooldown_days',
+      value: { days: 2 },
+      cached_at: new Date().toISOString(),
+    })
+
+    await expect(
+      createOfflineReservation({
+        plateNumber: 'A123BC777',
+        driverFullName: 'Ivan Ivanov',
+        fuelType: 'AI_95',
+        requestedLiters: 40,
+        clientMutationId: 'mutation-id',
+      }),
+    ).rejects.toThrow('REFUEL_COOLDOWN_ACTIVE')
   })
 })

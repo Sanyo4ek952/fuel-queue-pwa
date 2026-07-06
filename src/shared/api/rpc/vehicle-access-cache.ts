@@ -7,6 +7,7 @@ import {
   type LocalReservation,
   type LocalStation,
   type LocalVehicle,
+  cacheRefuelCooldownSetting,
   offlineDb,
 } from '@/shared/lib/offline-db'
 import type { CheckVehicleAccessParams } from '@/shared/types/vehicle-access'
@@ -36,6 +37,7 @@ export async function refreshVehicleAccessCache({
     fuelingRecordsResult,
     manualOverridesResult,
     dailyLimitOverviewResult,
+    refuelCooldownResult,
   ] = await Promise.all([
     supabase.from('stations').select('id,name,address,is_active,updated_at').eq('is_active', true),
     supabase
@@ -50,7 +52,8 @@ export async function refreshVehicleAccessCache({
     supabase
       .from('fueling_records')
       .select('id,station_id,vehicle_id,date,fueled_at,is_manual_override,updated_at')
-      .eq('date', checkDate),
+      .order('fueled_at', { ascending: false })
+      .limit(500),
     supabase
       .from('manual_overrides')
       .select(
@@ -58,6 +61,7 @@ export async function refreshVehicleAccessCache({
       )
       .eq('date', checkDate),
     getDailyLimitOverview({ date: checkDate }),
+    supabase.rpc('get_reservation_refuel_cooldown'),
   ])
 
   const firstError =
@@ -66,7 +70,8 @@ export async function refreshVehicleAccessCache({
     reservationsResult.error ??
     fuelingRecordsResult.error ??
     manualOverridesResult.error ??
-    (dailyLimitOverviewResult.error ? new Error(dailyLimitOverviewResult.error) : null)
+    (dailyLimitOverviewResult.error ? new Error(dailyLimitOverviewResult.error) : null) ??
+    refuelCooldownResult.error
 
   if (firstError) {
     throw new Error(firstError.message)
@@ -81,6 +86,7 @@ export async function refreshVehicleAccessCache({
       offlineDb.local_daily_limits,
       offlineDb.local_fueling_records,
       offlineDb.local_manual_overrides,
+      offlineDb.local_app_settings,
     ],
     async () => {
       await offlineDb.local_stations.bulkPut(toRows<LocalStation>(stationsResult.data))
@@ -120,6 +126,7 @@ export async function refreshVehicleAccessCache({
       await offlineDb.local_manual_overrides.bulkPut(
         toRows<LocalManualOverride>(manualOverridesResult.data),
       )
+      await cacheRefuelCooldownSetting(toNumber(refuelCooldownResult.data))
     },
   )
 }

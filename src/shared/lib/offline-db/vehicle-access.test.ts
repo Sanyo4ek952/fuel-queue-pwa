@@ -116,6 +116,33 @@ describe('evaluateVehicleAccessOffline', () => {
     })
   })
 
+  it('blocks when cached refuel cooldown is still active', () => {
+    expect(
+      check(
+        makeSnapshot({
+          cooldownDays: 2,
+          fuelingRecords: [
+            {
+              id: 'fueling-1',
+              station_id: otherStationId,
+              vehicle_id: vehicleId,
+              date: '2026-07-04',
+              fueled_at: '2026-07-04T10:00:00.000Z',
+              is_manual_override: false,
+            },
+          ],
+        }),
+      ),
+    ).toMatchObject({
+      status: 'BLOCKED',
+      reason: 'REFUEL_COOLDOWN_ACTIVE',
+      last_fueling_date: '2026-07-04',
+      next_allowed_date: '2026-07-06',
+      cooldown_days: 2,
+      days_since_last_fueling: 1,
+    })
+  })
+
   it('blocks a blocked vehicle without a manual override', () => {
     expect(
       check(

@@ -120,6 +120,13 @@ export type LocalRefusalRecord = LocalRecord & {
   reason: string
 }
 
+export type LocalAppSetting = {
+  key: string
+  value: unknown
+  updated_at?: string
+  cached_at: string
+}
+
 export type SyncOutboxOperation = {
   id: string
   client_mutation_id: string
@@ -168,6 +175,7 @@ export class FuelQueueOfflineDb extends Dexie {
   local_fueling_records!: Table<LocalFuelingRecord, string>
   local_refusal_records!: Table<LocalRefusalRecord, string>
   local_manual_overrides!: Table<LocalManualOverride, string>
+  local_app_settings!: Table<LocalAppSetting, string>
   sync_outbox!: Table<SyncOutboxOperation, string>
   sync_conflicts!: Table<SyncConflict, string>
 
@@ -354,6 +362,24 @@ export class FuelQueueOfflineDb extends Dexie {
       local_refusal_records: 'id, date, updated_at',
       local_manual_overrides:
         'id, client_mutation_id, [vehicle_id+station_id+date], date, sync_status, updated_at',
+      sync_outbox: 'id, client_mutation_id, status, created_at',
+      sync_conflicts: 'id, client_mutation_id, operation_id, created_at',
+    })
+
+    this.version(10).stores({
+      local_profiles: 'id, updated_at',
+      local_stations: 'id, updated_at',
+      local_vehicles: 'id, normalized_plate_number, updated_at',
+      local_daily_limits: 'id, date, status, cached_at, updated_at',
+      local_reservations:
+        'id, client_mutation_id, vehicle_id, queue_number, status, sync_status, updated_at',
+      local_queue_entries: 'id, [station_id+date], date, status, updated_at',
+      local_fueling_records:
+        'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',
+      local_refusal_records: 'id, date, updated_at',
+      local_manual_overrides:
+        'id, client_mutation_id, [vehicle_id+station_id+date], date, sync_status, updated_at',
+      local_app_settings: 'key, updated_at, cached_at',
       sync_outbox: 'id, client_mutation_id, status, created_at',
       sync_conflicts: 'id, client_mutation_id, operation_id, created_at',
     })

@@ -80,6 +80,13 @@ export function CreateReservationForm() {
   }, [watchedPlateNumber, selectedStationId, resetCheckVehicleAccess])
 
   async function handleSubmit(values: CreateReservationFormValues) {
+    if (accessResult?.reason === 'REFUEL_COOLDOWN_ACTIVE') {
+      form.setError('plateNumber', {
+        message: 'После последней заправки ещё не прошёл установленный интервал.',
+      })
+      return
+    }
+
     await createReservationMutation.mutateAsync({
       plateNumber: values.plateNumber,
       driverFullName: values.driverFullName,
@@ -112,6 +119,7 @@ export function CreateReservationForm() {
   const isCheckDisabled =
     !selectedStationId || !watchedPlateNumber.trim() || checkVehicleAccessMutation.isPending
   const accessResult = checkVehicleAccessMutation.data
+  const isRefuelCooldownBlocked = accessResult?.reason === 'REFUEL_COOLDOWN_ACTIVE'
   const fuelingHistoryViewResult = buildVehicleFuelingHistoryViewResult(
     vehicleFuelingHistoryQuery.data,
   )
@@ -260,7 +268,7 @@ export function CreateReservationForm() {
             <Button
               type="submit"
               className="h-11 w-full gap-2"
-              disabled={createReservationMutation.isPending}
+              disabled={createReservationMutation.isPending || isRefuelCooldownBlocked}
             >
               <Ticket className="size-4" aria-hidden="true" />
               {createReservationMutation.isPending ? 'Записываем...' : 'Создать запись'}

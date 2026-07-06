@@ -6,6 +6,7 @@ import {
 import { getFuelQueueCategory } from '@/shared/constants'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
+import { getCachedRefuelCooldownDays } from './app-settings'
 import {
   type LocalDailyLimit,
   type LocalFuelingRecord,
@@ -23,6 +24,7 @@ export type OfflineVehicleAccessSnapshot = {
   dailyLimits: LocalDailyLimit[]
   fuelingRecords: LocalFuelingRecord[]
   manualOverrides: LocalManualOverride[]
+  cooldownDays?: number
 }
 
 function isFutureOrOpen(expiresAt?: string | null) {
@@ -44,6 +46,23 @@ function makeBlockedResult(
 
 function getEffectiveLiters(reservation: LocalReservation) {
   return reservation.requested_liters || 20
+}
+
+function addDays(dateValue: string, days: number) {
+  const date = new Date(`${dateValue}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+function findLastRegularFueling(records: LocalFuelingRecord[], vehicleId: string) {
+  return records
+    .filter((record) => record.vehicle_id === vehicleId && !record.is_manual_override)
+    .sort(
+      (left, right) =>
+        right.date.localeCompare(left.date) ||
+        right.fueled_at.localeCompare(left.fueled_at) ||
+        right.id.localeCompare(left.id),
+    )[0]
 }
 
 function isReservationCoveredByDailyLimit(
@@ -190,6 +209,31 @@ export function evaluateVehicleAccessOffline(
     })
   }
 
+  const cooldownDays = snapshot.cooldownDays ?? 0
+  const lastRegularFueling = findLastRegularFueling(snapshot.fuelingRecords, vehicle.id)
+
+  if (cooldownDays > 0 && lastRegularFueling) {
+    const nextAllowedDate = addDays(lastRegularFueling.date, cooldownDays)
+
+    if (checkDate < nextAllowedDate) {
+      return makeBlockedResult('REFUEL_COOLDOWN_ACTIVE', normalizedPlateNumber, {
+        vehicle_id: vehicle.id,
+        station_id: stationId,
+        date: checkDate,
+        last_fueling_record_id: lastRegularFueling.id,
+        last_fueling_station_id: lastRegularFueling.station_id,
+        last_fueled_at: lastRegularFueling.fueled_at,
+        last_fueling_date: lastRegularFueling.date,
+        next_allowed_date: nextAllowedDate,
+        cooldown_days: cooldownDays,
+        days_since_last_fueling:
+          (Date.parse(`${checkDate}T00:00:00.000Z`) -
+            Date.parse(`${lastRegularFueling.date}T00:00:00.000Z`)) /
+          86_400_000,
+      })
+    }
+  }
+
   const reservation = snapshot.reservations.find(
     (item) =>
       item.vehicle_id === vehicle.id &&
@@ -276,13 +320,15 @@ export function evaluateVehicleAccessOffline(
 export async function checkVehicleAccessOffline(
   params: CheckVehicleAccessParams,
 ): Promise<VehicleAccessResult> {
-  const [vehicles, reservations, dailyLimits, fuelingRecords, manualOverrides] = await Promise.all([
-    offlineDb.local_vehicles.toArray(),
-    offlineDb.local_reservations.toArray(),
-    offlineDb.local_daily_limits.toArray(),
-    offlineDb.local_fueling_records.toArray(),
-    offlineDb.local_manual_overrides.toArray(),
-  ])
+  const [vehicles, reservations, dailyLimits, fuelingRecords, manualOverrides, cooldownDays] =
+    await Promise.all([
+      offlineDb.local_vehicles.toArray(),
+      offlineDb.local_reservations.toArray(),
+      offlineDb.local_daily_limits.toArray(),
+      offlineDb.local_fueling_records.toArray(),
+      offlineDb.local_manual_overrides.toArray(),
+      getCachedRefuelCooldownDays(),
+    ])
 
   return evaluateVehicleAccessOffline(params, {
     vehicles,
@@ -290,5 +336,6 @@ export async function checkVehicleAccessOffline(
     dailyLimits,
     fuelingRecords,
     manualOverrides,
+    cooldownDays,
   })
 }

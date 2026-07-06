@@ -12,6 +12,7 @@ const reasonLabels: Record<VehicleAccessReason, string> = {
   OFFLINE_UNCONFIRMED: 'Offline-проверка требует серверного подтверждения.',
   OUTSIDE_TODAY_LIMIT: 'Автомобиль не попадает в сегодняшний лимит своей очереди.',
   PROFILE_NOT_FOUND: 'Профиль пользователя не найден.',
+  REFUEL_COOLDOWN_ACTIVE: 'После последней заправки ещё не прошёл установленный интервал.',
   RPC_ERROR: 'Не удалось выполнить серверную проверку.',
   STATION_ACCESS_DENIED: 'Нет доступа к выбранной АЗС.',
   VEHICLE_BLOCKED: 'Автомобиль заблокирован.',
@@ -100,6 +101,30 @@ export function VehicleAccessResultView({ result }: { result: VehicleAccessResul
               <div>
                 <dt className="opacity-70">В расчёте</dt>
                 <dd className="font-semibold">{result.effective_liters} л</dd>
+              </div>
+            ) : null}
+            {result.last_fueling_date ? (
+              <div>
+                <dt className="opacity-70">Последняя заправка</dt>
+                <dd className="font-semibold">{result.last_fueling_date}</dd>
+              </div>
+            ) : null}
+            {typeof result.days_since_last_fueling === 'number' ? (
+              <div>
+                <dt className="opacity-70">Прошло дней</dt>
+                <dd className="font-semibold">{result.days_since_last_fueling}</dd>
+              </div>
+            ) : null}
+            {result.next_allowed_date ? (
+              <div>
+                <dt className="opacity-70">Можно снова с</dt>
+                <dd className="font-semibold">{result.next_allowed_date}</dd>
+              </div>
+            ) : null}
+            {typeof result.cooldown_days === 'number' ? (
+              <div>
+                <dt className="opacity-70">Интервал</dt>
+                <dd className="font-semibold">{result.cooldown_days} дн.</dd>
               </div>
             ) : null}
           </dl>

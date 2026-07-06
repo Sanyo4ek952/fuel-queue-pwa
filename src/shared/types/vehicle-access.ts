@@ -10,6 +10,7 @@ export type VehicleAccessReason =
   | 'OFFLINE_UNCONFIRMED'
   | 'OUTSIDE_TODAY_LIMIT'
   | 'PROFILE_NOT_FOUND'
+  | 'REFUEL_COOLDOWN_ACTIVE'
   | 'STATION_ACCESS_DENIED'
   | 'VEHICLE_BLOCKED'
   | 'RPC_ERROR'
@@ -38,6 +39,10 @@ export type VehicleAccessResult = {
   last_fueling_record_id?: string
   last_fueling_station_id?: string
   last_fueled_at?: string
+  last_fueling_date?: string
+  next_allowed_date?: string
+  cooldown_days?: number
+  days_since_last_fueling?: number
   offline?: boolean
   offline_decision?: Exclude<VehicleAccessStatus, 'WARNING'>
   offline_reason?: VehicleAccessReason

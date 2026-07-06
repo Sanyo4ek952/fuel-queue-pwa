@@ -1,4 +1,5 @@
 export * from './db'
+export * from './app-settings'
 export * from './fueling-record'
 export * from './manual-override'
 export * from './reservation'

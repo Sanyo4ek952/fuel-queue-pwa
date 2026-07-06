@@ -2,7 +2,14 @@ import type { FuelType } from '@/shared/constants'
 import type { UserRole } from '@/shared/config/roles'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
-import { offlineDb, type LocalReservation, type LocalVehicle, type SyncOutboxOperation } from './db'
+import { getCachedRefuelCooldownDays } from './app-settings'
+import {
+  offlineDb,
+  type LocalFuelingRecord,
+  type LocalReservation,
+  type LocalVehicle,
+  type SyncOutboxOperation,
+} from './db'
 
 const activeReservationStatuses = new Set(['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'])
 
@@ -77,6 +84,27 @@ function makeLocalVehicle(normalizedPlateNumber: string): LocalVehicle {
   }
 }
 
+function toDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function addDays(dateValue: string, days: number) {
+  const date = new Date(`${dateValue}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return toDateInputValue(date)
+}
+
+function findLastRegularFueling(records: LocalFuelingRecord[], vehicleId: string) {
+  return records
+    .filter((record) => record.vehicle_id === vehicleId && !record.is_manual_override)
+    .sort(
+      (left, right) =>
+        right.date.localeCompare(left.date) ||
+        right.fueled_at.localeCompare(left.fueled_at) ||
+        right.id.localeCompare(left.id),
+    )[0]
+}
+
 export async function createOfflineReservation({
   plateNumber,
   driverFullName,
@@ -107,9 +135,11 @@ export async function createOfflineReservation({
     throw new Error('INVALID_REQUESTED_LITERS')
   }
 
-  const [vehicles, reservations] = await Promise.all([
+  const [vehicles, reservations, fuelingRecords, cooldownDays] = await Promise.all([
     offlineDb.local_vehicles.toArray(),
     offlineDb.local_reservations.toArray(),
+    offlineDb.local_fueling_records.toArray(),
+    getCachedRefuelCooldownDays(),
   ])
   const existingVehicle = vehicles.find(
     (vehicle) => vehicle.normalized_plate_number === normalizedPlateNumber,
@@ -118,6 +148,19 @@ export async function createOfflineReservation({
 
   if (vehicle.is_blocked) {
     throw new Error('VEHICLE_BLOCKED')
+  }
+
+  if (cooldownDays > 0) {
+    const lastFueling = findLastRegularFueling(fuelingRecords, vehicle.id)
+
+    if (lastFueling) {
+      const today = toDateInputValue(new Date())
+      const nextAllowedDate = addDays(lastFueling.date, cooldownDays)
+
+      if (today < nextAllowedDate) {
+        throw new Error('REFUEL_COOLDOWN_ACTIVE')
+      }
+    }
   }
 
   const duplicateReservation = reservations.find(
