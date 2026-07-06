@@ -56,6 +56,7 @@ const reasonLabels: Record<string, string> = {
   OFFLINE_UNCONFIRMED: 'Offline-решение требует серверной перепроверки.',
   OUTSIDE_TODAY_LIMIT: 'Автомобиль не попадает в сегодняшний лимит своей очереди.',
   PROFILE_NOT_FOUND: 'Профиль пользователя не найден.',
+  PREFERENTIAL_QUEUE_ACTIVE: 'Машина есть в активной льготной очереди мэра.',
   RESERVATION_AT_OTHER_STATION: 'Запись найдена на другой АЗС.',
   RPC_ERROR: 'Не удалось выполнить серверную проверку.',
   STATION_ACCESS_DENIED: 'Нет доступа к выбранной АЗС.',
@@ -108,6 +109,12 @@ function AccessResultCard({ result }: { result: VehicleAccessResult }) {
               <div>
                 <dt className="opacity-70">Очередь</dt>
                 <dd className="font-semibold">№{result.queue_number}</dd>
+              </div>
+            ) : null}
+            {result.preferential_queue_name ? (
+              <div>
+                <dt className="opacity-70">Льготная очередь</dt>
+                <dd className="font-semibold">{result.preferential_queue_name}</dd>
               </div>
             ) : null}
             {result.fuel_type ? (

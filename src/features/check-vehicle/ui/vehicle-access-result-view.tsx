@@ -12,6 +12,7 @@ const reasonLabels: Record<VehicleAccessReason, string> = {
   OFFLINE_UNCONFIRMED: 'Offline-проверка требует серверного подтверждения.',
   OUTSIDE_TODAY_LIMIT: 'Автомобиль не попадает в сегодняшний лимит своей очереди.',
   PROFILE_NOT_FOUND: 'Профиль пользователя не найден.',
+  PREFERENTIAL_QUEUE_ACTIVE: 'Машина есть в активной льготной очереди мэра.',
   REFUEL_COOLDOWN_ACTIVE: 'После последней заправки ещё не прошёл установленный интервал.',
   RPC_ERROR: 'Не удалось выполнить серверную проверку.',
   STATION_ACCESS_DENIED: 'Нет доступа к выбранной АЗС.',
@@ -51,6 +52,7 @@ function getResultTone(result: VehicleAccessResult) {
 export function VehicleAccessResultView({ result }: { result: VehicleAccessResult }) {
   const { Icon, title, className } = getResultTone(result)
   const reason = result.offline_reason ?? result.reason
+  const isPreferentialQueueResult = result.reason === 'PREFERENTIAL_QUEUE_ACTIVE'
 
   return (
     <div className={`rounded-lg border p-4 ${className}`}>
@@ -59,7 +61,9 @@ export function VehicleAccessResultView({ result }: { result: VehicleAccessResul
         <div className="min-w-0 flex-1 space-y-3">
           <div>
             <p className="font-medium">{title}</p>
-            <p className="text-sm opacity-80">{reasonLabels[result.reason]}</p>
+            {!isPreferentialQueueResult ? (
+              <p className="text-sm opacity-80">{reasonLabels[result.reason]}</p>
+            ) : null}
             {result.offline_reason ? (
               <p className="mt-1 text-sm opacity-80">
                 Локальный вывод: {reasonLabels[reason]}
@@ -67,14 +71,22 @@ export function VehicleAccessResultView({ result }: { result: VehicleAccessResul
             ) : null}
           </div>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="opacity-70">Номер</dt>
-              <dd className="font-semibold tracking-wide">{result.normalized_plate_number}</dd>
-            </div>
+            {!isPreferentialQueueResult ? (
+              <div>
+                <dt className="opacity-70">Номер</dt>
+                <dd className="font-semibold tracking-wide">{result.normalized_plate_number}</dd>
+              </div>
+            ) : null}
             {result.queue_number ? (
               <div>
                 <dt className="opacity-70">Общая очередь</dt>
                 <dd className="font-semibold">№{result.queue_number}</dd>
+              </div>
+            ) : null}
+            {result.preferential_queue_name ? (
+              <div>
+                <dt className="opacity-70">Тип очереди</dt>
+                <dd className="font-semibold">Льготная очередь</dd>
               </div>
             ) : null}
             {result.category_position ? (
@@ -83,7 +95,7 @@ export function VehicleAccessResultView({ result }: { result: VehicleAccessResul
                 <dd className="font-semibold">№{result.category_position}</dd>
               </div>
             ) : null}
-            {result.fuel_category ? (
+            {result.fuel_category && !isPreferentialQueueResult ? (
               <div>
                 <dt className="opacity-70">Очередь</dt>
                 <dd className="font-semibold">
@@ -93,7 +105,7 @@ export function VehicleAccessResultView({ result }: { result: VehicleAccessResul
             ) : null}
             {result.fuel_type ? (
               <div>
-                <dt className="opacity-70">Топливо</dt>
+                <dt className="opacity-70">Желаемое топливо</dt>
                 <dd className="font-semibold">{result.fuel_type}</dd>
               </div>
             ) : null}

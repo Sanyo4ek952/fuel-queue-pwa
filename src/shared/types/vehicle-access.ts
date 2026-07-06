@@ -10,6 +10,7 @@ export type VehicleAccessReason =
   | 'OFFLINE_UNCONFIRMED'
   | 'OUTSIDE_TODAY_LIMIT'
   | 'PROFILE_NOT_FOUND'
+  | 'PREFERENTIAL_QUEUE_ACTIVE'
   | 'REFUEL_COOLDOWN_ACTIVE'
   | 'STATION_ACCESS_DENIED'
   | 'VEHICLE_BLOCKED'
@@ -35,6 +36,9 @@ export type VehicleAccessResult = {
   category_liters?: number
   max_liters_per_vehicle?: number
   manual_override_id?: string
+  preferential_queue_entry_id?: string
+  preferential_queue_id?: string
+  preferential_queue_name?: string
   block_reason?: string | null
   last_fueling_record_id?: string
   last_fueling_station_id?: string

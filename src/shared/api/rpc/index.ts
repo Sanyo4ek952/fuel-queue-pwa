@@ -4,10 +4,13 @@ export type RpcResult<TData> = {
 }
 
 export * from './check-vehicle-access'
+export * from './cancel-preferential-queue-entry'
 export * from './create-daily-limit'
 export * from './create-fueling-record'
 export * from './create-manual-override'
 export * from './create-personal-vehicle-liter-limit'
+export * from './create-preferential-queue'
+export * from './create-preferential-queue-entry'
 export * from './create-reservation'
 export * from './get-daily-limit-overview'
 export * from './get-vehicle-fueling-history'

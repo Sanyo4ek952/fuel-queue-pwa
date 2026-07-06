@@ -114,6 +114,18 @@ describe('getProtectedRouteState', () => {
     ).toBe('forbidden')
   })
 
+  it('blocks preferential queues for mayor assistant', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: activeProfile,
+        route: ROUTES.preferentialQueues,
+      }),
+    ).toBe('forbidden')
+  })
+
   it('allows authenticated active profile with route permission', () => {
     expect(
       getProtectedRouteState({
@@ -134,6 +146,18 @@ describe('getProtectedRouteState', () => {
         profileLoading: false,
         profile: { ...activeProfile, role: 'mayor' },
         route: ROUTES.reports,
+      }),
+    ).toBe('allowed')
+  })
+
+  it('allows preferential queues for mayor', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: { ...activeProfile, role: 'mayor' },
+        route: ROUTES.preferentialQueues,
       }),
     ).toBe('allowed')
   })
