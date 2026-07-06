@@ -70,7 +70,7 @@ function renderWithQueryClient(children: ReactNode) {
   return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>)
 }
 
-async function submitPlate(plateNumber = 'A123BC') {
+async function submitPlate(plateNumber = 'А123ВС777') {
   await userEvent.type(screen.getByLabelText('Госномер'), plateNumber)
   await userEvent.click(screen.getByRole('button', { name: /провер/i }))
 }
@@ -97,7 +97,7 @@ describe('CheckVehicleForm', () => {
   it('checks fueling history across all stations without a selected station', async () => {
     mocks.getVehicleFuelingHistory.mockResolvedValue({
       data: {
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС777',
         vehicle_id: 'vehicle-id',
         vehicle_found: true,
         total_fueling_count: 3,
@@ -144,7 +144,7 @@ describe('CheckVehicleForm', () => {
     expect(await screen.findByText('Заправки')).toBeInTheDocument()
     expect(screen.getByText('40 л')).toBeInTheDocument()
     expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       pageLimit: 10,
       pageOffset: 0,
     })
@@ -155,7 +155,7 @@ describe('CheckVehicleForm', () => {
     mocks.getVehicleFuelingHistory
       .mockResolvedValueOnce({
         data: {
-          normalized_plate_number: 'A123BC',
+          normalized_plate_number: 'А123ВС777',
           vehicle_id: 'vehicle-id',
           vehicle_found: true,
           total_fueling_count: 11,
@@ -185,7 +185,7 @@ describe('CheckVehicleForm', () => {
       })
       .mockResolvedValueOnce({
         data: {
-          normalized_plate_number: 'A123BC',
+          normalized_plate_number: 'А123ВС777',
           vehicle_id: 'vehicle-id',
           vehicle_found: true,
           total_fueling_count: 11,
@@ -221,7 +221,7 @@ describe('CheckVehicleForm', () => {
 
     await waitFor(() =>
       expect(mocks.getVehicleFuelingHistory).toHaveBeenLastCalledWith({
-        plateNumber: 'A123BC',
+        plateNumber: 'А123ВС777',
         pageLimit: 10,
         pageOffset: 10,
       }),
@@ -240,6 +240,49 @@ describe('CheckVehicleForm', () => {
     expect(screen.getByRole('button', { name: 'Проверяем...' })).toBeDisabled()
   })
 
+  it('formats plate input for display and submits the normalized value', async () => {
+    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
+    mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
+    mocks.checkVehicleAccess.mockResolvedValue({
+      data: {
+        status: 'BLOCKED',
+        reason: 'NO_ACTIVE_RESERVATION',
+        normalized_plate_number: 'А123ВС777',
+      },
+      error: null,
+    })
+
+    renderWithQueryClient(<CheckVehicleForm />)
+    const plateInput = screen.getByLabelText('Госномер')
+
+    await userEvent.type(plateInput, 'a123bc777')
+
+    expect(plateInput).toHaveValue('А 123 ВС 777')
+
+    await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
+
+    await waitFor(() => {
+      expect(mocks.checkVehicleAccess).toHaveBeenCalledWith({
+        plateNumber: 'А123ВС777',
+        stationId: STATIONS[0].id,
+        checkDate: expect.any(String),
+      })
+    })
+  })
+
+  it('shows plate validation only after blur', async () => {
+    renderWithQueryClient(<CheckVehicleForm />)
+    const plateInput = screen.getByLabelText('Госномер')
+
+    await userEvent.type(plateInput, 'D123ZZ777')
+
+    expect(screen.queryByText('Введите номер в формате А 123 ВС 777')).not.toBeInTheDocument()
+
+    await userEvent.tab()
+
+    expect(await screen.findByText('Введите номер в формате А 123 ВС 777')).toBeInTheDocument()
+  })
+
   it('renders an allowed online result for a selected station', async () => {
     useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
@@ -247,7 +290,7 @@ describe('CheckVehicleForm', () => {
       data: {
         status: 'ALLOWED',
         reason: 'ACTIVE_RESERVATION',
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС777',
         queue_number: 7,
         fuel_type: 'AI_95',
         requested_liters: 40,
@@ -269,7 +312,7 @@ describe('CheckVehicleForm', () => {
     mocks.checkVehicleAccessOffline.mockResolvedValue({
       status: 'ALLOWED',
       reason: 'ACTIVE_RESERVATION',
-      normalized_plate_number: 'A123BC',
+      normalized_plate_number: 'А123ВС777',
     })
 
     renderWithQueryClient(<CheckVehicleForm />)

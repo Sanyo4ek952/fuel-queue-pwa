@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ShieldCheck } from 'lucide-react'
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 
+import { PlateNumberInput } from '@/entities/vehicle'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
@@ -35,6 +36,7 @@ export function CreateManualOverrideForm({
   const createManualOverrideMutation = useCreateManualOverride()
   const form = useForm<CreateManualOverrideFormInput, unknown, CreateManualOverrideFormValues>({
     resolver: zodResolver(createManualOverrideSchema),
+    mode: 'onBlur',
     defaultValues: {
       targetDate,
       plateNumber,
@@ -84,12 +86,20 @@ export function CreateManualOverrideForm({
           </FormItem>
           <FormItem>
             <FormLabel htmlFor="manualOverridePlate">Госномер</FormLabel>
-            <Input
-              id="manualOverridePlate"
-              autoComplete="off"
-              inputMode="text"
-              className="uppercase"
-              {...form.register('plateNumber')}
+            <Controller
+              control={form.control}
+              name="plateNumber"
+              render={({ field }) => (
+                <PlateNumberInput
+                  id="manualOverridePlate"
+                  className="uppercase"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  ref={field.ref}
+                />
+              )}
             />
             {form.formState.errors.plateNumber ? (
               <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>

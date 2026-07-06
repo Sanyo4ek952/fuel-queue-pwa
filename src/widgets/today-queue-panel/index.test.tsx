@@ -58,7 +58,7 @@ describe('TodayQueuePanel', () => {
           created_by_role: 'cashier',
           created_by_signature_name: 'Петрова М.',
           queue_number: 1,
-          normalized_plate_number: 'A123BC',
+          normalized_plate_number: 'А123ВС777',
           driver_full_name: 'Ivan Ivanov',
           driver_phone: null,
           fuel_type: 'AI_95',
@@ -78,7 +78,7 @@ describe('TodayQueuePanel', () => {
 
     render(<TodayQueuePanel />)
 
-    expect(screen.getByText('A123BC')).toBeInTheDocument()
+    expect(screen.getByText('А123ВС777')).toBeInTheDocument()
     expect(screen.getByText('Кассир АЗС: Петрова М.')).toBeInTheDocument()
     expect(screen.getByText('PENDING')).toBeInTheDocument()
     expect(screen.getByText('Offline-режим')).toBeInTheDocument()

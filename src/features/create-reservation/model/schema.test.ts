@@ -6,7 +6,7 @@ describe('createReservationSchema', () => {
   it('coerces requested liters', () => {
     const result = createReservationSchema.parse({
       targetDate: '2026-07-06',
-      plateNumber: 'А123ВС',
+      plateNumber: 'a-123-bc-777',
       driverFullName: 'Иван Иванов',
       driverPhone: '',
       fuelType: 'AI_95',
@@ -14,6 +14,7 @@ describe('createReservationSchema', () => {
       comment: '',
     })
 
+    expect(result.plateNumber).toBe('А123ВС777')
     expect(result.requestedLiters).toBe(40)
   })
 
@@ -28,4 +29,19 @@ describe('createReservationSchema', () => {
 
     expect(result.success).toBe(false)
   })
+
+  it.each(['D123ZZ777', 'А12ВС777', 'А123ВС7'])(
+    'rejects invalid plate input %s',
+    (plateNumber) => {
+      expect(
+        createReservationSchema.safeParse({
+          targetDate: '2026-07-06',
+          plateNumber,
+          driverFullName: 'Иван Иванов',
+          fuelType: 'AI_95',
+          requestedLiters: 40,
+        }).success,
+      ).toBe(false)
+    },
+  )
 })

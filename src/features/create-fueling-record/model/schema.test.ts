@@ -6,13 +6,13 @@ describe('createFuelingRecordSchema', () => {
   it('accepts valid fueling values', () => {
     expect(
       createFuelingRecordSchema.parse({
-        plateNumber: 'A123BC',
+        plateNumber: 'A-123-BC-777',
         liters: '42.5',
         fuelType: 'AI_95',
         comment: 'ok',
       }),
     ).toMatchObject({
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       liters: 42.5,
       fuelType: 'AI_95',
     })
@@ -31,10 +31,23 @@ describe('createFuelingRecordSchema', () => {
   it('rejects unsupported fuel type', () => {
     expect(() =>
       createFuelingRecordSchema.parse({
-        plateNumber: 'A123BC',
+        plateNumber: 'А123ВС777',
         liters: 40,
         fuelType: 'JET',
       }),
     ).toThrow()
   })
+
+  it.each(['D123ZZ777', 'А12ВС777', 'А123ВС7'])(
+    'rejects invalid plate input %s',
+    (plateNumber) => {
+      expect(
+        createFuelingRecordSchema.safeParse({
+          plateNumber,
+          liters: 40,
+          fuelType: 'AI_95',
+        }).success,
+      ).toBe(false)
+    },
+  )
 })

@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertTriangle, CheckCircle2, Fuel, Search, XCircle } from 'lucide-react'
 import { useMemo } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 
+import { PlateNumberInput } from '@/entities/vehicle'
 import {
   type VehicleAccessReason,
   type VehicleAccessResult,
@@ -136,6 +137,7 @@ export function CreateFuelingRecordForm() {
   const createFuelingRecordMutation = useCreateFuelingRecord()
   const form = useForm<CreateFuelingRecordFormInput, unknown, CreateFuelingRecordFormValues>({
     resolver: zodResolver(createFuelingRecordSchema),
+    mode: 'onBlur',
     defaultValues: {
       plateNumber: '',
       liters: 40,
@@ -165,7 +167,7 @@ export function CreateFuelingRecordForm() {
     }
 
     const result = await checkVehicleAccessMutation.mutateAsync({
-      plateNumber: form.getValues('plateNumber'),
+      plateNumber: normalizePlateNumber(form.getValues('plateNumber')),
       stationId: selectedStationId,
       checkDate: getTodayDateInputValue(),
     })
@@ -218,13 +220,20 @@ export function CreateFuelingRecordForm() {
             <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
               <FormItem>
                 <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
-                <Input
-                  id="plateNumber"
-                  autoComplete="off"
-                  inputMode="text"
-                  placeholder="А123ВС"
-                  className="h-11 uppercase"
-                  {...form.register('plateNumber')}
+                <Controller
+                  control={form.control}
+                  name="plateNumber"
+                  render={({ field }) => (
+                    <PlateNumberInput
+                      id="plateNumber"
+                      className="h-11 uppercase"
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                    />
+                  )}
                 />
                 {form.formState.errors.plateNumber ? (
                   <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>

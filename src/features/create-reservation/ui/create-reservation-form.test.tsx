@@ -121,7 +121,7 @@ describe('CreateReservationForm', () => {
         station_id: STATIONS[0].id,
         vehicle_id: 'vehicle-id',
         driver_id: 'driver-id',
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС777',
         driver_full_name: 'Иван Иванов',
         driver_phone: null,
         fuel_type: 'AI_95',
@@ -134,7 +134,7 @@ describe('CreateReservationForm', () => {
     })
 
     renderWithQueryClient(<CreateReservationForm />)
-    await userEvent.type(screen.getByLabelText('Госномер'), 'A123BC')
+    await userEvent.type(screen.getByLabelText('Госномер'), 'А123ВС777')
     await userEvent.type(screen.getByLabelText('Водитель'), 'Иван Иванов')
     await userEvent.click(screen.getByRole('button', { name: /создать запись/i }))
 
@@ -143,7 +143,7 @@ describe('CreateReservationForm', () => {
         expect.objectContaining({
           stationId: STATIONS[0].id,
           targetDate: getTomorrowDateInputValue(),
-          plateNumber: 'A123BC',
+          plateNumber: 'А123ВС777',
           driverFullName: 'Иван Иванов',
           fuelType: 'AI_95',
           requestedLiters: 40,
@@ -160,7 +160,7 @@ describe('CreateReservationForm', () => {
       data: {
         status: 'ALLOWED',
         reason: 'ACTIVE_RESERVATION',
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС777',
         queue_number: 7,
         fuel_type: 'AI_95',
         requested_liters: 40,
@@ -169,7 +169,7 @@ describe('CreateReservationForm', () => {
     })
     mocks.getVehicleFuelingHistory.mockResolvedValue({
       data: {
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС777',
         vehicle_id: 'vehicle-id',
         vehicle_found: true,
         total_fueling_count: 1,
@@ -199,12 +199,12 @@ describe('CreateReservationForm', () => {
     })
 
     renderWithQueryClient(<CreateReservationForm />)
-    await userEvent.type(screen.getByLabelText('Госномер'), 'A123BC')
+    await userEvent.type(screen.getByLabelText('Госномер'), 'А123ВС777')
     await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
 
     await waitFor(() => {
       expect(mocks.checkVehicleAccess).toHaveBeenCalledWith({
-        plateNumber: 'A123BC',
+        plateNumber: 'А123ВС777',
         stationId: STATIONS[0].id,
         checkDate: getTomorrowDateInputValue(),
       })
@@ -212,7 +212,7 @@ describe('CreateReservationForm', () => {
     expect(await screen.findByText('Допуск разрешён')).toBeInTheDocument()
     expect(await screen.findByText('Заправки')).toBeInTheDocument()
     expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       pageLimit: 10,
       pageOffset: 0,
     })
@@ -226,13 +226,13 @@ describe('CreateReservationForm', () => {
       data: {
         status: 'ALLOWED',
         reason: 'ACTIVE_RESERVATION',
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС77',
       },
       error: null,
     })
     mocks.getVehicleFuelingHistory.mockResolvedValue({
       data: {
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС77',
         vehicle_id: 'vehicle-id',
         vehicle_found: true,
         total_fueling_count: 0,
@@ -250,13 +250,13 @@ describe('CreateReservationForm', () => {
     })
 
     renderWithQueryClient(<CreateReservationForm />)
-    await userEvent.type(screen.getByLabelText('Госномер'), 'A123BC')
+    await userEvent.type(screen.getByLabelText('Госномер'), 'A123BC77')
     await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
 
     expect(await screen.findByText('Допуск разрешён')).toBeInTheDocument()
     expect(await screen.findByText('Заправок не найдено.')).toBeInTheDocument()
 
-    await userEvent.type(screen.getByLabelText('Госномер'), '1')
+    await userEvent.type(screen.getByLabelText('Госномер'), '8')
 
     await waitFor(() => {
       expect(screen.queryByText('Допуск разрешён')).not.toBeInTheDocument()
@@ -267,7 +267,7 @@ describe('CreateReservationForm', () => {
       data: {
         status: 'ALLOWED',
         reason: 'ACTIVE_RESERVATION',
-        normalized_plate_number: 'A123BC1',
+        normalized_plate_number: 'А123ВС778',
       },
       error: null,
     })
@@ -286,7 +286,7 @@ describe('CreateReservationForm', () => {
       data: {
         status: 'ALLOWED',
         reason: 'ACTIVE_RESERVATION',
-        normalized_plate_number: 'A123BC1',
+        normalized_plate_number: 'А123ВС778',
       },
       error: null,
     })

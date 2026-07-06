@@ -1,5 +1,6 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import type {
   CheckVehicleAccessParams,
   VehicleAccessResult,
@@ -40,7 +41,7 @@ export async function checkVehicleAccess({
   }
 
   const { data, error } = await supabase.rpc('check_vehicle_access', {
-    plate_number: plateNumber,
+    plate_number: normalizePlateNumber(plateNumber),
     station_id: stationId,
     check_date: checkDate,
   })

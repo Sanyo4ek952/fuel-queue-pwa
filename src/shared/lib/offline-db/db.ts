@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie'
 
 import type { FuelType, SyncStatus } from '@/shared/constants'
 import type { UserRole } from '@/shared/config/roles'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 export type LocalRecord = {
   id: string
@@ -125,6 +126,23 @@ export type SyncConflict = {
   created_at: string
 }
 
+function normalizePayloadPlateNumber(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return payload
+  }
+
+  const payloadRecord = payload as Record<string, unknown>
+
+  if (typeof payloadRecord.plate_number !== 'string') {
+    return payload
+  }
+
+  return {
+    ...payloadRecord,
+    plate_number: normalizePlateNumber(payloadRecord.plate_number),
+  }
+}
+
 export class FuelQueueOfflineDb extends Dexie {
   local_profiles!: Table<LocalRecord, string>
   local_stations!: Table<LocalStation, string>
@@ -232,6 +250,64 @@ export class FuelQueueOfflineDb extends Dexie {
       sync_outbox: 'id, client_mutation_id, status, created_at',
       sync_conflicts: 'id, client_mutation_id, operation_id, created_at',
     })
+
+    this.version(7)
+      .stores({
+        local_profiles: 'id, updated_at',
+        local_stations: 'id, updated_at',
+        local_vehicles: 'id, normalized_plate_number, updated_at',
+        local_daily_limits: 'id, [station_id+date], date, status, cached_at, updated_at',
+        local_reservations:
+          'id, client_mutation_id, [vehicle_id+date], [station_id+date], date, status, sync_status, updated_at',
+        local_queue_entries: 'id, [station_id+date], date, status, updated_at',
+        local_fueling_records:
+          'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',
+        local_refusal_records: 'id, date, updated_at',
+        local_manual_overrides:
+          'id, client_mutation_id, [vehicle_id+station_id+date], date, sync_status, updated_at',
+        sync_outbox: 'id, client_mutation_id, status, created_at',
+        sync_conflicts: 'id, client_mutation_id, operation_id, created_at',
+      })
+      .upgrade(async (transaction) => {
+        await transaction
+          .table<LocalVehicle, string>('local_vehicles')
+          .toCollection()
+          .modify((vehicle) => {
+            vehicle.normalized_plate_number = normalizePlateNumber(vehicle.normalized_plate_number)
+          })
+        await transaction
+          .table<LocalReservation, string>('local_reservations')
+          .toCollection()
+          .modify((reservation) => {
+            if (reservation.normalized_plate_number) {
+              reservation.normalized_plate_number = normalizePlateNumber(
+                reservation.normalized_plate_number,
+              )
+            }
+          })
+        await transaction
+          .table<LocalManualOverride, string>('local_manual_overrides')
+          .toCollection()
+          .modify((manualOverride) => {
+            if (manualOverride.normalized_plate_number) {
+              manualOverride.normalized_plate_number = normalizePlateNumber(
+                manualOverride.normalized_plate_number,
+              )
+            }
+          })
+        await transaction
+          .table<SyncOutboxOperation, string>('sync_outbox')
+          .toCollection()
+          .modify((operation) => {
+            operation.payload = normalizePayloadPlateNumber(operation.payload)
+          })
+        await transaction
+          .table<SyncConflict, string>('sync_conflicts')
+          .toCollection()
+          .modify((conflict) => {
+            conflict.payload = normalizePayloadPlateNumber(conflict.payload)
+          })
+      })
   }
 }
 

@@ -1,6 +1,7 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
 import type { SyncStatus } from '@/shared/constants'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
 
@@ -83,7 +84,7 @@ export async function createManualOverride({
   const { data, error } = await supabase.rpc('create_manual_override', {
     target_date: targetDate,
     target_station_id: stationId,
-    plate_number: plateNumber,
+    plate_number: normalizePlateNumber(plateNumber),
     reason,
     expires_at: expiresAt ?? null,
     client_mutation_id: clientMutationId,

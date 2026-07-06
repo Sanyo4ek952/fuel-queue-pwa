@@ -1,5 +1,6 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import type {
   GetVehicleFuelingHistoryParams,
   VehicleFuelingHistoryFuelSummary,
@@ -148,7 +149,7 @@ export async function getVehicleFuelingHistory({
   }
 
   const { data, error } = await supabase.rpc('get_vehicle_fueling_history', {
-    plate_number: plateNumber,
+    plate_number: normalizePlateNumber(plateNumber),
     page_limit: pageLimit,
     page_offset: pageOffset,
   })

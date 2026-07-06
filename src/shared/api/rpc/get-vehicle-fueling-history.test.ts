@@ -12,7 +12,7 @@ describe('parseVehicleFuelingHistory', () => {
   it('parses a vehicle fueling history response', () => {
     expect(
       parseVehicleFuelingHistory({
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС777',
         vehicle_id: 'vehicle-id',
         vehicle_found: true,
         total_fueling_count: '3',
@@ -52,7 +52,7 @@ describe('parseVehicleFuelingHistory', () => {
         has_more: true,
       }),
     ).toMatchObject({
-      normalized_plate_number: 'A123BC',
+      normalized_plate_number: 'А123ВС777',
       total_fueling_count: 3,
       total_liters: 120.5,
       station_summaries: [{ station_name: 'АЗС №1', fueling_count: 3 }],
@@ -62,7 +62,7 @@ describe('parseVehicleFuelingHistory', () => {
   it('parses a missing vehicle response', () => {
     expect(
       parseVehicleFuelingHistory({
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС777',
         vehicle_id: null,
         vehicle_found: false,
         total_fueling_count: 0,
@@ -84,7 +84,7 @@ describe('parseVehicleFuelingHistory', () => {
   it('parses paginated fueling records', () => {
     expect(
       parseVehicleFuelingHistory({
-        normalized_plate_number: 'A123BC',
+        normalized_plate_number: 'А123ВС777',
         vehicle_id: 'vehicle-id',
         vehicle_found: true,
         total_fueling_count: 11,

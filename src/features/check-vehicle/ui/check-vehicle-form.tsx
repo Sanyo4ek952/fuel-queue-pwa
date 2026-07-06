@@ -1,10 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { MapPin, Search } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 
 import { useCurrentProfile } from '@/entities/profile'
+import { PlateNumberInput } from '@/entities/vehicle'
 import {
+  type CheckVehicleFormInput,
   type CheckVehicleFormValues,
   buildVehicleFuelingHistoryViewResult,
   checkVehicleSchema,
@@ -21,9 +23,9 @@ import {
 } from '@/features/select-station'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { canCreateManualOverride } from '@/shared/lib/permissions'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import { Button } from '@/shared/ui/button'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
-import { Input } from '@/shared/ui/input'
 import {
   Select,
   SelectContent,
@@ -87,8 +89,9 @@ export function CheckVehicleForm() {
     plateNumber: historyPlateNumber,
     enabled: isHistoryOpen,
   })
-  const form = useForm<CheckVehicleFormValues>({
+  const form = useForm<CheckVehicleFormInput, unknown, CheckVehicleFormValues>({
     resolver: zodResolver(checkVehicleSchema),
+    mode: 'onBlur',
     defaultValues: {
       plateNumber: '',
     },
@@ -166,13 +169,20 @@ export function CheckVehicleForm() {
         />
         <FormItem>
           <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
-          <Input
-            id="plateNumber"
-            autoComplete="off"
-            inputMode="text"
-            placeholder="А123ВС"
-            className="h-12 text-lg uppercase"
-            {...form.register('plateNumber')}
+          <Controller
+            control={form.control}
+            name="plateNumber"
+            render={({ field }) => (
+              <PlateNumberInput
+                id="plateNumber"
+                className="h-12 text-lg uppercase"
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                name={field.name}
+                ref={field.ref}
+              />
+            )}
           />
           {form.formState.errors.plateNumber ? (
             <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>
@@ -213,11 +223,14 @@ export function CheckVehicleForm() {
             </div>
             <CreateManualOverrideForm
               stationId={selectedCheckStationId}
-              plateNumber={accessResult.normalized_plate_number || form.getValues('plateNumber')}
+              plateNumber={
+                accessResult.normalized_plate_number ||
+                normalizePlateNumber(form.getValues('plateNumber'))
+              }
               targetDate={getTodayDateInputValue()}
               onCreated={() => {
                 checkVehicleAccessMutation.mutate({
-                  plateNumber: form.getValues('plateNumber'),
+                  plateNumber: normalizePlateNumber(form.getValues('plateNumber')),
                   stationId: selectedCheckStationId,
                   checkDate: getTodayDateInputValue(),
                 })

@@ -72,7 +72,7 @@ describe('createOfflineReservation', () => {
     const result = await createOfflineReservation({
       stationId,
       targetDate,
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       driverFullName: 'Ivan Ivanov',
       fuelType: 'AI_95',
       requestedLiters: 40,
@@ -101,7 +101,7 @@ describe('createOfflineReservation', () => {
     await createOfflineReservation({
       stationId,
       targetDate,
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       driverFullName: 'Ivan Ivanov',
       fuelType: 'AI_95',
       requestedLiters: 40,
@@ -112,7 +112,7 @@ describe('createOfflineReservation', () => {
       createOfflineReservation({
         stationId,
         targetDate,
-        plateNumber: 'A123BC',
+        plateNumber: 'А123ВС777',
         driverFullName: 'Ivan Ivanov',
         fuelType: 'AI_95',
         requestedLiters: 40,

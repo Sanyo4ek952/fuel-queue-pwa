@@ -1,6 +1,7 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
 import type { FuelType, SyncStatus } from '@/shared/constants'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
 
@@ -96,7 +97,7 @@ export async function createFuelingRecord({
 
   const { data, error } = await supabase.rpc('create_fueling_record', {
     target_station_id: stationId,
-    plate_number: plateNumber,
+    plate_number: normalizePlateNumber(plateNumber),
     liters,
     fuel_type: fuelType ?? null,
     target_date: targetDate,

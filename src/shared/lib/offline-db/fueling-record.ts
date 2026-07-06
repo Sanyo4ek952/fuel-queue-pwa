@@ -1,5 +1,6 @@
 import type { FuelType } from '@/shared/constants'
 import type { VehicleAccessResult } from '@/shared/types/vehicle-access'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import { evaluateVehicleAccessOffline } from './vehicle-access'
 import { offlineDb, type LocalFuelingRecord, type SyncOutboxOperation } from './db'
@@ -51,7 +52,7 @@ export function buildCreateFuelingRecordPayload({
 }: CreateOfflineFuelingRecordParams): CreateFuelingRecordPayload {
   return {
     station_id: stationId,
-    plate_number: plateNumber,
+    plate_number: normalizePlateNumber(plateNumber),
     liters,
     fuel_type: fuelType,
     target_date: targetDate,

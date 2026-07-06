@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CalendarPlus, Search, Ticket } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 
+import { PlateNumberInput } from '@/entities/vehicle'
 import {
   type CreateReservationFormInput,
   type CreateReservationFormValues,
@@ -19,6 +20,7 @@ import {
 import { StationSelect, useSelectedStation } from '@/features/select-station'
 import { FUEL_TYPES, type FuelType } from '@/shared/constants'
 import { getTomorrowDateInputValue } from '@/shared/lib/date'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -53,6 +55,7 @@ export function CreateReservationForm() {
   })
   const form = useForm<CreateReservationFormInput, unknown, CreateReservationFormValues>({
     resolver: zodResolver(createReservationSchema),
+    mode: 'onBlur',
     defaultValues: {
       targetDate: getTomorrowDateInputValue(),
       plateNumber: '',
@@ -97,10 +100,11 @@ export function CreateReservationForm() {
     }
 
     const values = form.getValues()
-    setHistoryPlateNumber(values.plateNumber)
+    const normalizedPlateNumber = normalizePlateNumber(values.plateNumber)
+    setHistoryPlateNumber(normalizedPlateNumber)
 
     await checkVehicleAccessMutation.mutateAsync({
-      plateNumber: values.plateNumber,
+      plateNumber: normalizedPlateNumber,
       stationId: selectedStationId,
       checkDate: values.targetDate,
     })
@@ -142,13 +146,20 @@ export function CreateReservationForm() {
               <FormItem>
                 <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
                 <div className="flex gap-2">
-                  <Input
-                    id="plateNumber"
-                    autoComplete="off"
-                    inputMode="text"
-                    placeholder="А123ВС"
-                    className="uppercase"
-                    {...form.register('plateNumber')}
+                  <Controller
+                    control={form.control}
+                    name="plateNumber"
+                    render={({ field }) => (
+                      <PlateNumberInput
+                        id="plateNumber"
+                        className="uppercase"
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        ref={field.ref}
+                      />
+                    )}
                   />
                   <Button
                     type="button"

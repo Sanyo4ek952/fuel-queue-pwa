@@ -91,7 +91,7 @@ function addOutboxOperation(overrides: Partial<MutableRecord> = {}) {
     client_mutation_id: 'mutation-id',
     type: 'CREATE_FUELING_RECORD',
     payload: {
-      plate_number: 'А123ВС',
+      plate_number: 'А123ВС777',
       target_date: '2026-07-05',
       station_id: 'station-id',
     },
@@ -174,7 +174,7 @@ describe('syncPendingOutbox', () => {
         operation_type: 'CREATE_FUELING_RECORD',
         client_mutation_id: 'mutation-id',
         reason: 'ALREADY_FUELED',
-        payload: { plate_number: 'А123ВС' },
+        payload: { plate_number: 'А123ВС777' },
       },
       error: null,
     })
@@ -216,7 +216,7 @@ describe('syncPendingOutbox', () => {
     addOutboxOperation({
       type: 'CREATE_RESERVATION',
       payload: {
-        plate_number: 'Рђ123Р’РЎ',
+        plate_number: 'А123ВС777',
         target_date: '2026-07-06',
         station_id: 'station-id',
       },
@@ -237,7 +237,7 @@ describe('syncPendingOutbox', () => {
           vehicle_id: 'vehicle-id',
           driver_id: 'driver-id',
           date: '2026-07-06',
-          normalized_plate_number: 'A123BC',
+          normalized_plate_number: 'А123ВС777',
           driver_full_name: 'Иван Иванов',
           driver_phone: null,
           fuel_type: 'AI_95',
@@ -268,7 +268,7 @@ describe('syncPendingOutbox', () => {
     addOutboxOperation({
       type: 'CREATE_MANUAL_OVERRIDE',
       payload: {
-        plate_number: 'Рђ123Р’РЎ',
+        plate_number: 'А123ВС777',
         target_date: '2026-07-05',
         station_id: 'station-id',
         reason: 'Supervisor decision',
@@ -289,7 +289,7 @@ describe('syncPendingOutbox', () => {
           station_id: 'station-id',
           vehicle_id: 'vehicle-id',
           date: '2026-07-05',
-          normalized_plate_number: 'A123BC',
+          normalized_plate_number: 'А123ВС777',
           reason: 'Supervisor decision',
           approved_by: 'profile-id',
           expires_at: null,
@@ -319,7 +319,7 @@ describe('syncPendingOutbox', () => {
     addOutboxOperation({
       type: 'CREATE_MANUAL_OVERRIDE',
       payload: {
-        plate_number: 'Рђ123Р’РЎ',
+        plate_number: 'А123ВС777',
         target_date: '2026-07-05',
         station_id: 'station-id',
         reason: 'Supervisor decision',
@@ -336,7 +336,7 @@ describe('syncPendingOutbox', () => {
         operation_type: 'CREATE_MANUAL_OVERRIDE',
         client_mutation_id: 'mutation-id',
         reason: 'FORBIDDEN',
-        payload: { plate_number: 'Рђ123Р’РЎ' },
+        payload: { plate_number: 'А123ВС777' },
       },
       error: null,
     })

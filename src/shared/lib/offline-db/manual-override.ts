@@ -48,7 +48,7 @@ export function buildCreateManualOverridePayload({
   return {
     target_date: targetDate,
     station_id: stationId,
-    plate_number: plateNumber,
+    plate_number: normalizePlateNumber(plateNumber),
     reason,
     expires_at: expiresAt || undefined,
   }

@@ -72,7 +72,7 @@ describe('createOfflineFuelingRecord', () => {
 
     mocks.tables.local_vehicles.rows.push({
       id: vehicleId,
-      normalized_plate_number: 'A123BC',
+      normalized_plate_number: 'А123ВС777',
       is_blocked: false,
     })
     mocks.tables.local_reservations.rows.push({
@@ -97,7 +97,7 @@ describe('createOfflineFuelingRecord', () => {
   it('creates a pending local fueling record and sync outbox operation', async () => {
     const result = await createOfflineFuelingRecord({
       stationId,
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       liters: 40,
       targetDate,
       fueledAt: '2026-07-05T10:00:00.000Z',
@@ -123,7 +123,7 @@ describe('createOfflineFuelingRecord', () => {
   it('blocks a repeated offline fueling after the first local record', async () => {
     await createOfflineFuelingRecord({
       stationId,
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       liters: 40,
       targetDate,
       fueledAt: '2026-07-05T10:00:00.000Z',
@@ -133,7 +133,7 @@ describe('createOfflineFuelingRecord', () => {
     await expect(
       createOfflineFuelingRecord({
         stationId,
-        plateNumber: 'A123BC',
+        plateNumber: 'А123ВС777',
         liters: 40,
         targetDate,
         fueledAt: '2026-07-05T11:00:00.000Z',

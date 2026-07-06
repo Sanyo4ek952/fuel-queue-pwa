@@ -44,7 +44,7 @@ describe('getVehicleFuelingHistoryOffline', () => {
 
     mocks.tables.local_vehicles.rows.push({
       id: 'vehicle-1',
-      normalized_plate_number: normalizePlateNumber('A123BC'),
+      normalized_plate_number: normalizePlateNumber('А123ВС777'),
       is_blocked: false,
     })
     mocks.tables.local_stations.rows.push({
@@ -69,12 +69,12 @@ describe('getVehicleFuelingHistoryOffline', () => {
 
   it('sorts fueling records descending and paginates by limit and offset', async () => {
     const firstPage = await getVehicleFuelingHistoryOffline({
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       pageLimit: 10,
       pageOffset: 0,
     })
     const secondPage = await getVehicleFuelingHistoryOffline({
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       pageLimit: 10,
       pageOffset: 10,
     })

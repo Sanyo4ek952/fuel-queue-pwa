@@ -64,7 +64,7 @@ describe('createOfflineManualOverride', () => {
     const result = await createOfflineManualOverride({
       stationId,
       targetDate,
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       reason: 'Supervisor decision',
       clientMutationId: 'mutation-id',
     })
@@ -97,7 +97,7 @@ describe('createOfflineManualOverride', () => {
     const result = await createOfflineManualOverride({
       stationId,
       targetDate,
-      plateNumber: 'A123BC',
+      plateNumber: 'А123ВС777',
       reason: 'Supervisor decision',
       clientMutationId: 'mutation-id',
     })
@@ -105,7 +105,7 @@ describe('createOfflineManualOverride', () => {
     expect(
       evaluateVehicleAccessOffline(
         {
-          plateNumber: 'A123BC',
+          plateNumber: 'А123ВС777',
           stationId,
           checkDate: targetDate,
         },
@@ -129,7 +129,7 @@ describe('createOfflineManualOverride', () => {
       createOfflineManualOverride({
         stationId,
         targetDate,
-        plateNumber: 'A123BC',
+        plateNumber: 'А123ВС777',
         reason: '',
         clientMutationId: 'mutation-id',
       }),

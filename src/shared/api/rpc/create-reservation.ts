@@ -1,6 +1,7 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
 import type { FuelType, ReservationStatus } from '@/shared/constants'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
 
@@ -93,7 +94,7 @@ export async function createReservation({
   const { data, error } = await supabase.rpc('create_reservation', {
     target_date: targetDate,
     target_station_id: stationId,
-    plate_number: plateNumber,
+    plate_number: normalizePlateNumber(plateNumber),
     driver_full_name: driverFullName,
     driver_phone: driverPhone ?? null,
     fuel_type: fuelType,
