@@ -19,7 +19,6 @@ export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES]
 export const PUBLIC_ROUTES = [ROUTES.promo] as const
 
 export const MAIN_SECTION_LINKS = [
-  { path: ROUTES.check, label: 'Проверка авто', description: 'Нормализация госномера и проверка допуска' },
   { path: ROUTES.reservations, label: 'Записи', description: 'Предварительная запись на дату' },
   { path: ROUTES.queue, label: 'Очередь сегодня', description: 'Текущая очередь по выбранной АЗС' },
   { path: ROUTES.fueling, label: 'Заправка', description: 'Фиксация факта отпуска топлива' },

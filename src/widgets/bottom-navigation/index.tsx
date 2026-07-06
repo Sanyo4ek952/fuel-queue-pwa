@@ -1,4 +1,4 @@
-import { CalendarPlus, CarFront, ClipboardList, Fuel, MoreHorizontal } from 'lucide-react'
+import { CalendarPlus, ClipboardList, Fuel, MoreHorizontal } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 import { useCurrentProfile } from '@/entities/profile'
@@ -6,7 +6,6 @@ import { ROUTES } from '@/shared/config/routes'
 import { canAccessRoute } from '@/shared/lib/permissions'
 
 const bottomNavItems = [
-  { to: ROUTES.check, label: 'Проверка', icon: CarFront },
   { to: ROUTES.reservations, label: 'Запись', icon: CalendarPlus },
   { to: ROUTES.queue, label: 'Очередь', icon: ClipboardList },
   { to: ROUTES.fueling, label: 'Заправка', icon: Fuel },

@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarPlus, Ticket } from 'lucide-react'
+import { CalendarPlus, Search, Ticket } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import {
@@ -8,6 +9,13 @@ import {
   createReservationSchema,
   useCreateReservation,
 } from '@/features/create-reservation'
+import {
+  buildVehicleFuelingHistoryViewResult,
+  useCheckVehicleAccess,
+  useVehicleFuelingHistory,
+  VehicleAccessResultView,
+  VehicleFuelingHistoryPanel,
+} from '@/features/check-vehicle'
 import { StationSelect, useSelectedStation } from '@/features/select-station'
 import { FUEL_TYPES, type FuelType } from '@/shared/constants'
 import { getTomorrowDateInputValue } from '@/shared/lib/date'
@@ -36,6 +44,13 @@ const fuelTypeLabels: Record<FuelType, string> = {
 export function CreateReservationForm() {
   const selectedStationId = useSelectedStation((state) => state.selectedStationId)
   const createReservationMutation = useCreateReservation()
+  const checkVehicleAccessMutation = useCheckVehicleAccess()
+  const resetCheckVehicleAccess = checkVehicleAccessMutation.reset
+  const [historyPlateNumber, setHistoryPlateNumber] = useState('')
+  const vehicleFuelingHistoryQuery = useVehicleFuelingHistory({
+    plateNumber: historyPlateNumber,
+    enabled: Boolean(historyPlateNumber),
+  })
   const form = useForm<CreateReservationFormInput, unknown, CreateReservationFormValues>({
     resolver: zodResolver(createReservationSchema),
     defaultValues: {
@@ -48,6 +63,13 @@ export function CreateReservationForm() {
       comment: '',
     },
   })
+  const watchedPlateNumber = form.watch('plateNumber')
+  const watchedTargetDate = form.watch('targetDate')
+
+  useEffect(() => {
+    resetCheckVehicleAccess()
+    setHistoryPlateNumber('')
+  }, [watchedPlateNumber, watchedTargetDate, selectedStationId, resetCheckVehicleAccess])
 
   async function handleSubmit(values: CreateReservationFormValues) {
     if (!selectedStationId) {
@@ -67,7 +89,33 @@ export function CreateReservationForm() {
     })
   }
 
+  async function handleCheckVehicle() {
+    const canCheck = await form.trigger(['targetDate', 'plateNumber'])
+
+    if (!selectedStationId || !canCheck) {
+      return
+    }
+
+    const values = form.getValues()
+    setHistoryPlateNumber(values.plateNumber)
+
+    await checkVehicleAccessMutation.mutateAsync({
+      plateNumber: values.plateNumber,
+      stationId: selectedStationId,
+      checkDate: values.targetDate,
+    })
+  }
+
   const isSubmitDisabled = !selectedStationId || createReservationMutation.isPending
+  const isCheckDisabled =
+    !selectedStationId ||
+    !watchedPlateNumber.trim() ||
+    !watchedTargetDate ||
+    checkVehicleAccessMutation.isPending
+  const accessResult = checkVehicleAccessMutation.data
+  const fuelingHistoryViewResult = buildVehicleFuelingHistoryViewResult(
+    vehicleFuelingHistoryQuery.data,
+  )
 
   return (
     <Card className="rounded-lg border-slate-200 bg-white shadow-sm">
@@ -93,14 +141,28 @@ export function CreateReservationForm() {
               </FormItem>
               <FormItem>
                 <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
-                <Input
-                  id="plateNumber"
-                  autoComplete="off"
-                  inputMode="text"
-                  placeholder="А123ВС"
-                  className="uppercase"
-                  {...form.register('plateNumber')}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="plateNumber"
+                    autoComplete="off"
+                    inputMode="text"
+                    placeholder="А123ВС"
+                    className="uppercase"
+                    {...form.register('plateNumber')}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0 gap-2"
+                    disabled={isCheckDisabled}
+                    onClick={() => {
+                      void handleCheckVehicle()
+                    }}
+                  >
+                    <Search className="size-4" aria-hidden="true" />
+                    {checkVehicleAccessMutation.isPending ? 'Проверяем...' : 'Проверить'}
+                  </Button>
+                </div>
                 {form.formState.errors.plateNumber ? (
                   <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>
                 ) : null}
@@ -202,6 +264,21 @@ export function CreateReservationForm() {
                   {createReservationMutation.data.requested_liters} л.
                 </AlertDescription>
               </Alert>
+            ) : null}
+
+            {accessResult ? <VehicleAccessResultView result={accessResult} /> : null}
+
+            {historyPlateNumber ? (
+              <VehicleFuelingHistoryPanel
+                result={fuelingHistoryViewResult}
+                isLoading={vehicleFuelingHistoryQuery.isLoading}
+                isError={vehicleFuelingHistoryQuery.isError}
+                isFetchingNextPage={vehicleFuelingHistoryQuery.isFetchingNextPage}
+                hasNextPage={vehicleFuelingHistoryQuery.hasNextPage}
+                onLoadMore={() => {
+                  void vehicleFuelingHistoryQuery.fetchNextPage()
+                }}
+              />
             ) : null}
           </form>
         </Form>

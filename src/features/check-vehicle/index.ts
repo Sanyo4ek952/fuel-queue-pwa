@@ -1,4 +1,7 @@
 export * from './model/schema'
+export * from './model/build-vehicle-fueling-history-view-result'
 export * from './model/use-check-vehicle-access'
 export * from './model/use-vehicle-fueling-history'
 export * from './ui/check-vehicle-form'
+export * from './ui/vehicle-access-result-view'
+export * from './ui/vehicle-fueling-history-view'

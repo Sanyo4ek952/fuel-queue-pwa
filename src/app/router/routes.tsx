@@ -17,9 +17,6 @@ import { getProtectedRouteState, type ProtectedRouteState } from './access'
 const DashboardPage = lazy(() =>
   import('@/pages/dashboard').then((m) => ({ default: m.DashboardPage })),
 )
-const CheckVehiclePage = lazy(() =>
-  import('@/pages/check-vehicle').then((m) => ({ default: m.CheckVehiclePage })),
-)
 const TodayQueuePage = lazy(() =>
   import('@/pages/today-queue').then((m) => ({ default: m.TodayQueuePage })),
 )
@@ -121,7 +118,7 @@ function AppShell() {
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/check" element={<CheckVehiclePage />} />
+            <Route path="/check" element={<Navigate to={ROUTES.reservations} replace />} />
             <Route path="/queue" element={<TodayQueuePage />} />
             <Route path="/reservations" element={<ReservationsPage />} />
             <Route path="/limits" element={<DailyLimitsPage />} />
