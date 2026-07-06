@@ -24,6 +24,7 @@ export type CreateFuelingRecordResult = {
   driver_id: string | null
   reservation_id: string | null
   queue_entry_id: string | null
+  preferential_queue_entry_id: string | null
   fuel_type: FuelType
   liters: number
   is_manual_override: boolean
@@ -65,6 +66,7 @@ export function parseCreateFuelingRecordResult(
       driver_id: result.driver_id ?? null,
       reservation_id: result.reservation_id ?? null,
       queue_entry_id: result.queue_entry_id ?? null,
+      preferential_queue_entry_id: result.preferential_queue_entry_id ?? null,
       fuel_type: result.fuel_type as FuelType,
       liters: toNumber(result.liters),
       is_manual_override: result.is_manual_override,

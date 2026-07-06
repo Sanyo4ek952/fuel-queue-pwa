@@ -23,6 +23,9 @@ const TodayQueuePage = lazy(() =>
 const ReservationsPage = lazy(() =>
   import('@/pages/reservations').then((m) => ({ default: m.ReservationsPage })),
 )
+const PreferentialQueuesPage = lazy(() =>
+  import('@/pages/preferential-queues').then((m) => ({ default: m.PreferentialQueuesPage })),
+)
 const DailyLimitsPage = lazy(() =>
   import('@/pages/daily-limits').then((m) => ({ default: m.DailyLimitsPage })),
 )
@@ -121,6 +124,7 @@ function AppShell() {
             <Route path="/check" element={<Navigate to={ROUTES.reservations} replace />} />
             <Route path="/queue" element={<TodayQueuePage />} />
             <Route path="/reservations" element={<ReservationsPage />} />
+            <Route path="/preferential-queues" element={<PreferentialQueuesPage />} />
             <Route path="/limits" element={<DailyLimitsPage />} />
             <Route path="/fueling" element={<FuelingPage />} />
             <Route path="/history" element={<HistoryPage />} />

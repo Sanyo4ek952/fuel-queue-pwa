@@ -19,6 +19,7 @@ describe('parseCreateFuelingRecordResult', () => {
         driver_id: null,
         reservation_id: 'reservation-id',
         queue_entry_id: null,
+        preferential_queue_entry_id: 'preferential-entry-id',
         fuel_type: 'AI_95',
         liters: '42.50',
         is_manual_override: false,
@@ -32,6 +33,7 @@ describe('parseCreateFuelingRecordResult', () => {
       fuel_type: 'AI_95',
       liters: 42.5,
       sync_status: 'SYNCED',
+      preferential_queue_entry_id: 'preferential-entry-id',
     })
   })
 

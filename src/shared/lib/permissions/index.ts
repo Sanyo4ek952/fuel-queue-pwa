@@ -18,6 +18,7 @@ const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
   [ROUTES.check]: checkVehicleRoles,
   [ROUTES.queue]: createReservationRoles,
   [ROUTES.reservations]: createReservationRoles,
+  [ROUTES.preferentialQueues]: mayorOnlyRoles,
   [ROUTES.fueling]: createFuelingRecordRoles,
   [ROUTES.limits]: limitRouteRoles,
   [ROUTES.history]: allRoles,
