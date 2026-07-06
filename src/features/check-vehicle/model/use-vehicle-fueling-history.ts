@@ -15,26 +15,31 @@ export type { GetVehicleFuelingHistoryParams, VehicleFuelingHistoryResult }
 
 export const VEHICLE_FUELING_HISTORY_PAGE_SIZE = 10
 
-export const vehicleFuelingHistoryQueryKey = (plateNumber: string, isOnline: boolean) =>
-  ['vehicle-fueling-history', plateNumber, isOnline] as const
+export const vehicleFuelingHistoryQueryKey = (
+  plateNumber: string,
+  isOnline: boolean,
+  pageSize = VEHICLE_FUELING_HISTORY_PAGE_SIZE,
+) => ['vehicle-fueling-history', plateNumber, isOnline, pageSize] as const
 
 export function useVehicleFuelingHistory({
   plateNumber,
   enabled,
+  pageSize = VEHICLE_FUELING_HISTORY_PAGE_SIZE,
 }: {
   plateNumber: string
   enabled: boolean
+  pageSize?: number
 }) {
   const isOnline = useOnlineStatus()
 
   return useInfiniteQuery({
-    queryKey: vehicleFuelingHistoryQueryKey(plateNumber, isOnline),
+    queryKey: vehicleFuelingHistoryQueryKey(plateNumber, isOnline, pageSize),
     enabled: enabled && Boolean(plateNumber),
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const params: GetVehicleFuelingHistoryParams = {
         plateNumber,
-        pageLimit: VEHICLE_FUELING_HISTORY_PAGE_SIZE,
+        pageLimit: pageSize,
         pageOffset: pageParam,
       }
 
@@ -61,6 +66,6 @@ export function useVehicleFuelingHistory({
       return markFuelingHistoryOfflineResult(offlineResult)
     },
     getNextPageParam: (lastPage, allPages) =>
-      lastPage.has_more ? allPages.length * VEHICLE_FUELING_HISTORY_PAGE_SIZE : undefined,
+      lastPage.has_more ? allPages.length * pageSize : undefined,
   })
 }

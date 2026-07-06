@@ -9,7 +9,7 @@ import {
   useCheckVehicleAccess,
   useVehicleFuelingHistory,
   VehicleAccessResultView,
-  VehicleFuelingHistoryPanel,
+  VehicleFuelingHistoryAccordion,
 } from '@/features/check-vehicle'
 import {
   type CreateReservationFormInput,
@@ -17,7 +17,7 @@ import {
   createReservationSchema,
   useCreateReservation,
 } from '@/features/create-reservation'
-import { StationSelect, useSelectedStation } from '@/features/select-station'
+import { useSelectedStation } from '@/features/select-station'
 import { QUEUE_FUEL_TYPES, type FuelType, type QueueFuelType } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
@@ -43,15 +43,21 @@ const fuelTypeLabels: Record<FuelType, string> = {
   OTHER: 'Другое',
 }
 
+const HISTORY_ACCORDION_VALUE = 'fueling-history'
+const RESERVATION_HISTORY_PAGE_SIZE = 5
+
 export function CreateReservationForm() {
   const selectedStationId = useSelectedStation((state) => state.selectedStationId)
   const createReservationMutation = useCreateReservation()
   const checkVehicleAccessMutation = useCheckVehicleAccess()
   const resetCheckVehicleAccess = checkVehicleAccessMutation.reset
   const [historyPlateNumber, setHistoryPlateNumber] = useState('')
+  const [historyAccordionValue, setHistoryAccordionValue] = useState<string | undefined>()
+  const isHistoryOpen = historyAccordionValue === HISTORY_ACCORDION_VALUE
   const vehicleFuelingHistoryQuery = useVehicleFuelingHistory({
     plateNumber: historyPlateNumber,
-    enabled: Boolean(historyPlateNumber),
+    enabled: Boolean(historyPlateNumber) && isHistoryOpen,
+    pageSize: RESERVATION_HISTORY_PAGE_SIZE,
   })
   const form = useForm<CreateReservationFormInput, unknown, CreateReservationFormValues>({
     resolver: zodResolver(createReservationSchema),
@@ -70,6 +76,7 @@ export function CreateReservationForm() {
   useEffect(() => {
     resetCheckVehicleAccess()
     setHistoryPlateNumber('')
+    setHistoryAccordionValue(undefined)
   }, [watchedPlateNumber, selectedStationId, resetCheckVehicleAccess])
 
   async function handleSubmit(values: CreateReservationFormValues) {
@@ -93,6 +100,7 @@ export function CreateReservationForm() {
 
     const normalizedPlateNumber = normalizePlateNumber(form.getValues('plateNumber'))
     setHistoryPlateNumber(normalizedPlateNumber)
+    setHistoryAccordionValue(undefined)
 
     await checkVehicleAccessMutation.mutateAsync({
       plateNumber: normalizedPlateNumber,
@@ -120,8 +128,6 @@ export function CreateReservationForm() {
       <CardContent>
         <Form {...form}>
           <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
-            <StationSelect />
-
             <FormItem>
               <FormLabel htmlFor="plateNumber">Госномер</FormLabel>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -158,10 +164,28 @@ export function CreateReservationForm() {
               ) : null}
               {!selectedStationId ? (
                 <p className="text-sm text-slate-500">
-                  Выберите АЗС только для проверки допуска. Запись останется в общей очереди.
+                  Выберите АЗС в верхнем селекторе только для проверки допуска. Запись останется в общей очереди.
                 </p>
               ) : null}
             </FormItem>
+
+            {accessResult ? <VehicleAccessResultView result={accessResult} /> : null}
+
+            {historyPlateNumber ? (
+              <VehicleFuelingHistoryAccordion
+                plateNumber={historyPlateNumber}
+                value={historyAccordionValue}
+                onValueChange={setHistoryAccordionValue}
+                result={fuelingHistoryViewResult}
+                isLoading={vehicleFuelingHistoryQuery.isLoading}
+                isError={vehicleFuelingHistoryQuery.isError}
+                isFetchingNextPage={vehicleFuelingHistoryQuery.isFetchingNextPage}
+                hasNextPage={vehicleFuelingHistoryQuery.hasNextPage}
+                onLoadMore={() => {
+                  void vehicleFuelingHistoryQuery.fetchNextPage()
+                }}
+              />
+            ) : null}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FormItem>
@@ -260,20 +284,6 @@ export function CreateReservationForm() {
               </Alert>
             ) : null}
 
-            {accessResult ? <VehicleAccessResultView result={accessResult} /> : null}
-
-            {historyPlateNumber ? (
-              <VehicleFuelingHistoryPanel
-                result={fuelingHistoryViewResult}
-                isLoading={vehicleFuelingHistoryQuery.isLoading}
-                isError={vehicleFuelingHistoryQuery.isError}
-                isFetchingNextPage={vehicleFuelingHistoryQuery.isFetchingNextPage}
-                hasNextPage={vehicleFuelingHistoryQuery.hasNextPage}
-                onLoadMore={() => {
-                  void vehicleFuelingHistoryQuery.fetchNextPage()
-                }}
-              />
-            ) : null}
           </form>
         </Form>
       </CardContent>

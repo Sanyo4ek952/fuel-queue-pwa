@@ -111,11 +111,12 @@ describe('CreateReservationForm', () => {
 
     expect(screen.getByLabelText('Госномер')).toBeInTheDocument()
     expect(screen.getByLabelText('Водитель')).toBeInTheDocument()
+    expect(screen.queryByLabelText('АЗС')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Дата')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /создать запись/i })).toBeEnabled()
     expect(screen.getByRole('button', { name: /проверить/i })).toBeDisabled()
     expect(
-      screen.getByText(/Выберите АЗС только для проверки допуска/),
+      screen.getByText(/Выберите АЗС в верхнем селекторе только для проверки допуска/),
     ).toBeInTheDocument()
   })
 
@@ -219,12 +220,122 @@ describe('CreateReservationForm', () => {
       })
     })
     expect(await screen.findByText('Допуск разрешен')).toBeInTheDocument()
+    expect(screen.getByText('Допуск разрешен').compareDocumentPosition(screen.getByLabelText('Водитель'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    expect(mocks.getVehicleFuelingHistory).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: /История заправок/i }))
+
     expect(await screen.findByText('Заправки')).toBeInTheDocument()
     expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({
       plateNumber: 'А123ВС777',
-      pageLimit: 10,
+      pageLimit: 5,
       pageOffset: 0,
     })
+  })
+
+  it('loads fueling history in batches of five from the accordion', async () => {
+    mocks.currentProfile.stations = [STATIONS[0]]
+    useSelectedStation.setState({ selectedStationId: STATIONS[0].id })
+    mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
+    mocks.checkVehicleAccess.mockResolvedValue({
+      data: {
+        status: 'ALLOWED',
+        reason: 'ACTIVE_RESERVATION',
+        normalized_plate_number: 'А123ВС777',
+      },
+      error: null,
+    })
+    mocks.getVehicleFuelingHistory
+      .mockResolvedValueOnce({
+        data: {
+          normalized_plate_number: 'А123ВС777',
+          vehicle_id: 'vehicle-id',
+          vehicle_found: true,
+          total_fueling_count: 11,
+          regular_fueling_count: 11,
+          manual_override_fueling_count: 0,
+          total_liters: 440,
+          first_fueled_at: '2026-07-01T10:00:00.000Z',
+          last_fueled_at: '2026-07-11T10:00:00.000Z',
+          station_summaries: [],
+          fuel_type_summaries: [],
+          records: [
+            {
+              id: 'fueling-11',
+              date: '2026-07-11',
+              fueled_at: '2026-07-11T10:00:00.000Z',
+              liters: 40,
+              station_id: STATIONS[0].id,
+              station_name: 'АЗС №1',
+              fuel_type: 'AI_95',
+              is_manual_override: false,
+              sync_status: 'SYNCED',
+            },
+          ],
+          has_more: true,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          normalized_plate_number: 'А123ВС777',
+          vehicle_id: 'vehicle-id',
+          vehicle_found: true,
+          total_fueling_count: 11,
+          regular_fueling_count: 11,
+          manual_override_fueling_count: 0,
+          total_liters: 440,
+          first_fueled_at: '2026-07-01T10:00:00.000Z',
+          last_fueled_at: '2026-07-11T10:00:00.000Z',
+          station_summaries: [],
+          fuel_type_summaries: [],
+          records: [
+            {
+              id: 'fueling-6',
+              date: '2026-07-06',
+              fueled_at: '2026-07-06T10:00:00.000Z',
+              liters: 35,
+              station_id: STATIONS[0].id,
+              station_name: 'АЗС №1',
+              fuel_type: 'AI_95',
+              is_manual_override: false,
+              sync_status: 'SYNCED',
+            },
+          ],
+          has_more: false,
+        },
+        error: null,
+      })
+
+    renderWithQueryClient(<CreateReservationForm />)
+    await userEvent.type(screen.getByLabelText('Госномер'), 'А123ВС777')
+    await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
+    await screen.findByText('Допуск разрешен')
+
+    expect(mocks.getVehicleFuelingHistory).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: /История заправок/i }))
+
+    await waitFor(() => {
+      expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({
+        plateNumber: 'А123ВС777',
+        pageLimit: 5,
+        pageOffset: 0,
+      })
+    })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Загрузить ещё' }))
+
+    await waitFor(() => {
+      expect(mocks.getVehicleFuelingHistory).toHaveBeenLastCalledWith({
+        plateNumber: 'А123ВС777',
+        pageLimit: 5,
+        pageOffset: 5,
+      })
+    })
+    expect(await screen.findByText('35 л')).toBeInTheDocument()
   })
 
   it('clears stale check result and history when plate or station changes', async () => {
@@ -265,6 +376,7 @@ describe('CreateReservationForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
 
     expect(await screen.findByText('Допуск разрешен')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /История заправок/i }))
     expect(await screen.findByText('Заправок не найдено.')).toBeInTheDocument()
 
     await userEvent.clear(plateInput)
