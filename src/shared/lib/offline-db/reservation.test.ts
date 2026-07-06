@@ -118,6 +118,10 @@ describe('createOfflineReservation', () => {
         clientMutationId: 'mutation-id-2',
       }),
     ).rejects.toThrow('ACTIVE_RESERVATION_ALREADY_EXISTS')
+
+    expect(mocks.tables.local_reservations.rows).toHaveLength(1)
+    expect(mocks.tables.sync_outbox.rows).toHaveLength(1)
+    expect(mocks.tables.sync_outbox.rows[0].client_mutation_id).toBe('mutation-id')
   })
 
   it('assigns queue numbers globally', async () => {

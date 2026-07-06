@@ -175,6 +175,24 @@ describe('CreateReservationForm', () => {
     expect(await screen.findByText('Запись создана')).toBeInTheDocument()
   })
 
+  it('shows a clear error when the vehicle already has an active queue entry', async () => {
+    mocks.createReservation.mockResolvedValue({
+      data: null,
+      error: 'ACTIVE_RESERVATION_ALREADY_EXISTS',
+    })
+
+    renderWithQueryClient(<CreateReservationForm />)
+    await userEvent.type(screen.getByLabelText('Госномер'), 'А123ВС777')
+    await userEvent.type(screen.getByLabelText('Водитель'), 'Иван Иванов')
+    await userEvent.click(screen.getByRole('button', { name: /создать запись/i }))
+
+    expect(
+      await screen.findByText('Автомобиль уже есть в очереди. Повторная запись запрещена.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Запись создана')).not.toBeInTheDocument()
+    expect(mocks.createOfflineReservation).not.toHaveBeenCalled()
+  })
+
   it('checks vehicle access for the selected station and today', async () => {
     mocks.currentProfile.stations = [STATIONS[0]]
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)

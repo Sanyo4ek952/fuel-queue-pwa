@@ -16,8 +16,25 @@ export type { CreateReservationParams, CreateReservationResult, OfflineReservati
 
 export type CreateReservationMutationResult = CreateReservationResult | OfflineReservationResult
 
+const createReservationErrorMessages: Record<string, string> = {
+  ACTIVE_RESERVATION_ALREADY_EXISTS:
+    'Автомобиль уже есть в очереди. Повторная запись запрещена.',
+}
+
 function shouldFallbackToOffline(error: string) {
   return /failed to fetch|network|load failed|supabase is not configured/i.test(error)
+}
+
+function getCreateReservationErrorMessage(error: string | null | undefined) {
+  if (!error) {
+    return 'Не удалось создать запись.'
+  }
+
+  const knownError = Object.entries(createReservationErrorMessages).find(([code]) =>
+    error.includes(code),
+  )
+
+  return knownError?.[1] ?? error
 }
 
 export function useCreateReservation() {
@@ -44,6 +61,10 @@ export function useCreateReservation() {
       if (result.error || !result.data) {
         if (result.error && shouldFallbackToOffline(result.error)) {
           return createOfflineReservation(params)
+        }
+
+        if (result.error) {
+          throw new Error(getCreateReservationErrorMessage(result.error))
         }
 
         throw new Error(result.error ?? 'Не удалось создать запись.')

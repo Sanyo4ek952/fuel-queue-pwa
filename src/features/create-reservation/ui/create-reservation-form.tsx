@@ -91,15 +91,19 @@ export function CreateReservationForm() {
       return
     }
 
-    await createReservationMutation.mutateAsync({
-      plateNumber: values.plateNumber,
-      driverFullName: values.driverFullName,
-      driverPhone: values.driverPhone,
-      fuelType: values.fuelType,
-      requestedLiters: values.requestedLiters,
-      comment: values.comment,
-      clientMutationId: crypto.randomUUID(),
-    })
+    try {
+      await createReservationMutation.mutateAsync({
+        plateNumber: values.plateNumber,
+        driverFullName: values.driverFullName,
+        driverPhone: values.driverPhone,
+        fuelType: values.fuelType,
+        requestedLiters: values.requestedLiters,
+        comment: values.comment,
+        clientMutationId: crypto.randomUUID(),
+      })
+    } catch {
+      // Mutation state renders the error alert below.
+    }
   }
 
   async function handleCheckVehicle() {
