@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Ban, Crown, Fuel, Phone, PlusCircle, UserRound } from 'lucide-react'
+import { Crown, Fuel, Phone, PlusCircle, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { CreatePreferentialQueueForm } from '@/features/create-preferential-queue'
@@ -12,7 +12,7 @@ import {
   type PreferentialQueue,
   type PreferentialQueueEntry,
 } from '@/shared/api/preferential-queues'
-import { type FuelType } from '@/shared/constants'
+import { FUEL_TYPES, type FuelType } from '@/shared/constants'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -49,13 +49,88 @@ const fuelTypeLabels: Record<FuelType, string> = {
 
 const preferentialQueuesQueryKey = () => ['preferential-queues'] as const
 
+const litersFormatter = new Intl.NumberFormat('ru-RU', {
+  maximumFractionDigits: 2,
+})
+
+function formatLiters(value: number) {
+  return `${litersFormatter.format(value)} л`
+}
+
+function aggregateFuelNeeds(entries: PreferentialQueueEntry[]) {
+  return entries.reduce<Record<string, number>>((totals, entry) => {
+    totals[entry.fuel_type] = (totals[entry.fuel_type] ?? 0) + entry.requested_liters
+
+    return totals
+  }, {})
+}
+
+function getFuelNeedItems(entries: PreferentialQueueEntry[]) {
+  const totals = aggregateFuelNeeds(entries)
+  const unknownFuelTypes = Object.keys(totals)
+    .filter((fuelType) => !FUEL_TYPES.includes(fuelType as FuelType))
+    .sort()
+
+  return [...FUEL_TYPES, ...unknownFuelTypes]
+    .map((fuelType) => ({
+      fuelType,
+      liters: totals[fuelType] ?? 0,
+    }))
+    .filter((item) => item.liters > 0)
+}
+
 function getPhoneHref(phone: string | null) {
   const normalizedPhone = phone?.replace(/[^\d+]/g, '')
 
   return normalizedPhone ? `tel:${normalizedPhone}` : null
 }
 
-function PreferentialEntryCard({ entry }: { entry: PreferentialQueueEntry }) {
+function FuelNeedsSummary({
+  entries,
+  ariaLabel,
+}: {
+  entries: PreferentialQueueEntry[]
+  ariaLabel: string
+}) {
+  const items = getFuelNeedItems(entries)
+
+  return (
+    <div
+      aria-label={ariaLabel}
+      className="rounded-md border border-slate-200 bg-white px-3 py-2"
+    >
+      <p className="text-xs text-slate-500">Нужно топлива</p>
+      {items.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {items.map((item) => (
+            <Badge key={item.fuelType} variant="outline" className="rounded-md">
+              {fuelTypeLabels[item.fuelType as FuelType] ?? item.fuelType}:{' '}
+              {formatLiters(item.liters)}
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-xl font-semibold text-slate-950">0 л</p>
+      )}
+    </div>
+  )
+}
+
+function formatCreatedBy(entry: PreferentialQueueEntry) {
+  return (
+    entry.created_by_signature_name ||
+    entry.created_by_full_name ||
+    'Автор не указан'
+  )
+}
+
+function PreferentialEntryCard({
+  entry,
+  displayNumber,
+}: {
+  entry: PreferentialQueueEntry
+  displayNumber: number
+}) {
   const cancelEntryMutation = useCancelPreferentialQueueEntry()
   const phoneHref = getPhoneHref(entry.driver_phone)
 
@@ -63,88 +138,111 @@ function PreferentialEntryCard({ entry }: { entry: PreferentialQueueEntry }) {
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <Accordion type="single" collapsible>
         <AccordionItem value={entry.id} className="border-b-0">
-          <div className="flex items-start justify-between gap-3 p-3">
+          <div className="flex items-center justify-between gap-3 p-3">
             <div className="min-w-0">
-              <h3 className="truncate text-base font-semibold tracking-normal text-slate-950">
-                {entry.normalized_plate_number || 'Номер не указан'}
-              </h3>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                <Badge variant="secondary" className="rounded-md">
-                  {fuelTypeLabels[entry.fuel_type as FuelType] ??
-                    entry.fuel_type}
-                </Badge>
-                <Badge variant="outline" className="rounded-md">
-                  {entry.requested_liters} л
-                </Badge>
+              <div className="flex items-center gap-2">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-semibold text-white">
+                  {displayNumber}
+                </span>
+                <div className="min-w-0">
+                  <h2 className="truncate text-base font-semibold tracking-normal text-slate-950">
+                    {entry.normalized_plate_number || 'Номер не указан'}
+                  </h2>
+                  <p className="truncate text-xs text-slate-500">
+                    {entry.driver_full_name || 'Водитель не указан'}
+                  </p>
+                  <div className="mt-1 flex max-w-full flex-nowrap gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <Badge
+                      variant="secondary"
+                      className="h-4 shrink-0 rounded-md px-1.5 text-[11px]"
+                    >
+                      {fuelTypeLabels[entry.fuel_type as FuelType] ??
+                        entry.fuel_type}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="h-4 shrink-0 rounded-md px-1.5 text-[11px]"
+                    >
+                      {entry.requested_liters} л
+                    </Badge>
+                  </div>
+                </div>
               </div>
             </div>
-            {phoneHref ? (
-              <Button
-                asChild
-                variant="outline"
-                size="icon"
-                className="order-2"
-                aria-label="Позвонить"
-              >
-                <a href={phoneHref}>
-                  <Phone className="size-4" aria-hidden="true" />
-                </a>
-              </Button>
-            ) : (
+            <div className="flex shrink-0 items-center gap-1.5">
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                className="order-2"
-                aria-label="Телефон не указан"
-                disabled
+                className="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+                aria-label="Удалить из льготной очереди"
+                disabled={cancelEntryMutation.isPending}
+                onClick={() =>
+                  cancelEntryMutation.mutate({
+                    entryId: entry.id,
+                    comment: 'Отменено мэром',
+                  })
+                }
               >
-                <Phone className="size-4" aria-hidden="true" />
+                <Trash2 className="size-4" aria-hidden="true" />
               </Button>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="order-1 shrink-0 gap-2"
-              disabled={cancelEntryMutation.isPending}
-              onClick={() =>
-                cancelEntryMutation.mutate({
-                  entryId: entry.id,
-                  comment: 'Отменено мэром',
-                })
-              }
-            >
-              <Ban className="size-4" aria-hidden="true" />
-              Отменить
-            </Button>
-            <AccordionTrigger
-              className="order-3 size-8 flex-none justify-center gap-0 p-0 hover:no-underline"
-              aria-label="Открыть детали"
-            >
-              <span className="sr-only">Открыть детали</span>
-            </AccordionTrigger>
+              {phoneHref ? (
+                <Button
+                  asChild
+                  variant="outline"
+                  size="icon"
+                  aria-label="Позвонить"
+                >
+                  <a href={phoneHref}>
+                    <Phone className="size-4" aria-hidden="true" />
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Телефон не указан"
+                  disabled
+                >
+                  <Phone className="size-4" aria-hidden="true" />
+                </Button>
+              )}
+              <AccordionTrigger
+                className="size-8 flex-none justify-center gap-0 p-0 hover:no-underline"
+                aria-label="Открыть детали"
+              >
+                <span className="sr-only">Открыть детали</span>
+              </AccordionTrigger>
+            </div>
           </div>
 
           <AccordionContent className="border-t border-slate-100 px-3 pt-3 pb-3">
             <span className="sr-only">Сведения о записи</span>
             <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
               <div>
-                <dt className="flex items-center gap-1 text-slate-500">
-                  <UserRound className="size-4" aria-hidden="true" />
-                  Водитель
-                </dt>
+                <dt className="text-slate-500">Топливо</dt>
                 <dd className="font-medium text-slate-950">
-                  {entry.driver_full_name || 'Не указан'}
+                  {fuelTypeLabels[entry.fuel_type as FuelType] ??
+                    entry.fuel_type}
                 </dd>
               </div>
               <div>
-                <dt className="flex items-center gap-1 text-slate-500">
-                  <Phone className="size-4" aria-hidden="true" />
-                  Телефон
-                </dt>
+                <dt className="text-slate-500">Литры</dt>
+                <dd className="font-medium text-slate-950">
+                  {entry.requested_liters} л
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Телефон</dt>
                 <dd className="font-medium text-slate-950">
                   {entry.driver_phone || 'Не указан'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Добавил</dt>
+                <dd className="font-medium text-slate-950">
+                  {formatCreatedBy(entry)}
                 </dd>
               </div>
             </dl>
@@ -170,6 +268,7 @@ function PreferentialEntryCard({ entry }: { entry: PreferentialQueueEntry }) {
 
 function PreferentialQueueCard({ queue }: { queue: PreferentialQueue }) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const hasEntries = queue.entries.length > 0
 
   return (
     <section className="space-y-3">
@@ -208,12 +307,24 @@ function PreferentialQueueCard({ queue }: { queue: PreferentialQueue }) {
             Активные льготные заявки в этой очереди.
           </CardDescription>
         </CardHeader>
+        {hasEntries ? (
+          <CardContent>
+            <FuelNeedsSummary
+              entries={queue.entries}
+              ariaLabel={`Нужно топлива в очереди ${queue.name}`}
+            />
+          </CardContent>
+        ) : null}
       </Card>
 
-      {queue.entries.length > 0 ? (
+      {hasEntries ? (
         <div className="space-y-3">
-          {queue.entries.map((entry) => (
-            <PreferentialEntryCard key={entry.id} entry={entry} />
+          {queue.entries.map((entry, index) => (
+            <PreferentialEntryCard
+              key={entry.id}
+              entry={entry}
+              displayNumber={index + 1}
+            />
           ))}
         </div>
       ) : (
@@ -235,6 +346,7 @@ export function PreferentialQueuesPanel() {
     (count, queue) => count + queue.entries.length,
     0,
   )
+  const activeEntries = queues.flatMap((queue) => queue.entries)
 
   return (
     <div className="space-y-4">
@@ -262,6 +374,12 @@ export function PreferentialQueuesPanel() {
               <p className="mt-1 text-xl font-semibold text-slate-950">
                 {activeEntriesCount}
               </p>
+            </div>
+            <div className="col-span-2">
+              <FuelNeedsSummary
+                entries={activeEntries}
+                ariaLabel="Всего нужно топлива"
+              />
             </div>
           </div>
         </CardContent>

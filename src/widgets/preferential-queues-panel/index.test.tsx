@@ -7,7 +7,10 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { PreferentialQueue } from '@/shared/api/preferential-queues'
+import type {
+  PreferentialQueue,
+  PreferentialQueueEntry,
+} from '@/shared/api/preferential-queues'
 
 const mocks = vi.hoisted(() => ({
   listActivePreferentialQueues: vi.fn(),
@@ -31,6 +34,31 @@ import { PreferentialQueuesPanel } from './index'
 const queueId = '00000000-0000-4000-8000-000000000001'
 const entryId = '00000000-0000-4000-8000-000000000002'
 
+function makeEntry(
+  overrides: Partial<PreferentialQueueEntry> = {},
+): PreferentialQueueEntry {
+  return {
+    id: entryId,
+    queue_id: queueId,
+    vehicle_id: 'vehicle-id',
+    driver_id: 'driver-id',
+    normalized_plate_number: 'А123ВС777',
+    driver_full_name: 'Иван Иванов',
+    driver_phone: null,
+    fuel_type: 'AI_95',
+    requested_liters: 40,
+    status: 'ACTIVE',
+    comment: null,
+    client_mutation_id: 'entry-mutation-id',
+    created_at: '2026-07-07T00:00:00.000Z',
+    updated_at: '2026-07-07T00:00:00.000Z',
+    created_by_full_name: 'Мэр',
+    created_by_role: 'mayor',
+    created_by_signature_name: 'Мэр',
+    ...overrides,
+  }
+}
+
 function makeQueue(overrides: Partial<PreferentialQueue> = {}): PreferentialQueue {
   return {
     id: queueId,
@@ -43,27 +71,7 @@ function makeQueue(overrides: Partial<PreferentialQueue> = {}): PreferentialQueu
     created_by_full_name: 'Мэр',
     created_by_role: 'mayor',
     created_by_signature_name: 'Мэр',
-    entries: [
-      {
-        id: entryId,
-        queue_id: queueId,
-        vehicle_id: 'vehicle-id',
-        driver_id: 'driver-id',
-        normalized_plate_number: 'А123ВС777',
-        driver_full_name: 'Иван Иванов',
-        driver_phone: null,
-        fuel_type: 'AI_95',
-        requested_liters: 40,
-        status: 'ACTIVE',
-        comment: null,
-        client_mutation_id: 'entry-mutation-id',
-        created_at: '2026-07-07T00:00:00.000Z',
-        updated_at: '2026-07-07T00:00:00.000Z',
-        created_by_full_name: 'Мэр',
-        created_by_role: 'mayor',
-        created_by_signature_name: 'Мэр',
-      },
-    ],
+    entries: [makeEntry()],
     ...overrides,
   }
 }
@@ -173,6 +181,73 @@ describe('PreferentialQueuesPanel', () => {
     })
   })
 
+  it('renders preferential entry cards like queue rows', async () => {
+    renderWithQueryClient(<PreferentialQueuesPanel />)
+
+    const plate = await screen.findByText('А123ВС777')
+    const entryCard = plate.closest('article')
+
+    expect(entryCard).not.toBeNull()
+    expect(within(entryCard as HTMLElement).getByText('1')).toBeInTheDocument()
+    expect(within(entryCard as HTMLElement).getByText('Иван Иванов')).toBeInTheDocument()
+    expect(
+      within(entryCard as HTMLElement).getByRole('button', {
+        name: 'Удалить из льготной очереди',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows total fuel needs and fuel needs for each preferential queue', async () => {
+    const doctorsQueue = makeQueue({
+      entries: [
+        makeEntry({
+          id: entryId,
+          fuel_type: 'AI_95',
+          requested_liters: 40,
+        }),
+        makeEntry({
+          id: '00000000-0000-4000-8000-000000000003',
+          fuel_type: 'DIESEL',
+          requested_liters: 25.5,
+          normalized_plate_number: 'В456ТС777',
+        }),
+      ],
+    })
+    const emergencyQueue = makeQueue({
+      id: '00000000-0000-4000-8000-000000000004',
+      name: 'Скорая',
+      entries: [
+        makeEntry({
+          id: '00000000-0000-4000-8000-000000000005',
+          queue_id: '00000000-0000-4000-8000-000000000004',
+          fuel_type: 'AI_95',
+          requested_liters: 10,
+          normalized_plate_number: 'Е789КХ777',
+        }),
+      ],
+    })
+    mocks.listActivePreferentialQueues.mockResolvedValueOnce([
+      doctorsQueue,
+      emergencyQueue,
+    ])
+
+    renderWithQueryClient(<PreferentialQueuesPanel />)
+
+    expect(await screen.findByText('Врачи')).toBeInTheDocument()
+
+    const totalSummary = screen.getByLabelText('Всего нужно топлива')
+    expect(within(totalSummary).getByText('АИ-95: 50 л')).toBeInTheDocument()
+    expect(within(totalSummary).getByText('Дизель: 25,5 л')).toBeInTheDocument()
+
+    const doctorsSummary = screen.getByLabelText('Нужно топлива в очереди Врачи')
+    expect(within(doctorsSummary).getByText('АИ-95: 40 л')).toBeInTheDocument()
+    expect(within(doctorsSummary).getByText('Дизель: 25,5 л')).toBeInTheDocument()
+
+    const emergencySummary = screen.getByLabelText('Нужно топлива в очереди Скорая')
+    expect(within(emergencySummary).getByText('АИ-95: 10 л')).toBeInTheDocument()
+    expect(within(emergencySummary).queryByText(/Дизель/)).not.toBeInTheDocument()
+  })
+
   it('cancels an entry and removes it from the visible list', async () => {
     mocks.listActivePreferentialQueues
       .mockResolvedValueOnce([makeQueue()])
@@ -182,7 +257,9 @@ describe('PreferentialQueuesPanel', () => {
 
     expect(await screen.findByText('А123ВС777')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Отменить' }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Удалить из льготной очереди' }),
+    )
 
     await waitFor(() => {
       expect(mocks.cancelPreferentialQueueEntry).toHaveBeenCalledWith({
@@ -192,6 +269,9 @@ describe('PreferentialQueuesPanel', () => {
     })
     await waitFor(() => {
       expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
+    })
+    await waitFor(() => {
+      expect(screen.getByLabelText('Всего нужно топлива')).toHaveTextContent('0 л')
     })
   })
 })
