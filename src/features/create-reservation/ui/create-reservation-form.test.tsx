@@ -166,7 +166,7 @@ describe('CreateReservationForm', () => {
           plateNumber: 'А123ВС777',
           driverFullName: 'Иван Иванов',
           fuelType: 'AI_95',
-          requestedLiters: 40,
+          requestedLiters: 20,
         }),
       )
     })

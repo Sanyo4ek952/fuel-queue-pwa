@@ -77,7 +77,7 @@ export function CreateReservationForm() {
       driverFullName: '',
       driverPhone: '',
       fuelType: 'AI_95',
-      requestedLiters: 40,
+      requestedLiters: 20,
       comment: '',
     },
   })

@@ -152,7 +152,7 @@ export function CreateFuelingRecordForm() {
     mode: 'onBlur',
     defaultValues: {
       plateNumber: '',
-      liters: 40,
+      liters: 20,
       fuelType: 'AI_95',
       comment: '',
     },
