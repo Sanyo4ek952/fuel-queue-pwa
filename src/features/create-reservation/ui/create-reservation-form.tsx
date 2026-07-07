@@ -27,6 +27,7 @@ import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { PhoneNumberInput } from '@/shared/ui/phone-number-input'
 import { StationSelectField } from '@/shared/ui/station-select-field'
 import {
   Select,
@@ -227,11 +228,19 @@ export function CreateReservationForm() {
               </FormItem>
               <FormItem>
                 <FormLabel htmlFor="driverPhone">Телефон</FormLabel>
-                <Input
-                  id="driverPhone"
-                  autoComplete="tel"
-                  inputMode="tel"
-                  {...form.register('driverPhone')}
+                <Controller
+                  control={form.control}
+                  name="driverPhone"
+                  render={({ field }) => (
+                    <PhoneNumberInput
+                      id="driverPhone"
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                    />
+                  )}
                 />
                 {form.formState.errors.driverPhone ? (
                   <FormMessage>{form.formState.errors.driverPhone.message}</FormMessage>

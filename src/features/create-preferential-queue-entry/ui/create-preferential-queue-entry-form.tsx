@@ -11,6 +11,7 @@ import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { PhoneNumberInput } from '@/shared/ui/phone-number-input'
 import {
   Select,
   SelectContent,
@@ -189,11 +190,19 @@ export function CreatePreferentialQueueEntryForm({
               </FormItem>
               <FormItem>
                 <FormLabel htmlFor="preferentialDriverPhone">Телефон</FormLabel>
-                <Input
-                  id="preferentialDriverPhone"
-                  autoComplete="tel"
-                  inputMode="tel"
-                  {...form.register('driverPhone')}
+                <Controller
+                  control={form.control}
+                  name="driverPhone"
+                  render={({ field }) => (
+                    <PhoneNumberInput
+                      id="preferentialDriverPhone"
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                    />
+                  )}
                 />
                 {form.formState.errors.driverPhone ? (
                   <FormMessage>{form.formState.errors.driverPhone.message}</FormMessage>

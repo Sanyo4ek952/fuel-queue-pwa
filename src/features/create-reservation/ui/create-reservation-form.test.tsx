@@ -441,4 +441,51 @@ describe('CreateReservationForm', () => {
       expect(screen.queryByText('Допуск разрешен')).not.toBeInTheDocument()
     })
   })
+  it('formats and submits driver phone in canonical format', async () => {
+    mocks.createReservation.mockResolvedValue({
+      data: {
+        id: 'reservation-id',
+        date: null,
+        station_id: null,
+        vehicle_id: 'vehicle-id',
+        driver_id: 'driver-id',
+        normalized_plate_number: 'A123BC777',
+        driver_full_name: 'Ivan Ivanov',
+        driver_phone: '+79991234567',
+        fuel_type: 'AI_95',
+        requested_liters: 20,
+        queue_number: 1,
+        status: 'RESERVED',
+        client_mutation_id: 'mutation-id',
+      },
+      error: null,
+    })
+
+    const { container } = renderWithQueryClient(<CreateReservationForm />)
+    const plateInput = container.querySelector<HTMLInputElement>('#plateNumber')
+    const driverNameInput = container.querySelector<HTMLInputElement>('#driverFullName')
+    const driverPhoneInput = container.querySelector<HTMLInputElement>('#driverPhone')
+    const submitButton = container.querySelector<HTMLButtonElement>('button[type="submit"]')
+
+    expect(plateInput).not.toBeNull()
+    expect(driverNameInput).not.toBeNull()
+    expect(driverPhoneInput).not.toBeNull()
+    expect(submitButton).not.toBeNull()
+
+    await userEvent.type(plateInput as HTMLInputElement, 'a123bc777')
+    await userEvent.type(driverNameInput as HTMLInputElement, 'Ivan Ivanov')
+    await userEvent.type(driverPhoneInput as HTMLInputElement, '9991234567')
+
+    expect(driverPhoneInput).toHaveValue('+7 999 123-45-67')
+
+    await userEvent.click(submitButton as HTMLButtonElement)
+
+    await waitFor(() => {
+      expect(mocks.createReservation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          driverPhone: '+79991234567',
+        }),
+      )
+    })
+  })
 })

@@ -14,8 +14,37 @@ describe('createReservationSchema', () => {
     })
 
     expect(result.plateNumber).toBe('А123ВС777')
+    expect(result.driverPhone).toBeUndefined()
     expect(result.requestedLiters).toBe(40)
   })
+
+  it('normalizes driver phone when provided', () => {
+    const result = createReservationSchema.parse({
+      plateNumber: 'a-123-bc-777',
+      driverFullName: 'Ivan Ivanov',
+      driverPhone: '+7 999 123-45-67',
+      fuelType: 'AI_95',
+      requestedLiters: 40,
+      comment: '',
+    })
+
+    expect(result.driverPhone).toBe('+79991234567')
+  })
+
+  it.each(['+7 999 123-45', '999123456', '99912345678'])(
+    'rejects invalid driver phone %s',
+    (driverPhone) => {
+      expect(
+        createReservationSchema.safeParse({
+          plateNumber: 'a123bc777',
+          driverFullName: 'Ivan Ivanov',
+          driverPhone,
+          fuelType: 'AI_95',
+          requestedLiters: 40,
+        }).success,
+      ).toBe(false)
+    },
+  )
 
   it('rejects missing plate and driver', () => {
     const result = createReservationSchema.safeParse({
