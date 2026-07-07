@@ -139,6 +139,8 @@ describe('TodayQueuePanel', () => {
   })
 
   it('can switch to the call filter', async () => {
+    const user = userEvent.setup()
+
     mocks.useTodayQueue.mockReturnValue({
       rows: [
         makeQueueRow({ id: 'in-limit', normalized_plate_number: 'А123ВС777' }),
@@ -157,10 +159,98 @@ describe('TodayQueuePanel', () => {
 
     render(<TodayQueuePanel />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Обзвон' }))
+    await user.click(screen.getByRole('combobox', { name: 'Обзвон' }))
+    await user.click(screen.getByRole('option', { name: /^Обзвон1$/ }))
 
     expect(screen.getByText('А123ВС777')).toBeInTheDocument()
     expect(screen.queryByText('В456ТС777')).not.toBeInTheDocument()
+  })
+
+  it('shows call filter counters in the select options except all', async () => {
+    const user = userEvent.setup()
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [
+        makeQueueRow({ id: 'not-called', normalized_plate_number: 'А123ВС777' }),
+        makeQueueRow({
+          id: 'contacted',
+          queue_number: 2,
+          normalized_plate_number: 'В456ТС777',
+          latest_call_status: 'CONTACTED',
+        }),
+        makeQueueRow({
+          id: 'no-answer',
+          queue_number: 3,
+          normalized_plate_number: 'С789КМ777',
+          latest_call_status: 'NO_ANSWER',
+        }),
+        makeQueueRow({
+          id: 'wrong-number',
+          queue_number: 4,
+          normalized_plate_number: 'Е111КХ777',
+          latest_call_status: 'WRONG_NUMBER',
+        }),
+        makeQueueRow({
+          id: 'call-later',
+          queue_number: 5,
+          normalized_plate_number: 'М222ОР777',
+          latest_call_status: 'CALL_LATER',
+        }),
+        makeQueueRow({
+          id: 'outside-limit',
+          queue_number: 6,
+          normalized_plate_number: 'Н333РТ777',
+          is_within_today_limit: false,
+        }),
+      ],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    await user.click(screen.getByRole('combobox', { name: 'Обзвон' }))
+
+    const allOption = screen.getByRole('option', { name: 'Все' })
+
+    expect(within(allOption).queryByText(/\d+/)).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /^Обзвон4$/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /^Позвонили1$/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /^Не дозвонились2$/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /^Перезвонить1$/ })).toBeInTheDocument()
+  })
+
+  it('counts call filter options after the plate search filter is applied', async () => {
+    const user = userEvent.setup()
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [
+        makeQueueRow({ id: 'matched', normalized_plate_number: 'А123ВС777' }),
+        makeQueueRow({
+          id: 'hidden-one',
+          queue_number: 2,
+          normalized_plate_number: 'В456ТС777',
+        }),
+        makeQueueRow({
+          id: 'hidden-two',
+          queue_number: 3,
+          normalized_plate_number: 'С789КМ777',
+        }),
+      ],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    await user.type(screen.getByLabelText('Поиск по госномеру'), 'А123')
+    await user.click(screen.getByRole('combobox', { name: 'Обзвон' }))
+
+    expect(screen.getByRole('option', { name: /^Обзвон1$/ })).toBeInTheDocument()
   })
 
   it('logs a contacted call from the quick action', async () => {

@@ -161,6 +161,8 @@ const callFilterLabels: Record<CallFilter, string> = {
   call_later: 'Перезвонить',
 }
 
+const callFiltersWithCounters = CALL_FILTERS.filter((filter) => filter !== 'all')
+
 const callStatusLabels: Record<ReservationCallStatus, string> = {
   NOT_CALLED: 'Не звонили',
   CONTACTED: 'Позвонили',
@@ -416,7 +418,7 @@ export function TodayQueuePanel() {
   const logReservationCall = useLogReservationCall()
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
   const authorOptions = useMemo(() => buildAuthorOptions(queue.rows), [queue.rows])
-  const filteredRows = useMemo(
+  const rowsMatchingBaseFilters = useMemo(
     () =>
       queue.rows.filter((row) => {
         const matchesPlate =
@@ -424,19 +426,37 @@ export function TodayQueuePanel() {
           row.normalized_plate_number.includes(normalizedPlateSearch)
         const matchesAuthor =
           authorFilter === ALL_AUTHORS_FILTER || getAuthorFilterValue(row) === authorFilter
+
+        return matchesPlate && matchesAuthor
+      }),
+    [authorFilter, normalizedPlateSearch, queue.rows],
+  )
+  const filteredRows = useMemo(
+    () =>
+      rowsMatchingBaseFilters.filter((row) => {
         const matchesCall = matchesCallFilter(row, callFilter)
 
-        return matchesPlate && matchesAuthor && matchesCall
+        return matchesCall
       }),
-    [authorFilter, callFilter, normalizedPlateSearch, queue.rows],
+    [callFilter, rowsMatchingBaseFilters],
   )
   const pendingRows = filteredRows.filter(
     (row) => row.sync_status !== 'SYNCED' || row.latest_call_sync_status === 'PENDING',
   )
-  const callRowsCount = queue.rows.filter((row) => matchesCallFilter(row, 'call')).length
-  const contactedRowsCount = queue.rows.filter(
+  const callRowsCount = rowsMatchingBaseFilters.filter((row) => matchesCallFilter(row, 'call')).length
+  const contactedRowsCount = rowsMatchingBaseFilters.filter(
     (row) => row.latest_call_status === 'CONTACTED',
   ).length
+  const callFilterCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        callFiltersWithCounters.map((filter) => [
+          filter,
+          rowsMatchingBaseFilters.filter((row) => matchesCallFilter(row, filter)).length,
+        ]),
+      ) as Record<(typeof callFiltersWithCounters)[number], number>,
+    [rowsMatchingBaseFilters],
+  )
   const rowsByCategory = categoryOrder.map((fuelCategory) => ({
     fuelCategory,
     rows: filteredRows.filter((row) => getFuelQueueCategory(row.fuel_type) === fuelCategory),
@@ -490,21 +510,42 @@ export function TodayQueuePanel() {
             <SummaryTile label="Sync" value={pendingRows.length} />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {CALL_FILTERS.map((filter) => (
-              <Button
-                key={filter}
-                type="button"
-                variant={callFilter === filter ? 'default' : 'outline'}
-                className="h-9 px-2 text-xs"
-                onClick={() => setCallFilter(filter)}
-              >
-                {callFilterLabels[filter]}
-              </Button>
-            ))}
-          </div>
-
           <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label htmlFor="queueCallFilter" className="text-sm font-medium text-slate-700">
+                Обзвон
+              </label>
+              <Select
+                value={callFilter}
+                onValueChange={(value) => setCallFilter(value as CallFilter)}
+              >
+                <SelectTrigger
+                  id="queueCallFilter"
+                  className="h-8 w-full [&_[data-call-filter-count]]:hidden"
+                >
+                  <SelectValue placeholder="Все" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CALL_FILTERS.map((filter) => (
+                    <SelectItem key={filter} value={filter} textValue={callFilterLabels[filter]}>
+                      {filter === 'all' ? (
+                        callFilterLabels[filter]
+                      ) : (
+                        <span className="flex w-full items-center justify-between gap-3">
+                          <span>{callFilterLabels[filter]}</span>
+                          <span
+                            data-call-filter-count
+                            className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700"
+                          >
+                            {callFilterCounts[filter]}
+                          </span>
+                        </span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <label htmlFor="queuePlateSearch" className="text-sm font-medium text-slate-700">
                 Поиск по госномеру
@@ -517,7 +558,7 @@ export function TodayQueuePanel() {
                 autoComplete="off"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <label htmlFor="queueAuthorFilter" className="text-sm font-medium text-slate-700">
                 Кто добавил
               </label>
