@@ -338,7 +338,7 @@ describe('TodayQueuePanel', () => {
     expect(screen.getByRole('button', { name: 'Показать еще' })).toBeInTheDocument()
   })
 
-  it('renders contiguous display numbers for visible category rows', async () => {
+  it('renders the stable queue number for visible category rows', async () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [
         makeQueueRow({
@@ -364,7 +364,7 @@ describe('TodayQueuePanel', () => {
     const secondRow = screen.getByText('B456TC777').closest('article')
 
     expect(secondRow).not.toBeNull()
-    expect(within(secondRow as HTMLElement).getByText('2')).toBeInTheDocument()
-    expect(within(secondRow as HTMLElement).queryByText('3')).not.toBeInTheDocument()
+    expect(within(secondRow as HTMLElement).getByText('3')).toBeInTheDocument()
+    expect(within(secondRow as HTMLElement).queryByText('2')).not.toBeInTheDocument()
   })
 })

@@ -15,6 +15,7 @@ import { useLogReservationCall } from '@/features/log-reservation-call'
 import { ROLE_LABELS, type UserRole } from '@/shared/config/roles'
 import {
   getFuelQueueCategory,
+  type FuelPreferenceMode,
   type FuelQueueCategory,
   type FuelType,
   type ReservationCallStatus,
@@ -54,6 +55,11 @@ const fuelTypeLabels: Record<FuelType, string> = {
   DIESEL: 'Дизель',
   GAS: 'Газ',
   OTHER: 'Другое',
+}
+
+const fuelPreferenceLabels: Record<FuelPreferenceMode, string> = {
+  EXACT: 'Только выбранная марка',
+  ANY_GASOLINE: 'Подойдёт АИ-92/95/100',
 }
 
 const categoryLabels: Record<FuelQueueCategory, string> = {
@@ -179,6 +185,16 @@ const callStatusBadgeClasses: Record<ReservationCallStatus, string> = {
   WRONG_NUMBER: 'border-rose-200 bg-rose-50 text-rose-700',
 }
 
+const callUnavailableReasonLabels: Record<string, string> = {
+  VEHICLE_BLOCKED: 'Автомобиль заблокирован',
+  ALREADY_FUELED: 'Автомобиль уже заправлен сегодня',
+  ALREADY_CONTACTED: 'Приглашение уже подтверждено оператором',
+  NO_OPEN_DAILY_LIMIT: 'Дневной лимит не открыт',
+  NO_COMPATIBLE_FUEL: 'Нет подходящей марки топлива',
+  OUTSIDE_TODAY_LIMIT: 'Запись пока вне текущего лимита',
+  UNKNOWN_OFFLINE_STATUS: 'Нет свежего серверного статуса',
+}
+
 const callStatusButtonClasses: Record<ReservationCallStatus, string> = {
   NOT_CALLED:
     'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700',
@@ -194,13 +210,17 @@ function getCalledByLabel(row: TodayQueueRow) {
   return row.latest_called_by_signature_name || row.latest_called_by_full_name || 'Пользователь'
 }
 
+function isRowCallable(row: TodayQueueRow) {
+  return Boolean(row.is_callable_now ?? row.is_within_today_limit)
+}
+
 function matchesCallFilter(row: TodayQueueRow, filter: CallFilter) {
   if (filter === 'all') {
     return true
   }
 
   if (filter === 'call') {
-    return row.is_within_today_limit && row.latest_call_status !== 'CONTACTED'
+    return isRowCallable(row) && row.latest_call_status !== 'CONTACTED'
   }
 
   if (filter === 'contacted') {
@@ -222,21 +242,32 @@ function formatCallTime(value: string | null) {
 
 function QueueRowCard({
   row,
-  displayNumber,
   isLoggingCall,
   onLogCall,
 }: {
   row: TodayQueueRow
-  displayNumber: number
   isLoggingCall: boolean
   onLogCall: (row: TodayQueueRow, status: ReservationCallStatus) => void
 }) {
   const phoneHref = getPhoneHref(row.driver_phone)
   const callActionsDisabled = isLoggingCall || row.is_offline
+  const callableNow = isRowCallable(row)
   const isContacted = row.latest_call_status === 'CONTACTED'
   const hasPendingCallSync = row.latest_call_sync_status === 'PENDING'
   const callTime = formatCallTime(row.latest_called_at)
   const quickCallStatus: ReservationCallStatus = isContacted ? 'NOT_CALLED' : 'CONTACTED'
+  const contactedActionDisabled =
+    callActionsDisabled || (quickCallStatus === 'CONTACTED' && !callableNow)
+  const phoneActionDisabled = !callableNow
+  const matchedFuelLabel = row.matched_fuel_type
+    ? (fuelTypeLabels[row.matched_fuel_type as FuelType] ?? row.matched_fuel_type)
+    : null
+  const callReasonLabel = row.call_unavailable_reason
+    ? (callUnavailableReasonLabels[row.call_unavailable_reason] ?? row.call_unavailable_reason)
+    : null
+  const fuelPreferenceLabel =
+    fuelPreferenceLabels[row.fuel_preference_mode as FuelPreferenceMode] ??
+    fuelPreferenceLabels.EXACT
 
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -246,7 +277,7 @@ function QueueRowCard({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-semibold text-white">
-                  {displayNumber}
+                  {row.queue_number}
                 </span>
                 <div className="min-w-0">
                   <h2 className="truncate text-base font-semibold tracking-normal text-slate-950">
@@ -256,9 +287,35 @@ function QueueRowCard({
                     {row.driver_full_name || 'Водитель не указан'}
                   </p>
                   <div className="mt-1 flex max-w-full flex-nowrap gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {row.is_within_today_limit ? (
+                    {callableNow ? (
+                      <Badge className="h-4 shrink-0 rounded-md bg-emerald-600 px-1.5 text-[11px]">
+                        В обзвоне
+                      </Badge>
+                    ) : row.call_unavailable_reason === 'NO_COMPATIBLE_FUEL' ? (
+                      <Badge
+                        variant="outline"
+                        className="h-4 shrink-0 rounded-md border-amber-200 bg-amber-50 px-1.5 text-[11px] text-amber-800"
+                      >
+                        Ждёт топливо
+                      </Badge>
+                    ) : !row.is_within_today_limit ? (
+                      <Badge
+                        variant="outline"
+                        className="h-4 shrink-0 rounded-md border-slate-200 px-1.5 text-[11px] text-slate-600"
+                      >
+                        Вне лимита
+                      </Badge>
+                    ) : (
                       <Badge className="h-4 shrink-0 rounded-md px-1.5 text-[11px]">
                         В лимите
+                      </Badge>
+                    )}
+                    {matchedFuelLabel ? (
+                      <Badge
+                        variant="outline"
+                        className="h-4 shrink-0 rounded-md border-emerald-200 bg-emerald-50 px-1.5 text-[11px] text-emerald-700"
+                      >
+                        {matchedFuelLabel}
                       </Badge>
                     ) : null}
                     {row.latest_call_status && row.latest_call_status !== 'NOT_CALLED' ? (
@@ -290,7 +347,7 @@ function QueueRowCard({
                 variant="outline"
                 size="icon"
                 aria-label="Дозвонились"
-                disabled={callActionsDisabled}
+                disabled={contactedActionDisabled}
                 className={cn(
                   isContacted
                     ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
@@ -300,7 +357,7 @@ function QueueRowCard({
               >
                 <CheckCircle2 className="size-4" aria-hidden="true" />
               </Button>
-              {phoneHref ? (
+              {phoneHref && !phoneActionDisabled ? (
                 <Button asChild variant="outline" size="icon" aria-label="Позвонить">
                   <a href={phoneHref}>
                     <Phone className="size-4" aria-hidden="true" />
@@ -311,7 +368,7 @@ function QueueRowCard({
                   type="button"
                   variant="outline"
                   size="icon"
-                  aria-label="Телефон не указан"
+                  aria-label={phoneHref ? 'Звонок сейчас недоступен' : 'Телефон не указан'}
                   disabled
                 >
                   <Phone className="size-4" aria-hidden="true" />
@@ -330,11 +387,33 @@ function QueueRowCard({
             <span className="sr-only">Сведения о записи</span>
             <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
               <div>
+                <dt className="text-slate-500">№ общей очереди</dt>
+                <dd className="font-medium text-slate-950">{row.queue_number}</dd>
+              </div>
+              <div>
                 <dt className="text-slate-500">Топливо</dt>
                 <dd className="font-medium text-slate-950">
                   {fuelTypeLabels[row.fuel_type as FuelType] ?? row.fuel_type}
                 </dd>
               </div>
+              <div>
+                <dt className="text-slate-500">Предпочтение</dt>
+                <dd className="font-medium text-slate-950">{fuelPreferenceLabel}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Статус по топливу</dt>
+                <dd className="font-medium text-slate-950">
+                  {callableNow
+                    ? 'Можно звонить'
+                    : callReasonLabel || 'Ожидает очереди'}
+                </dd>
+              </div>
+              {matchedFuelLabel ? (
+                <div>
+                  <dt className="text-slate-500">Доступная марка</dt>
+                  <dd className="font-medium text-slate-950">{matchedFuelLabel}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-slate-500">Литры</dt>
                 <dd className="font-medium text-slate-950">{row.requested_liters} л</dd>
@@ -356,7 +435,7 @@ function QueueRowCard({
                 type="button"
                 variant="outline"
                 className={cn('gap-2', callStatusButtonClasses.CONTACTED)}
-                disabled={callActionsDisabled}
+                disabled={contactedActionDisabled}
                 onClick={() => onLogCall(row, 'CONTACTED')}
               >
                 <CheckCircle2 className="size-4" aria-hidden="true" />
@@ -629,11 +708,10 @@ export function TodayQueuePanel() {
               <TabsContent key={fuelCategory} value={fuelCategory} className="space-y-3">
                 {rows.length > 0 ? (
                   <>
-                    {visibleRows.map((row, index) => (
+                    {visibleRows.map((row) => (
                       <QueueRowCard
                         key={row.id}
                         row={row}
-                        displayNumber={index + 1}
                         isLoggingCall={logReservationCall.isPending}
                         onLogCall={handleLogCall}
                       />

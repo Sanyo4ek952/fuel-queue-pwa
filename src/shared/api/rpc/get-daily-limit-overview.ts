@@ -1,12 +1,13 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
-import type { DailyLimitMode, FuelQueueCategory } from '@/shared/constants'
+import type { DailyLimitMode, FuelQueueCategory, QueueFuelType } from '@/shared/constants'
 
 import type { RpcResult } from './index'
 
 export type DailyLimitStatus = 'OPEN' | 'CLOSED' | 'PAUSED'
 
 export type DailyLimitCategoryOverview = {
+  fuel_type?: QueueFuelType
   fuel_category: FuelQueueCategory
   label: string
   limit_mode: DailyLimitMode
@@ -55,6 +56,7 @@ function parseCategoryOverview(value: unknown): DailyLimitCategoryOverview | nul
   }
 
   return {
+    fuel_type: result.fuel_type as QueueFuelType | undefined,
     fuel_category: result.fuel_category as FuelQueueCategory,
     label: result.label ?? result.fuel_category,
     limit_mode: (result.limit_mode ?? 'vehicle_count') as DailyLimitMode,

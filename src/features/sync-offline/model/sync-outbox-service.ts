@@ -81,6 +81,7 @@ async function markReservationSynced(operation: SyncOutboxOperation, data: unkno
             driver_id: parsed.driver_id,
             date: parsed.date,
             fuel_type: parsed.fuel_type,
+            fuel_preference_mode: parsed.fuel_preference_mode,
             requested_liters: parsed.requested_liters,
             queue_number: parsed.queue_number,
             status: parsed.status,

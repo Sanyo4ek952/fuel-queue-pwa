@@ -8,10 +8,10 @@ import {
   type DailyLimitOverview,
 } from '@/shared/api/rpc'
 import {
-  FUEL_QUEUE_CATEGORIES,
   getFuelQueueCategory,
   type DailyLimitMode,
   type FuelQueueCategory,
+  type QueueFuelType,
 } from '@/shared/constants'
 import { offlineDb, type LocalDailyLimit, type LocalReservation } from '@/shared/lib/offline-db'
 import { useOnlineStatus } from '@/shared/lib/sync'
@@ -19,8 +19,10 @@ import { useOnlineStatus } from '@/shared/lib/sync'
 const activeReservationStatuses = new Set(['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'])
 const unsyncedStatuses = new Set(['PENDING', 'SYNCING', 'FAILED', 'CONFLICT'])
 
-const categoryLabels: Record<FuelQueueCategory, string> = {
-  GASOLINE: 'Бензин',
+const fuelTypeLabels: Record<QueueFuelType, string> = {
+  AI_92: 'АИ-92',
+  AI_95: 'АИ-95',
+  AI_100: 'АИ-100',
   DIESEL: 'Дизель',
   GAS: 'Газ',
 }
@@ -64,6 +66,7 @@ function fromLocalDailyLimit(row: LocalDailyLimit): DailyLimitOverview {
     station_id: row.station_id ?? null,
     status: row.status as DailyLimitOverview['status'],
     category_overviews: (row.category_overviews ?? []).map((item) => ({
+      fuel_type: item.fuel_type as DailyLimitCategoryOverview['fuel_type'],
       fuel_category: item.fuel_category as FuelQueueCategory,
       label: item.label,
       limit_mode: item.limit_mode as DailyLimitMode,
@@ -102,10 +105,13 @@ function getUnsyncedActiveReservations(rows: LocalReservation[]) {
   )
 }
 
-function makeEmptyCategoryOverview(fuelCategory: FuelQueueCategory): DailyLimitCategoryOverview {
+function makeEmptyFuelTypeOverview(fuelType: QueueFuelType): DailyLimitCategoryOverview {
+  const fuelCategory = getFuelQueueCategory(fuelType) ?? 'GASOLINE'
+
   return {
+    fuel_type: fuelType,
     fuel_category: fuelCategory,
-    label: categoryLabels[fuelCategory],
+    label: fuelTypeLabels[fuelType],
     limit_mode: 'vehicle_count',
     vehicle_limit: 0,
     liters_limit: null,
@@ -135,19 +141,20 @@ export function applyUnsyncedReservationEstimate(
     }
   }
 
-  const overviewsByCategory = new Map(
-    overview.category_overviews.map((item) => [item.fuel_category, { ...item }]),
+  const overviewsByFuel = new Map(
+    overview.category_overviews.map((item) => [item.fuel_type ?? item.fuel_category, { ...item }]),
   )
 
   for (const reservation of unsyncedReservations) {
-    const fuelCategory = getFuelQueueCategory(reservation.fuel_type)
+    const fuelType = reservation.fuel_type as QueueFuelType
+    const fuelCategory = getFuelQueueCategory(fuelType)
 
     if (!fuelCategory) {
       continue
     }
 
     const item =
-      overviewsByCategory.get(fuelCategory) ?? makeEmptyCategoryOverview(fuelCategory)
+      overviewsByFuel.get(fuelType) ?? makeEmptyFuelTypeOverview(fuelType)
     const requestedLiters = toNumber(reservation.requested_liters)
 
     item.queue_count += 1
@@ -180,14 +187,12 @@ export function applyUnsyncedReservationEstimate(
         item.liters_limit == null ? null : Math.max(item.liters_limit - item.covered_liters, 0)
     }
 
-    overviewsByCategory.set(fuelCategory, item)
+    overviewsByFuel.set(fuelType, item)
   }
 
   return {
     ...overview,
-    category_overviews: FUEL_QUEUE_CATEGORIES.map(
-      (fuelCategory) => overviewsByCategory.get(fuelCategory) ?? makeEmptyCategoryOverview(fuelCategory),
-    ),
+    category_overviews: Array.from(overviewsByFuel.values()),
     source,
     is_estimated: true,
     unsynced_reservation_count: unsyncedReservations.length,

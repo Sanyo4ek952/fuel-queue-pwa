@@ -1,6 +1,7 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { UserRole } from '@/shared/config/roles'
 import type {
+  FuelPreferenceMode,
   FuelType,
   ReservationCallStatus,
   ReservationStatus,
@@ -32,6 +33,8 @@ type ReservationRow = {
   driver_id?: string | null
   operator_id: string
   fuel_type: string
+  preferred_fuel_type?: string | null
+  fuel_preference_mode?: string | null
   requested_liters: number | string
   queue_number: number
   status: string
@@ -41,6 +44,9 @@ type ReservationRow = {
   created_at?: string
   updated_at?: string
   is_within_today_limit?: boolean | null
+  is_callable_now?: boolean | null
+  call_unavailable_reason?: string | null
+  matched_fuel_type?: string | null
   normalized_plate_number?: string | null
   driver_full_name?: string | null
   driver_phone?: string | null
@@ -76,6 +82,8 @@ export type TodayQueueRow = {
   driver_full_name: string
   driver_phone: string | null
   fuel_type: FuelType | string
+  preferred_fuel_type?: FuelType | string
+  fuel_preference_mode?: FuelPreferenceMode | string
   requested_liters: number
   status: ReservationStatus
   sync_status: SyncStatus
@@ -83,6 +91,9 @@ export type TodayQueueRow = {
   client_mutation_id: string | null
   is_offline: boolean
   is_within_today_limit: boolean
+  is_callable_now?: boolean
+  call_unavailable_reason?: string | null
+  matched_fuel_type?: FuelType | string | null
   latest_call_status: ReservationCallStatus | null
   latest_called_by_profile_id: string | null
   latest_called_by_full_name: string
@@ -123,6 +134,8 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     driver_full_name: row.driver_full_name ?? driver?.full_name ?? '',
     driver_phone: row.driver_phone ?? driver?.phone ?? null,
     fuel_type: row.fuel_type,
+    preferred_fuel_type: row.preferred_fuel_type ?? row.fuel_type,
+    fuel_preference_mode: row.fuel_preference_mode ?? 'EXACT',
     requested_liters: toNumber(row.requested_liters),
     status: row.status as ReservationStatus,
     sync_status: (row.sync_status ?? 'SYNCED') as SyncStatus,
@@ -130,6 +143,9 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     client_mutation_id: row.client_mutation_id ?? null,
     is_offline: false,
     is_within_today_limit: Boolean(row.is_within_today_limit),
+    is_callable_now: Boolean(row.is_callable_now ?? row.is_within_today_limit),
+    call_unavailable_reason: row.call_unavailable_reason ?? null,
+    matched_fuel_type: row.matched_fuel_type ?? null,
     latest_call_status: (row.latest_call_status ?? null) as ReservationCallStatus | null,
     latest_called_by_profile_id: row.latest_called_by_profile_id ?? null,
     latest_called_by_full_name: row.latest_called_by_full_name ?? '',
@@ -159,6 +175,8 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     driver_full_name: row.driver_full_name ?? '',
     driver_phone: row.driver_phone ?? null,
     fuel_type: row.fuel_type,
+    preferred_fuel_type: row.fuel_type,
+    fuel_preference_mode: row.fuel_preference_mode ?? 'EXACT',
     requested_liters: row.requested_liters,
     status: row.status as ReservationStatus,
     sync_status: row.sync_status ?? 'SYNCED',
@@ -166,6 +184,9 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     client_mutation_id: row.client_mutation_id ?? null,
     is_offline: row.sync_status !== 'SYNCED',
     is_within_today_limit: Boolean(row.is_within_today_limit),
+    is_callable_now: Boolean(row.is_callable_now ?? row.is_within_today_limit),
+    call_unavailable_reason: row.call_unavailable_reason ?? null,
+    matched_fuel_type: row.matched_fuel_type ?? null,
     latest_call_status: row.latest_call_status ?? null,
     latest_called_by_profile_id: row.latest_called_by_profile_id ?? null,
     latest_called_by_full_name: row.latest_called_by_full_name ?? '',
@@ -215,6 +236,7 @@ export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
         created_by_role: row.created_by_role,
         created_by_signature_name: row.created_by_signature_name,
         fuel_type: row.fuel_type,
+        fuel_preference_mode: row.fuel_preference_mode,
         requested_liters: row.requested_liters,
         queue_number: row.queue_number,
         status: row.status,
@@ -225,6 +247,9 @@ export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
         client_mutation_id: row.client_mutation_id,
         sync_status: row.sync_status,
         is_within_today_limit: row.is_within_today_limit,
+        is_callable_now: row.is_callable_now,
+        call_unavailable_reason: row.call_unavailable_reason,
+        matched_fuel_type: row.matched_fuel_type,
         latest_call_status: row.latest_call_status,
         latest_called_by_profile_id: row.latest_called_by_profile_id,
         latest_called_by_full_name: row.latest_called_by_full_name,

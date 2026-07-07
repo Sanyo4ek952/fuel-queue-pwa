@@ -18,8 +18,9 @@ const overview: DailyLimitOverview = {
   updated_at: '2026-07-05T10:00:00.000Z',
   category_overviews: [
     {
+      fuel_type: 'AI_95',
       fuel_category: 'GASOLINE',
-      label: 'Бензин',
+      label: 'АИ-95',
       limit_mode: 'fuel_liters',
       vehicle_limit: 0,
       liters_limit: 200,
@@ -50,7 +51,7 @@ function makeReservation(overrides: Partial<LocalReservation>): LocalReservation
 }
 
 describe('applyUnsyncedReservationEstimate', () => {
-  it('adds unsynced active reservations to category queue and liters projection', () => {
+  it('adds unsynced active reservations to exact fuel queue and liters projection', () => {
     const result = applyUnsyncedReservationEstimate(
       overview,
       [
@@ -66,7 +67,7 @@ describe('applyUnsyncedReservationEstimate', () => {
       unsynced_reservation_count: 1,
     })
     expect(
-      result.category_overviews.find((item) => item.fuel_category === 'GASOLINE'),
+      result.category_overviews.find((item) => item.fuel_type === 'AI_95'),
     ).toMatchObject({
       queue_count: 3,
       queued_liters: 110,

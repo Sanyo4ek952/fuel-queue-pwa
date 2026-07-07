@@ -19,6 +19,14 @@ import { Input } from '@/shared/ui/input'
 
 const remainingAttemptsStorageKey = 'public-queue-check-remaining-attempts'
 
+const fuelTypeLabels: Record<string, string> = {
+  AI_92: 'АИ-92',
+  AI_95: 'АИ-95',
+  AI_100: 'АИ-100',
+  DIESEL: 'Дизель',
+  GAS: 'Газ',
+}
+
 function saveRemainingAttempts(value: number) {
   try {
     localStorage.setItem(remainingAttemptsStorageKey, String(value))
@@ -78,7 +86,12 @@ export function PublicQueueCheckForm() {
   const isNotFound = result?.status === 'NOT_FOUND'
   const isInvalid = result?.status === 'INVALID_INPUT'
   const isFound = result?.status === 'FOUND' && result.queue_number !== null
-  const isWithinTodayLimit = isFound && result.is_within_today_limit === true
+  const isInvited = isFound && result.public_status === 'INVITED_BY_OPERATOR'
+  const isInCallList = isFound && result.public_status === 'IN_CALL_LIST'
+  const isWaitingFuel = isFound && result.public_status === 'WAITING_FOR_PREFERRED_FUEL'
+  const isQueueNotReady =
+    isFound &&
+    (result.public_status === 'QUEUE_NOT_READY' || result.public_status === 'WAIT_FOR_CALL')
   const noShowGraceDescription = getNoShowGraceDescription(noShowGrace.data?.days)
 
   return (
@@ -147,18 +160,43 @@ export function PublicQueueCheckForm() {
               </p>
             ) : null}
 
-            {isFound && isWithinTodayLimit ? (
+            {isInvited ? (
               <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
                 <CheckCircle2 className="size-4" aria-hidden="true" />
-                <AlertTitle>Можно приехать на заправку</AlertTitle>
+                <AlertTitle>Оператор подтвердил возможность приехать</AlertTitle>
                 <AlertDescription>
-                  Ваша очередь подошла. Окончательный допуск подтвердит оператор на АЗС.
+                  Очередь №{result.queue_number}. Окончательный допуск подтвердят на АЗС.
                   <span className="mt-2 block">{noShowGraceDescription}</span>
                 </AlertDescription>
               </Alert>
             ) : null}
 
-            {isFound && !isWithinTodayLimit ? (
+            {isInCallList ? (
+              <Alert className="border-sky-200 bg-sky-50 text-sky-950">
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+                <AlertTitle>Запись включена в список обзвона</AlertTitle>
+                <AlertDescription>
+                  Очередь №{result.queue_number}. Ожидайте звонка оператора
+                  {result.matched_fuel_type
+                    ? `, доступно ${fuelTypeLabels[result.matched_fuel_type] ?? result.matched_fuel_type}`
+                    : ''}
+                  .
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {isWaitingFuel ? (
+              <Alert className="border-amber-200 bg-amber-50 text-amber-950">
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>Ожидается выбранное топливо</AlertTitle>
+                <AlertDescription>
+                  Очередь №{result.queue_number}. Сейчас нет подходящей марки топлива для вашей
+                  записи.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {isQueueNotReady ? (
               <Alert className="border-amber-200 bg-amber-50 text-amber-950">
                 <TriangleAlert className="size-4" aria-hidden="true" />
                 <AlertTitle>Очередь №{result.queue_number} ещё не подошла</AlertTitle>

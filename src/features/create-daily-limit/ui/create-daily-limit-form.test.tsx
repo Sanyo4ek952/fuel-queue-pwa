@@ -42,16 +42,18 @@ describe('CreateDailyLimitForm', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the three fuel category limits', () => {
+  it('renders the five fuel type limits', () => {
     renderWithQueryClient(<CreateDailyLimitForm />)
 
-    expect(screen.getByText('Бензин')).toBeInTheDocument()
+    expect(screen.getByText('АИ-92')).toBeInTheDocument()
+    expect(screen.getByText('АИ-95')).toBeInTheDocument()
+    expect(screen.getByText('АИ-100')).toBeInTheDocument()
     expect(screen.getByText('Дизель')).toBeInTheDocument()
     expect(screen.getByText('Газ')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /сохранить лимит/i })).toBeEnabled()
   })
 
-  it('submits default category limit values', async () => {
+  it('submits default fuel type limit values', async () => {
     mocks.createDailyLimit.mockResolvedValue({
       data: {
         id: 'limit-id',
@@ -59,6 +61,7 @@ describe('CreateDailyLimitForm', () => {
         station_id: null,
         status: 'OPEN',
         client_mutation_id: 'mutation-id',
+        fuel_type_limits: [],
         category_limits: [],
       },
       error: null,
@@ -70,19 +73,29 @@ describe('CreateDailyLimitForm', () => {
     await waitFor(() => {
       expect(mocks.createDailyLimit).toHaveBeenCalledWith(
         expect.objectContaining({
-          categoryLimits: [
+          fuelTypeLimits: [
             expect.objectContaining({
-              fuelCategory: 'GASOLINE',
+              fuelType: 'AI_92',
+              limitMode: 'fuel_liters',
+              litersLimit: 0,
+            }),
+            expect.objectContaining({
+              fuelType: 'AI_95',
               limitMode: 'fuel_liters',
               litersLimit: 400,
             }),
             expect.objectContaining({
-              fuelCategory: 'DIESEL',
+              fuelType: 'AI_100',
+              limitMode: 'fuel_liters',
+              litersLimit: 0,
+            }),
+            expect.objectContaining({
+              fuelType: 'DIESEL',
               limitMode: 'fuel_liters',
               litersLimit: 400,
             }),
             expect.objectContaining({
-              fuelCategory: 'GAS',
+              fuelType: 'GAS',
               limitMode: 'fuel_liters',
               litersLimit: 400,
             }),

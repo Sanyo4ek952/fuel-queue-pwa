@@ -8,7 +8,7 @@ import {
   createDailyLimitSchema,
   useCreateDailyLimit,
 } from '@/features/create-daily-limit'
-import type { DailyLimitMode, FuelQueueCategory } from '@/shared/constants'
+import type { DailyLimitMode, QueueFuelType } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
@@ -23,16 +23,20 @@ import {
   SelectValue,
 } from '@/shared/ui/select'
 
-const categoryLabels: Record<FuelQueueCategory, string> = {
-  GASOLINE: 'Бензин',
+const fuelTypeLabels: Record<QueueFuelType, string> = {
+  AI_92: 'АИ-92',
+  AI_95: 'АИ-95',
+  AI_100: 'АИ-100',
   DIESEL: 'Дизель',
   GAS: 'Газ',
 }
 
-const defaultCategoryLimits = [
-  { fuelCategory: 'GASOLINE' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
-  { fuelCategory: 'DIESEL' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
-  { fuelCategory: 'GAS' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
+const defaultFuelTypeLimits = [
+  { fuelType: 'AI_92' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 0 },
+  { fuelType: 'AI_95' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
+  { fuelType: 'AI_100' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 0 },
+  { fuelType: 'DIESEL' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
+  { fuelType: 'GAS' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
 ]
 
 export function CreateDailyLimitForm() {
@@ -41,15 +45,15 @@ export function CreateDailyLimitForm() {
     resolver: zodResolver(createDailyLimitSchema),
     defaultValues: {
       targetDate: getTodayDateInputValue(),
-      categoryLimits: defaultCategoryLimits,
+      fuelTypeLimits: defaultFuelTypeLimits,
     },
   })
-  const categoryLimits = form.watch('categoryLimits')
+  const fuelTypeLimits = form.watch('fuelTypeLimits')
 
   async function handleSubmit(values: CreateDailyLimitFormValues) {
     await createDailyLimitMutation.mutateAsync({
       targetDate: values.targetDate,
-      categoryLimits: values.categoryLimits,
+      fuelTypeLimits: values.fuelTypeLimits,
       clientMutationId: crypto.randomUUID(),
     })
   }
@@ -62,7 +66,7 @@ export function CreateDailyLimitForm() {
           Лимит на день
         </CardTitle>
         <CardDescription>
-          Мэр задаёт общий дневной лимит по бензину, дизелю и газу для единой очереди.
+          Мэр задаёт дневной лимит по точным маркам топлива для единой очереди.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -77,37 +81,37 @@ export function CreateDailyLimitForm() {
             </FormItem>
 
             <div className="grid gap-3">
-              {categoryLimits.map((item, index) => {
+              {fuelTypeLimits.map((item, index) => {
                 const mode = item.limitMode as DailyLimitMode
-                const fuelCategory = item.fuelCategory as FuelQueueCategory
+                const fuelType = item.fuelType as QueueFuelType
 
                 return (
                   <div
-                    key={fuelCategory}
+                    key={fuelType}
                     className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-[1fr_160px_140px]"
                   >
                     <div>
                       <p className="text-sm font-medium text-slate-900">
-                        {categoryLabels[fuelCategory]}
+                        {fuelTypeLabels[fuelType]}
                       </p>
                       <input
                         type="hidden"
-                        value={fuelCategory}
-                        {...form.register(`categoryLimits.${index}.fuelCategory`)}
+                        value={fuelType}
+                        {...form.register(`fuelTypeLimits.${index}.fuelType`)}
                       />
                     </div>
 
                     <FormItem>
-                      <FormLabel htmlFor={`limitMode-${fuelCategory}`}>Режим</FormLabel>
+                      <FormLabel htmlFor={`limitMode-${fuelType}`}>Режим</FormLabel>
                       <Select
                         value={mode}
                         onValueChange={(value) =>
-                          form.setValue(`categoryLimits.${index}.limitMode`, value as DailyLimitMode, {
+                          form.setValue(`fuelTypeLimits.${index}.limitMode`, value as DailyLimitMode, {
                             shouldValidate: true,
                           })
                         }
                       >
-                        <SelectTrigger id={`limitMode-${fuelCategory}`} className="h-10 w-full bg-white">
+                        <SelectTrigger id={`limitMode-${fuelType}`} className="h-10 w-full bg-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent position="popper" align="start">
@@ -119,34 +123,34 @@ export function CreateDailyLimitForm() {
 
                     {mode === 'vehicle_count' ? (
                       <FormItem>
-                        <FormLabel htmlFor={`vehicleLimit-${fuelCategory}`}>Машин</FormLabel>
+                        <FormLabel htmlFor={`vehicleLimit-${fuelType}`}>Машин</FormLabel>
                         <Input
-                          id={`vehicleLimit-${fuelCategory}`}
+                          id={`vehicleLimit-${fuelType}`}
                           type="number"
                           min={1}
                           inputMode="numeric"
-                          {...form.register(`categoryLimits.${index}.vehicleLimit`)}
+                          {...form.register(`fuelTypeLimits.${index}.vehicleLimit`)}
                         />
-                        {form.formState.errors.categoryLimits?.[index]?.vehicleLimit ? (
+                        {form.formState.errors.fuelTypeLimits?.[index]?.vehicleLimit ? (
                           <FormMessage>
-                            {form.formState.errors.categoryLimits[index]?.vehicleLimit?.message}
+                            {form.formState.errors.fuelTypeLimits[index]?.vehicleLimit?.message}
                           </FormMessage>
                         ) : null}
                       </FormItem>
                     ) : (
                       <FormItem>
-                        <FormLabel htmlFor={`litersLimit-${fuelCategory}`}>Литров</FormLabel>
+                        <FormLabel htmlFor={`litersLimit-${fuelType}`}>Литров</FormLabel>
                         <Input
-                          id={`litersLimit-${fuelCategory}`}
+                          id={`litersLimit-${fuelType}`}
                           type="number"
-                          min={1}
+                          min={0}
                           step="0.01"
                           inputMode="decimal"
-                          {...form.register(`categoryLimits.${index}.litersLimit`)}
+                          {...form.register(`fuelTypeLimits.${index}.litersLimit`)}
                         />
-                        {form.formState.errors.categoryLimits?.[index]?.litersLimit ? (
+                        {form.formState.errors.fuelTypeLimits?.[index]?.litersLimit ? (
                           <FormMessage>
-                            {form.formState.errors.categoryLimits[index]?.litersLimit?.message}
+                            {form.formState.errors.fuelTypeLimits[index]?.litersLimit?.message}
                           </FormMessage>
                         ) : null}
                       </FormItem>
@@ -177,7 +181,7 @@ export function CreateDailyLimitForm() {
                 <AlertTitle>Лимит сохранён</AlertTitle>
                 <AlertDescription>
                   Дата {createDailyLimitMutation.data.date}, категорий:{' '}
-                  {createDailyLimitMutation.data.category_limits?.length ?? 0}.
+                  {createDailyLimitMutation.data.fuel_type_limits?.length ?? 0}.
                 </AlertDescription>
               </Alert>
             ) : null}

@@ -2,21 +2,33 @@ import { describe, expect, it } from 'vitest'
 
 import { createDailyLimitSchema } from './schema'
 
-const validCategoryLimits = [
+const validFuelTypeLimits = [
   {
-    fuelCategory: 'GASOLINE',
+    fuelType: 'AI_92',
+    limitMode: 'fuel_liters',
+    vehicleLimit: 0,
+    litersLimit: '0',
+  },
+  {
+    fuelType: 'AI_95',
     limitMode: 'fuel_liters',
     vehicleLimit: 0,
     litersLimit: '400',
   },
   {
-    fuelCategory: 'DIESEL',
+    fuelType: 'AI_100',
+    limitMode: 'fuel_liters',
+    vehicleLimit: 0,
+    litersLimit: '0',
+  },
+  {
+    fuelType: 'DIESEL',
     limitMode: 'vehicle_count',
     vehicleLimit: '10',
     litersLimit: '',
   },
   {
-    fuelCategory: 'GAS',
+    fuelType: 'GAS',
     limitMode: 'fuel_liters',
     vehicleLimit: 0,
     litersLimit: '200',
@@ -24,19 +36,19 @@ const validCategoryLimits = [
 ]
 
 describe('createDailyLimitSchema', () => {
-  it('coerces category limit numeric fields', () => {
+  it('coerces fuel type limit numeric fields', () => {
     const result = createDailyLimitSchema.parse({
       targetDate: '2026-07-05',
-      categoryLimits: validCategoryLimits,
+      fuelTypeLimits: validFuelTypeLimits,
     })
 
-    expect(result.categoryLimits[0]).toMatchObject({
-      fuelCategory: 'GASOLINE',
+    expect(result.fuelTypeLimits[1]).toMatchObject({
+      fuelType: 'AI_95',
       limitMode: 'fuel_liters',
       litersLimit: 400,
     })
-    expect(result.categoryLimits[1]).toMatchObject({
-      fuelCategory: 'DIESEL',
+    expect(result.fuelTypeLimits[3]).toMatchObject({
+      fuelType: 'DIESEL',
       limitMode: 'vehicle_count',
       vehicleLimit: 10,
       litersLimit: null,
@@ -46,10 +58,12 @@ describe('createDailyLimitSchema', () => {
   it('rejects missing liters in fuel_liters mode', () => {
     const result = createDailyLimitSchema.safeParse({
       targetDate: '2026-07-05',
-      categoryLimits: [
-        { fuelCategory: 'GASOLINE', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: '' },
-        { fuelCategory: 'DIESEL', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
-        { fuelCategory: 'GAS', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
+      fuelTypeLimits: [
+        { fuelType: 'AI_92', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: '' },
+        { fuelType: 'AI_95', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 400 },
+        { fuelType: 'AI_100', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 0 },
+        { fuelType: 'DIESEL', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
+        { fuelType: 'GAS', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
       ],
     })
 
@@ -59,10 +73,12 @@ describe('createDailyLimitSchema', () => {
   it('rejects zero vehicles in vehicle_count mode', () => {
     const result = createDailyLimitSchema.safeParse({
       targetDate: '2026-07-05',
-      categoryLimits: [
-        { fuelCategory: 'GASOLINE', limitMode: 'vehicle_count', vehicleLimit: 0, litersLimit: '' },
-        { fuelCategory: 'DIESEL', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
-        { fuelCategory: 'GAS', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
+      fuelTypeLimits: [
+        { fuelType: 'AI_92', limitMode: 'vehicle_count', vehicleLimit: 0, litersLimit: '' },
+        { fuelType: 'AI_95', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 400 },
+        { fuelType: 'AI_100', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 0 },
+        { fuelType: 'DIESEL', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
+        { fuelType: 'GAS', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
       ],
     })
 

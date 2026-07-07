@@ -121,6 +121,7 @@ create table fuel_reservations (
   vehicle_id uuid not null references vehicles(id),
   driver_id uuid references drivers(id),
   fuel_type text not null,
+  fuel_preference_mode text not null default 'EXACT',
   requested_liters numeric(10,2) not null,
   queue_number integer not null,
   status text not null default 'RESERVED',
@@ -134,6 +135,15 @@ create table fuel_reservations (
   unique(date, station_id, queue_number)
 );
 ```
+
+`fuel_preference_mode`:
+
+```text
+EXACT
+ANY_GASOLINE
+```
+
+`EXACT` означает только `fuel_type`. `ANY_GASOLINE` означает совместимость с `AI_92`, `AI_95`, `AI_100`.
 
 Частичный уникальный индекс:
 
@@ -307,4 +317,8 @@ create index idx_reservations_vehicle_date on fuel_reservations(vehicle_id, date
 create index idx_fueling_vehicle_date on fueling_records(vehicle_id, date);
 create index idx_queue_date_station on queue_entries(date, station_id);
 create index idx_audit_entity on audit_logs(entity_type, entity_id);
+create index idx_reservations_callable_queue
+on fuel_reservations(status, queue_number, fuel_type, fuel_preference_mode);
+create index idx_daily_fuel_type_limits_exact
+on daily_fuel_type_limits(daily_limit_id, fuel_type);
 ```

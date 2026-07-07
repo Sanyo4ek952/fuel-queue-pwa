@@ -18,7 +18,13 @@ import {
   createReservationSchema,
   useCreateReservation,
 } from '@/features/create-reservation'
-import { QUEUE_FUEL_TYPES, type FuelType, type QueueFuelType } from '@/shared/constants'
+import {
+  QUEUE_FUEL_TYPES,
+  isGasolineFuelType,
+  type FuelPreferenceMode,
+  type FuelType,
+  type QueueFuelType,
+} from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import { useProfileStationSelection } from '@/shared/lib/station-selection'
@@ -46,6 +52,11 @@ const fuelTypeLabels: Record<FuelType, string> = {
   OTHER: 'Другое',
 }
 
+const fuelPreferenceLabels: Record<FuelPreferenceMode, string> = {
+  EXACT: 'Только выбранная марка',
+  ANY_GASOLINE: 'Подойдёт АИ-92/95/100',
+}
+
 const HISTORY_ACCORDION_VALUE = 'fueling-history'
 const RESERVATION_HISTORY_PAGE_SIZE = 5
 const reservationCheckReasonLabelOverrides = {
@@ -63,7 +74,7 @@ export function CreateReservationForm() {
   const checkVehicleAccessMutation = useCheckVehicleAccess()
   const resetCheckVehicleAccess = checkVehicleAccessMutation.reset
   const [historyPlateNumber, setHistoryPlateNumber] = useState('')
-  const [historyAccordionValue, setHistoryAccordionValue] = useState<string | undefined>()
+  const [historyAccordionValue, setHistoryAccordionValue] = useState('')
   const isHistoryOpen = historyAccordionValue === HISTORY_ACCORDION_VALUE
   const vehicleFuelingHistoryQuery = useVehicleFuelingHistory({
     plateNumber: historyPlateNumber,
@@ -78,17 +89,26 @@ export function CreateReservationForm() {
       driverFullName: '',
       driverPhone: '',
       fuelType: 'AI_95',
+      fuelPreferenceMode: 'EXACT',
       requestedLiters: 20,
       comment: '',
     },
   })
   const watchedPlateNumber = form.watch('plateNumber')
+  const watchedFuelType = form.watch('fuelType')
+  const isGasolineSelected = isGasolineFuelType(watchedFuelType)
 
   useEffect(() => {
     resetCheckVehicleAccess()
     setHistoryPlateNumber('')
-    setHistoryAccordionValue(undefined)
+    setHistoryAccordionValue('')
   }, [watchedPlateNumber, selectedStationId, resetCheckVehicleAccess])
+
+  useEffect(() => {
+    if (!isGasolineFuelType(watchedFuelType)) {
+      form.setValue('fuelPreferenceMode', 'EXACT', { shouldValidate: true })
+    }
+  }, [form, watchedFuelType])
 
   async function handleSubmit(values: CreateReservationFormValues) {
     if (accessResult?.reason === 'REFUEL_COOLDOWN_ACTIVE') {
@@ -104,6 +124,7 @@ export function CreateReservationForm() {
         driverFullName: values.driverFullName,
         driverPhone: values.driverPhone,
         fuelType: values.fuelType,
+        fuelPreferenceMode: values.fuelPreferenceMode,
         requestedLiters: values.requestedLiters,
         comment: values.comment,
         clientMutationId: crypto.randomUUID(),
@@ -122,7 +143,7 @@ export function CreateReservationForm() {
 
     const normalizedPlateNumber = normalizePlateNumber(form.getValues('plateNumber'))
     setHistoryPlateNumber(normalizedPlateNumber)
-    setHistoryAccordionValue(undefined)
+    setHistoryAccordionValue('')
 
     await checkVehicleAccessMutation.mutateAsync({
       plateNumber: normalizedPlateNumber,
@@ -206,7 +227,7 @@ export function CreateReservationForm() {
               <VehicleFuelingHistoryAccordion
                 plateNumber={historyPlateNumber}
                 value={historyAccordionValue}
-                onValueChange={setHistoryAccordionValue}
+                onValueChange={(value) => setHistoryAccordionValue(value ?? '')}
                 result={fuelingHistoryViewResult}
                 isLoading={vehicleFuelingHistoryQuery.isLoading}
                 isError={vehicleFuelingHistoryQuery.isError}
@@ -272,6 +293,37 @@ export function CreateReservationForm() {
                   <FormMessage>{form.formState.errors.fuelType.message}</FormMessage>
                 ) : null}
               </FormItem>
+              {isGasolineSelected ? (
+                <FormItem>
+                  <FormLabel htmlFor="fuelPreferenceMode">Предпочтение</FormLabel>
+                  <Select
+                    value={form.watch('fuelPreferenceMode')}
+                    onValueChange={(value) =>
+                      form.setValue('fuelPreferenceMode', value as FuelPreferenceMode, {
+                        shouldValidate: true,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="fuelPreferenceMode" className="h-10 w-full bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                      <SelectItem value="EXACT">{fuelPreferenceLabels.EXACT}</SelectItem>
+                      <SelectItem value="ANY_GASOLINE">
+                        {fuelPreferenceLabels.ANY_GASOLINE}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.fuelPreferenceMode ? (
+                    <FormMessage>
+                      {form.formState.errors.fuelPreferenceMode.message}
+                    </FormMessage>
+                  ) : null}
+                </FormItem>
+              ) : null}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
               <FormItem>
                 <FormLabel htmlFor="requestedLiters">Литры</FormLabel>
                 <Input
@@ -318,7 +370,8 @@ export function CreateReservationForm() {
                 <AlertDescription>
                   Очередь №{createReservationMutation.data.queue_number},{' '}
                   {createReservationMutation.data.normalized_plate_number},{' '}
-                  {createReservationMutation.data.requested_liters} л.
+                  {createReservationMutation.data.requested_liters} л,{' '}
+                  {fuelPreferenceLabels[createReservationMutation.data.fuel_preference_mode]}.
                 </AlertDescription>
               </Alert>
             ) : null}

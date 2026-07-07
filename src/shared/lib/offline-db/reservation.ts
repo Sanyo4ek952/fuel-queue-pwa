@@ -1,4 +1,4 @@
-import type { FuelType } from '@/shared/constants'
+import type { FuelPreferenceMode, FuelType } from '@/shared/constants'
 import type { UserRole } from '@/shared/config/roles'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
@@ -18,6 +18,7 @@ export type CreateOfflineReservationParams = {
   driverFullName: string
   driverPhone?: string
   fuelType: FuelType
+  fuelPreferenceMode?: FuelPreferenceMode
   requestedLiters: number
   comment?: string
   clientMutationId: string
@@ -41,6 +42,7 @@ export type OfflineReservationResult = {
   driver_full_name: string
   driver_phone: string | null
   fuel_type: FuelType
+  fuel_preference_mode: FuelPreferenceMode
   requested_liters: number
   queue_number: number
   status: 'RESERVED'
@@ -53,6 +55,7 @@ export type CreateReservationPayload = {
   driver_full_name: string
   driver_phone?: string
   fuel_type: FuelType
+  fuel_preference_mode: FuelPreferenceMode
   requested_liters: number
   comment?: string
 }
@@ -62,6 +65,7 @@ export function buildCreateReservationPayload({
   driverFullName,
   driverPhone,
   fuelType,
+  fuelPreferenceMode,
   requestedLiters,
   comment,
 }: CreateOfflineReservationParams): CreateReservationPayload {
@@ -70,6 +74,7 @@ export function buildCreateReservationPayload({
     driver_full_name: driverFullName,
     driver_phone: driverPhone || undefined,
     fuel_type: fuelType,
+    fuel_preference_mode: fuelPreferenceMode ?? 'EXACT',
     requested_liters: requestedLiters,
     comment: comment || undefined,
   }
@@ -110,6 +115,7 @@ export async function createOfflineReservation({
   driverFullName,
   driverPhone,
   fuelType,
+  fuelPreferenceMode = 'EXACT',
   requestedLiters,
   comment,
   clientMutationId,
@@ -188,6 +194,7 @@ export async function createOfflineReservation({
     created_by_role: createdByRole ?? null,
     created_by_signature_name: createdBySignatureName ?? null,
     fuel_type: fuelType,
+    fuel_preference_mode: fuelPreferenceMode,
     requested_liters: requestedLiters,
     queue_number: nextQueueNumber,
     status: 'RESERVED',
@@ -209,6 +216,7 @@ export async function createOfflineReservation({
       driverFullName,
       driverPhone: trimmedDriverPhone ?? undefined,
       fuelType,
+      fuelPreferenceMode,
       requestedLiters,
       comment: trimmedComment ?? undefined,
       clientMutationId,
@@ -245,6 +253,7 @@ export async function createOfflineReservation({
     driver_full_name: trimmedDriverFullName,
     driver_phone: trimmedDriverPhone,
     fuel_type: fuelType,
+    fuel_preference_mode: fuelPreferenceMode,
     requested_liters: requestedLiters,
     queue_number: nextQueueNumber,
     status: 'RESERVED',

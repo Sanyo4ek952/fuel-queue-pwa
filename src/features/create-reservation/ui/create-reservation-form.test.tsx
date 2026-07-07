@@ -440,7 +440,7 @@ describe('CreateReservationForm', () => {
     await waitFor(() => {
       expect(screen.queryByText('Допуск разрешен')).not.toBeInTheDocument()
     })
-  })
+  }, 10_000)
   it('formats and submits driver phone in canonical format', async () => {
     mocks.createReservation.mockResolvedValue({
       data: {

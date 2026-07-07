@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { QUEUE_FUEL_TYPES } from '@/shared/constants'
+import { FUEL_PREFERENCE_MODES, QUEUE_FUEL_TYPES, isGasolineFuelType } from '@/shared/constants'
 import { isValidRuPhoneNumber, normalizeRuPhoneNumber } from '@/shared/lib/phone-number'
 import { isValidPlateNumber, normalizePlateNumber } from '@/shared/lib/plate-number'
 
@@ -22,8 +22,17 @@ export const createReservationSchema = z.object({
   driverFullName: z.string().trim().min(1, 'Введите ФИО водителя'),
   driverPhone: optionalRuPhoneNumberSchema,
   fuelType: z.enum(QUEUE_FUEL_TYPES),
+  fuelPreferenceMode: z.enum(FUEL_PREFERENCE_MODES).default('EXACT'),
   requestedLiters: z.coerce.number().positive('Литры должны быть больше нуля'),
   comment: z.string().trim().optional(),
+}).superRefine((value, context) => {
+  if (value.fuelPreferenceMode === 'ANY_GASOLINE' && !isGasolineFuelType(value.fuelType)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['fuelPreferenceMode'],
+      message: 'Любой бензин доступен только для АИ-92, АИ-95 и АИ-100',
+    })
+  }
 })
 
 export type CreateReservationFormInput = z.input<typeof createReservationSchema>

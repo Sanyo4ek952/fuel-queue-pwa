@@ -60,6 +60,43 @@ date
 - отсутствие активной записи автомобиля на эту дату;
 - блокировку автомобиля.
 - сохраняет автора записи в `fuel_reservations.operator_id`.
+- сохраняет `fuel_preference_mode`, по умолчанию `EXACT`.
+
+### get_today_call_list
+
+Возвращает общую очередь по `queue_number` и серверные поля обзвона:
+
+```text
+is_callable_now
+call_unavailable_reason
+matched_fuel_type
+fuel_preference_mode
+preferred_fuel_type
+```
+
+`is_callable_now` вычисляется на сервере по активному статусу записи, факту заправки, блокировке автомобиля, совместимости топлива и точному дневному лимиту выбранной марки.
+
+### create_reservation_call_log
+
+Проверяет активность записи.
+
+Для `CONTACTED` дополнительно требует `is_callable_now = true`; иначе возвращает ошибку `RESERVATION_NOT_CALLABLE`.
+
+### check_public_queue_position
+
+Публичный RPC не раскрывает ФИО, телефон, комментарии и автора записи.
+
+Безопасные поля ответа:
+
+```text
+queue_number
+preferred_fuel_type
+fuel_preference_mode
+public_status
+is_within_today_limit
+is_callable_now
+matched_fuel_type
+```
 
 ### create_fueling_record
 

@@ -94,7 +94,10 @@ describe('PublicQueueCheckForm', () => {
       data: {
         status: 'FOUND',
         queue_number: 9,
+        public_status: 'IN_CALL_LIST',
         is_within_today_limit: true,
+        is_callable_now: true,
+        matched_fuel_type: 'AI_95',
         remaining_attempts: 4,
       },
       error: null,
@@ -105,11 +108,11 @@ describe('PublicQueueCheckForm', () => {
     await userEvent.type(screen.getByLabelText('Последние 4 цифры телефона'), '1234')
     await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
 
-    expect(await screen.findByText('Можно приехать на заправку')).toBeInTheDocument()
+    expect(await screen.findByText('Запись включена в список обзвона')).toBeInTheDocument()
     expect(
-      screen.getByText('Ваша очередь подошла. Окончательный допуск подтвердит оператор на АЗС.'),
+      screen.getByText(/Очередь №9. Ожидайте звонка оператора, доступно АИ-95./),
     ).toBeInTheDocument()
-    expect(screen.getByText(/Если вы не заправитесь в течение 3 суток/)).toBeInTheDocument()
+    expect(screen.queryByText(/Если вы не заправитесь/)).not.toBeInTheDocument()
     expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
     expect(screen.queryByText('1234')).not.toBeInTheDocument()
   })
@@ -119,7 +122,9 @@ describe('PublicQueueCheckForm', () => {
       data: {
         status: 'FOUND',
         queue_number: 9,
+        public_status: 'QUEUE_NOT_READY',
         is_within_today_limit: false,
+        is_callable_now: false,
         remaining_attempts: 4,
       },
       error: null,
@@ -154,7 +159,9 @@ describe('PublicQueueCheckForm', () => {
       data: {
         status: 'FOUND',
         queue_number: 9,
+        public_status: 'INVITED_BY_OPERATOR',
         is_within_today_limit: true,
+        is_callable_now: false,
         remaining_attempts: 4,
       },
       error: null,
@@ -165,7 +172,7 @@ describe('PublicQueueCheckForm', () => {
     await userEvent.type(screen.getByLabelText('Последние 4 цифры телефона'), '1234')
     await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
 
-    expect(await screen.findByText('Можно приехать на заправку')).toBeInTheDocument()
+    expect(await screen.findByText('Оператор подтвердил возможность приехать')).toBeInTheDocument()
     expect(screen.getByText(/в течение 5 суток/)).toBeInTheDocument()
     expect(screen.queryByText(/трёх суток/)).not.toBeInTheDocument()
   })
@@ -183,7 +190,9 @@ describe('PublicQueueCheckForm', () => {
       data: {
         status: 'FOUND',
         queue_number: 9,
+        public_status: 'INVITED_BY_OPERATOR',
         is_within_today_limit: true,
+        is_callable_now: false,
         remaining_attempts: 4,
       },
       error: null,
@@ -194,7 +203,7 @@ describe('PublicQueueCheckForm', () => {
     await userEvent.type(screen.getByLabelText('Последние 4 цифры телефона'), '1234')
     await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
 
-    expect(await screen.findByText('Можно приехать на заправку')).toBeInTheDocument()
+    expect(await screen.findByText('Оператор подтвердил возможность приехать')).toBeInTheDocument()
     expect(screen.getByText(/Автоматическое аннулирование записи по пропускам заправки сейчас отключено/)).toBeInTheDocument()
     expect(screen.queryByText(/трёх суток/)).not.toBeInTheDocument()
   })

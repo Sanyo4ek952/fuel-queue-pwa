@@ -1,15 +1,15 @@
 import { z } from 'zod'
 
-import { DAILY_LIMIT_MODES, FUEL_QUEUE_CATEGORIES } from '@/shared/constants'
+import { DAILY_LIMIT_MODES, QUEUE_FUEL_TYPES } from '@/shared/constants'
 
 const optionalPositiveNumber = z.preprocess(
   (value) => (value === '' || value == null ? null : Number(value)),
-  z.number().positive('Лимит должен быть больше нуля').nullable(),
+  z.number().min(0, 'Лимит не может быть отрицательным').nullable(),
 )
 
-export const dailyCategoryLimitSchema = z
+export const dailyFuelTypeLimitSchema = z
   .object({
-    fuelCategory: z.enum(FUEL_QUEUE_CATEGORIES),
+    fuelType: z.enum(QUEUE_FUEL_TYPES),
     limitMode: z.enum(DAILY_LIMIT_MODES),
     vehicleLimit: z.coerce
       .number()
@@ -26,7 +26,7 @@ export const dailyCategoryLimitSchema = z
       })
     }
 
-    if (value.limitMode === 'fuel_liters' && (value.litersLimit == null || value.litersLimit <= 0)) {
+    if (value.limitMode === 'fuel_liters' && value.litersLimit == null) {
       context.addIssue({
         code: 'custom',
         path: ['litersLimit'],
@@ -37,7 +37,7 @@ export const dailyCategoryLimitSchema = z
 
 export const createDailyLimitSchema = z.object({
   targetDate: z.string().min(1, 'Выберите дату'),
-  categoryLimits: z.array(dailyCategoryLimitSchema).length(3),
+  fuelTypeLimits: z.array(dailyFuelTypeLimitSchema).length(5),
 })
 
 export type CreateDailyLimitFormInput = z.input<typeof createDailyLimitSchema>

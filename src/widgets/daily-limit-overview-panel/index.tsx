@@ -210,7 +210,7 @@ export function DailyLimitOverviewPanel() {
           <LimitSummary overview={overview} />
           <div className="grid gap-3 lg:grid-cols-3">
             {(overview.category_overviews ?? []).map((row) => (
-              <CategoryCard key={row.fuel_category} row={row} />
+              <CategoryCard key={row.fuel_type ?? row.fuel_category} row={row} />
             ))}
           </div>
         </>

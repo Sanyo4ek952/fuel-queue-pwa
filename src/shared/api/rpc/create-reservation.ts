@@ -1,6 +1,6 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
-import type { FuelType, ReservationStatus } from '@/shared/constants'
+import type { FuelPreferenceMode, FuelType, ReservationStatus } from '@/shared/constants'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
@@ -10,6 +10,7 @@ export type CreateReservationParams = {
   driverFullName: string
   driverPhone?: string
   fuelType: FuelType
+  fuelPreferenceMode?: FuelPreferenceMode
   requestedLiters: number
   comment?: string
   clientMutationId: string
@@ -25,6 +26,7 @@ export type CreateReservationResult = {
   driver_full_name: string
   driver_phone: string | null
   fuel_type: FuelType
+  fuel_preference_mode: FuelPreferenceMode
   requested_liters: number
   queue_number: number
   status: ReservationStatus
@@ -59,6 +61,7 @@ export function parseCreateReservationResult(value: unknown): CreateReservationR
       driver_full_name: result.driver_full_name ?? '',
       driver_phone: result.driver_phone ?? null,
       fuel_type: result.fuel_type as FuelType,
+      fuel_preference_mode: (result.fuel_preference_mode ?? 'EXACT') as FuelPreferenceMode,
       requested_liters: toNumber(result.requested_liters),
       queue_number: toNumber(result.queue_number),
       status: result.status as ReservationStatus,
@@ -74,6 +77,7 @@ export async function createReservation({
   driverFullName,
   driverPhone,
   fuelType,
+  fuelPreferenceMode,
   requestedLiters,
   comment,
   clientMutationId,
@@ -90,6 +94,7 @@ export async function createReservation({
     driver_full_name: driverFullName,
     driver_phone: driverPhone ?? null,
     fuel_type: fuelType,
+    fuel_preference_mode: fuelPreferenceMode ?? 'EXACT',
     requested_liters: requestedLiters,
     comment: comment ?? null,
     client_mutation_id: clientMutationId,

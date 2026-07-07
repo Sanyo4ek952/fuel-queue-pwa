@@ -115,6 +115,10 @@ async function createOfflineReservationCallLog({
     throw new Error('RESERVATION_NOT_SYNCED')
   }
 
+  if (status === 'CONTACTED' && !reservation.is_callable_now) {
+    throw new Error(reservation.call_unavailable_reason ?? 'RESERVATION_NOT_CALLABLE')
+  }
+
   const now = new Date().toISOString()
   const trimmedComment = comment?.trim() || null
   const localCallLog: LocalReservationCallLog = {
@@ -194,6 +198,10 @@ export function useLogReservationCall() {
 
       if (!profile) {
         throw new Error('PROFILE_NOT_LOADED')
+      }
+
+      if (status === 'CONTACTED' && !reservation.is_callable_now) {
+        throw new Error(reservation.call_unavailable_reason ?? 'RESERVATION_NOT_CALLABLE')
       }
 
       if (!isOnline) {

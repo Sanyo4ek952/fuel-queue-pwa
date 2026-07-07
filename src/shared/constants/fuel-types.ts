@@ -2,6 +2,10 @@ export const FUEL_TYPES = ['AI_92', 'AI_95', 'AI_100', 'DIESEL', 'GAS', 'OTHER']
 
 export type FuelType = (typeof FUEL_TYPES)[number]
 
+export const FUEL_PREFERENCE_MODES = ['EXACT', 'ANY_GASOLINE'] as const
+
+export type FuelPreferenceMode = (typeof FUEL_PREFERENCE_MODES)[number]
+
 export const FUEL_QUEUE_CATEGORIES = ['GASOLINE', 'DIESEL', 'GAS'] as const
 
 export type FuelQueueCategory = (typeof FUEL_QUEUE_CATEGORIES)[number]
@@ -14,8 +18,12 @@ export const QUEUE_FUEL_TYPES = ['AI_92', 'AI_95', 'AI_100', 'DIESEL', 'GAS'] as
 
 export type QueueFuelType = (typeof QUEUE_FUEL_TYPES)[number]
 
+export function isGasolineFuelType(fuelType: FuelType | string) {
+  return fuelType === 'AI_92' || fuelType === 'AI_95' || fuelType === 'AI_100'
+}
+
 export function getFuelQueueCategory(fuelType: FuelType | string): FuelQueueCategory | null {
-  if (fuelType === 'AI_92' || fuelType === 'AI_95' || fuelType === 'AI_100') {
+  if (isGasolineFuelType(fuelType)) {
     return 'GASOLINE'
   }
 
@@ -28,4 +36,17 @@ export function getFuelQueueCategory(fuelType: FuelType | string): FuelQueueCate
   }
 
   return null
+}
+
+export function getCompatibleFuelTypes(
+  fuelType: FuelType | string,
+  fuelPreferenceMode: FuelPreferenceMode | string = 'EXACT',
+): QueueFuelType[] {
+  if (fuelPreferenceMode === 'ANY_GASOLINE' && isGasolineFuelType(fuelType)) {
+    return ['AI_92', 'AI_95', 'AI_100']
+  }
+
+  return QUEUE_FUEL_TYPES.includes(fuelType as QueueFuelType)
+    ? [fuelType as QueueFuelType]
+    : []
 }

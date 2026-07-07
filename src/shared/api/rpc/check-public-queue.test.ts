@@ -20,7 +20,12 @@ describe('parsePublicQueueCheckResult', () => {
     ).toEqual({
       status: 'FOUND',
       queue_number: 12,
+      preferred_fuel_type: null,
+      fuel_preference_mode: null,
+      public_status: 'WAIT_FOR_CALL',
       is_within_today_limit: true,
+      is_callable_now: null,
+      matched_fuel_type: null,
       remaining_attempts: 4,
     })
   })
@@ -36,7 +41,12 @@ describe('parsePublicQueueCheckResult', () => {
     ).toEqual({
       status: 'FOUND',
       queue_number: 15,
+      preferred_fuel_type: null,
+      fuel_preference_mode: null,
+      public_status: 'QUEUE_NOT_READY',
       is_within_today_limit: false,
+      is_callable_now: null,
+      matched_fuel_type: null,
       remaining_attempts: 2,
     })
   })
@@ -52,7 +62,12 @@ describe('parsePublicQueueCheckResult', () => {
     ).toEqual({
       status: 'NOT_FOUND',
       queue_number: null,
+      preferred_fuel_type: null,
+      fuel_preference_mode: null,
+      public_status: 'NOT_FOUND',
       is_within_today_limit: null,
+      is_callable_now: null,
+      matched_fuel_type: null,
       remaining_attempts: 3,
     })
   })
@@ -68,7 +83,12 @@ describe('parsePublicQueueCheckResult', () => {
     ).toEqual({
       status: 'LIMIT_EXCEEDED',
       queue_number: null,
+      preferred_fuel_type: null,
+      fuel_preference_mode: null,
+      public_status: 'LIMIT_EXCEEDED',
       is_within_today_limit: null,
+      is_callable_now: null,
+      matched_fuel_type: null,
       remaining_attempts: 0,
     })
   })
