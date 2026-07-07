@@ -6,6 +6,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { useCurrentProfile } from '@/entities/profile'
 import { PlateNumberInput } from '@/entities/vehicle'
 import {
+  type VehicleAccessResult,
   buildVehicleFuelingHistoryViewResult,
   useCheckVehicleAccess,
   useVehicleFuelingHistory,
@@ -61,10 +62,34 @@ const HISTORY_ACCORDION_VALUE = 'fueling-history'
 const RESERVATION_HISTORY_PAGE_SIZE = 5
 const reservationCheckReasonLabelOverrides = {
   ACTIVE_RESERVATION: 'Автомобиль уже есть в очереди. Повторная запись запрещена.',
+  NO_ACTIVE_RESERVATION: 'Автомобиля нет в очереди. Можно создать запись.',
 } as const
 const reservationCheckBlockedReasonOverrides = {
   ACTIVE_RESERVATION: 'Автомобиль уже есть в очереди. Повторная запись запрещена.',
 } as const
+
+function canCreateReservationAfterCheck(
+  result: VehicleAccessResult | undefined,
+  normalizedPlateNumber: string,
+) {
+  if (!result || !normalizedPlateNumber || result.normalized_plate_number !== normalizedPlateNumber) {
+    return false
+  }
+
+  if (result.reason === 'ACTIVE_RESERVATION' || result.offline_decision === 'BLOCKED') {
+    return false
+  }
+
+  if (result.status === 'BLOCKED' && result.reason !== 'NO_ACTIVE_RESERVATION') {
+    return false
+  }
+
+  return (
+    result.status === 'ALLOWED' ||
+    result.reason === 'NO_ACTIVE_RESERVATION' ||
+    result.offline_decision === 'ALLOWED'
+  )
+}
 
 export function CreateReservationForm() {
   const currentProfileQuery = useCurrentProfile()
@@ -96,6 +121,7 @@ export function CreateReservationForm() {
   })
   const watchedPlateNumber = form.watch('plateNumber')
   const watchedFuelType = form.watch('fuelType')
+  const normalizedWatchedPlateNumber = normalizePlateNumber(watchedPlateNumber)
   const isGasolineSelected = isGasolineFuelType(watchedFuelType)
 
   useEffect(() => {
@@ -111,9 +137,12 @@ export function CreateReservationForm() {
   }, [form, watchedFuelType])
 
   async function handleSubmit(values: CreateReservationFormValues) {
-    if (accessResult?.reason === 'REFUEL_COOLDOWN_ACTIVE') {
+    if (!canCreateReservationAfterCheck(accessResult, values.plateNumber)) {
       form.setError('plateNumber', {
-        message: 'После последней заправки ещё не прошёл установленный интервал.',
+        message:
+          accessResult?.reason === 'ACTIVE_RESERVATION'
+            ? reservationCheckReasonLabelOverrides.ACTIVE_RESERVATION
+            : 'Перед записью нужно проверить номер и получить разрешение.',
       })
       return
     }
@@ -155,7 +184,14 @@ export function CreateReservationForm() {
   const isCheckDisabled =
     !selectedStationId || !watchedPlateNumber.trim() || checkVehicleAccessMutation.isPending
   const accessResult = checkVehicleAccessMutation.data
-  const isRefuelCooldownBlocked = accessResult?.reason === 'REFUEL_COOLDOWN_ACTIVE'
+  const canSubmitReservation = canCreateReservationAfterCheck(
+    accessResult,
+    normalizedWatchedPlateNumber,
+  )
+  const reservationAccessResult =
+    accessResult?.reason === 'NO_ACTIVE_RESERVATION'
+      ? ({ ...accessResult, status: 'ALLOWED' } as const)
+      : accessResult
   const fuelingHistoryViewResult = buildVehicleFuelingHistoryViewResult(
     vehicleFuelingHistoryQuery.data,
   )
@@ -215,9 +251,9 @@ export function CreateReservationForm() {
               ) : null}
             </FormItem>
 
-            {accessResult ? (
+            {reservationAccessResult ? (
               <VehicleAccessResultView
-                result={accessResult}
+                result={reservationAccessResult}
                 blockedReasonOverrides={reservationCheckBlockedReasonOverrides}
                 reasonLabelOverrides={reservationCheckReasonLabelOverrides}
               />
@@ -351,7 +387,7 @@ export function CreateReservationForm() {
             <Button
               type="submit"
               className="h-11 w-full gap-2"
-              disabled={createReservationMutation.isPending || isRefuelCooldownBlocked}
+              disabled={createReservationMutation.isPending || !canSubmitReservation}
             >
               <Ticket className="size-4" aria-hidden="true" />
               {createReservationMutation.isPending ? 'Записываем...' : 'Создать запись'}

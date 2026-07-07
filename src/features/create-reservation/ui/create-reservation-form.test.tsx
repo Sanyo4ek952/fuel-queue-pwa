@@ -86,6 +86,20 @@ function renderWithQueryClient(children: ReactNode) {
   return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>)
 }
 
+function mockVehicleCheckResult(data: Record<string, unknown>) {
+  mocks.currentProfile.stations = [STATIONS[0]]
+  mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
+  mocks.checkVehicleAccess.mockResolvedValue({
+    data,
+    error: null,
+  })
+}
+
+async function checkPlateNumber(plateNumber = 'А123ВС777') {
+  await userEvent.type(screen.getByLabelText('Госномер'), plateNumber)
+  await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
+}
+
 describe('CreateReservationForm', () => {
   beforeEach(() => {
     if (!Element.prototype.hasPointerCapture) {
@@ -130,12 +144,17 @@ describe('CreateReservationForm', () => {
     expect(screen.getByLabelText('Водитель')).toBeInTheDocument()
     expect(screen.queryByLabelText('АЗС')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Дата')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /создать запись/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /создать запись/i })).toBeDisabled()
     expect(screen.getByRole('button', { name: /проверить/i })).toBeDisabled()
     expect(screen.getByText(/АЗС не назначена. Проверка допуска недоступна/)).toBeInTheDocument()
   })
 
   it('submits reservation fields without station and date', async () => {
+    mockVehicleCheckResult({
+      status: 'BLOCKED',
+      reason: 'NO_ACTIVE_RESERVATION',
+      normalized_plate_number: 'А123ВС777',
+    })
     mocks.createReservation.mockResolvedValue({
       data: {
         id: 'reservation-id',
@@ -156,7 +175,10 @@ describe('CreateReservationForm', () => {
     })
 
     renderWithQueryClient(<CreateReservationForm />)
-    await userEvent.type(screen.getByLabelText('Госномер'), 'А123ВС777')
+    await checkPlateNumber()
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /создать запись/i })).toBeEnabled()
+    })
     await userEvent.type(screen.getByLabelText('Водитель'), 'Иван Иванов')
     await userEvent.click(screen.getByRole('button', { name: /создать запись/i }))
 
@@ -178,13 +200,18 @@ describe('CreateReservationForm', () => {
   })
 
   it('shows a clear error when the vehicle already has an active queue entry', async () => {
+    mockVehicleCheckResult({
+      status: 'ALLOWED',
+      reason: 'MANUAL_OVERRIDE_ACTIVE',
+      normalized_plate_number: 'А123ВС777',
+    })
     mocks.createReservation.mockResolvedValue({
       data: null,
       error: 'ACTIVE_RESERVATION_ALREADY_EXISTS',
     })
 
     renderWithQueryClient(<CreateReservationForm />)
-    await userEvent.type(screen.getByLabelText('Госномер'), 'А123ВС777')
+    await checkPlateNumber()
     await userEvent.type(screen.getByLabelText('Водитель'), 'Иван Иванов')
     await userEvent.click(screen.getByRole('button', { name: /создать запись/i }))
 
@@ -193,6 +220,74 @@ describe('CreateReservationForm', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText('Запись создана')).not.toBeInTheDocument()
     expect(mocks.createOfflineReservation).not.toHaveBeenCalled()
+  })
+
+  it('does not create a reservation when the checked vehicle is already in the queue', async () => {
+    mockVehicleCheckResult({
+      status: 'ALLOWED',
+      reason: 'ACTIVE_RESERVATION',
+      normalized_plate_number: 'А123ВС777',
+      queue_number: 7,
+      fuel_type: 'AI_95',
+      requested_liters: 40,
+    })
+
+    renderWithQueryClient(<CreateReservationForm />)
+    await checkPlateNumber()
+
+    expect(await screen.findByText(duplicateQueueMessageText)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /создать запись/i })).toBeDisabled()
+    expect(mocks.createReservation).not.toHaveBeenCalled()
+  })
+
+  it('does not create a reservation when the check result is blocked', async () => {
+    mockVehicleCheckResult({
+      status: 'BLOCKED',
+      reason: 'VEHICLE_BLOCKED',
+      normalized_plate_number: 'А123ВС777',
+    })
+
+    renderWithQueryClient(<CreateReservationForm />)
+    await checkPlateNumber()
+
+    expect(await screen.findByText('Допуск запрещён')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /создать запись/i })).toBeDisabled()
+    expect(mocks.createReservation).not.toHaveBeenCalled()
+  })
+
+  it('allows reservation after a non-blocking check result', async () => {
+    mockVehicleCheckResult({
+      status: 'BLOCKED',
+      reason: 'NO_ACTIVE_RESERVATION',
+      normalized_plate_number: 'А123ВС777',
+    })
+    mocks.createReservation.mockResolvedValue({
+      data: {
+        id: 'reservation-id',
+        date: null,
+        station_id: null,
+        vehicle_id: 'vehicle-id',
+        driver_id: 'driver-id',
+        normalized_plate_number: 'А123ВС777',
+        driver_full_name: 'Иван Иванов',
+        driver_phone: null,
+        fuel_type: 'AI_95',
+        requested_liters: 20,
+        queue_number: 1,
+        status: 'RESERVED',
+        client_mutation_id: 'mutation-id',
+      },
+      error: null,
+    })
+
+    renderWithQueryClient(<CreateReservationForm />)
+    await checkPlateNumber()
+    await userEvent.type(screen.getByLabelText('Водитель'), 'Иван Иванов')
+    await userEvent.click(screen.getByRole('button', { name: /создать запись/i }))
+
+    await waitFor(() => {
+      expect(mocks.createReservation).toHaveBeenCalled()
+    })
   })
 
   it('checks vehicle access for the selected station and today', async () => {
@@ -421,6 +516,7 @@ describe('CreateReservationForm', () => {
       expect(screen.queryByText('Допуск разрешен')).not.toBeInTheDocument()
       expect(screen.queryByText('Заправок не найдено.')).not.toBeInTheDocument()
     })
+    expect(screen.getByRole('button', { name: /создать запись/i })).toBeDisabled()
 
     mocks.checkVehicleAccess.mockResolvedValueOnce({
       data: {
@@ -440,8 +536,14 @@ describe('CreateReservationForm', () => {
     await waitFor(() => {
       expect(screen.queryByText('Допуск разрешен')).not.toBeInTheDocument()
     })
+    expect(screen.getByRole('button', { name: /создать запись/i })).toBeDisabled()
   }, 10_000)
   it('formats and submits driver phone in canonical format', async () => {
+    mockVehicleCheckResult({
+      status: 'BLOCKED',
+      reason: 'NO_ACTIVE_RESERVATION',
+      normalized_plate_number: 'А123ВС777',
+    })
     mocks.createReservation.mockResolvedValue({
       data: {
         id: 'reservation-id',
@@ -473,6 +575,10 @@ describe('CreateReservationForm', () => {
     expect(submitButton).not.toBeNull()
 
     await userEvent.type(plateInput as HTMLInputElement, 'a123bc777')
+    await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
+    await waitFor(() => {
+      expect(submitButton).toBeEnabled()
+    })
     await userEvent.type(driverNameInput as HTMLInputElement, 'Ivan Ivanov')
     await userEvent.type(driverPhoneInput as HTMLInputElement, '9991234567')
 
