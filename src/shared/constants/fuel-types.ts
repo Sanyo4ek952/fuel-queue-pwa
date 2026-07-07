@@ -43,6 +43,14 @@ export function getCompatibleFuelTypes(
   fuelPreferenceMode: FuelPreferenceMode | string = 'EXACT',
 ): QueueFuelType[] {
   if (fuelPreferenceMode === 'ANY_GASOLINE' && isGasolineFuelType(fuelType)) {
+    if (fuelType === 'AI_95') {
+      return ['AI_95', 'AI_92', 'AI_100']
+    }
+
+    if (fuelType === 'AI_100') {
+      return ['AI_100', 'AI_92', 'AI_95']
+    }
+
     return ['AI_92', 'AI_95', 'AI_100']
   }
 
