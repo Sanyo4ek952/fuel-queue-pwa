@@ -23,11 +23,35 @@ function mergeRows(onlineRows: TodayQueueRow[], localRows: TodayQueueRow[]) {
   const byClientMutationId = new Set(
     onlineRows.map((row) => row.client_mutation_id).filter(Boolean),
   )
+  const localRowsById = new Map(localRows.map((row) => [row.id, row]))
+  const onlineRowsWithPendingCallState = onlineRows.map((row) => {
+    const localRow = localRowsById.get(row.id)
+
+    if (
+      !localRow?.latest_call_client_mutation_id ||
+      localRow.latest_call_sync_status === 'SYNCED'
+    ) {
+      return row
+    }
+
+    return {
+      ...row,
+      latest_call_status: localRow.latest_call_status,
+      latest_called_by_profile_id: localRow.latest_called_by_profile_id,
+      latest_called_by_full_name: localRow.latest_called_by_full_name,
+      latest_called_by_role: localRow.latest_called_by_role,
+      latest_called_by_signature_name: localRow.latest_called_by_signature_name,
+      latest_called_at: localRow.latest_called_at,
+      latest_call_comment: localRow.latest_call_comment,
+      latest_call_client_mutation_id: localRow.latest_call_client_mutation_id,
+      latest_call_sync_status: localRow.latest_call_sync_status,
+    }
+  })
   const unsyncedLocalRows = localRows.filter(
     (row) => row.sync_status !== 'SYNCED' && !byClientMutationId.has(row.client_mutation_id),
   )
 
-  return [...onlineRows, ...unsyncedLocalRows].sort(compareQueueRows)
+  return [...onlineRowsWithPendingCallState, ...unsyncedLocalRows].sort(compareQueueRows)
 }
 
 export function useTodayQueue() {

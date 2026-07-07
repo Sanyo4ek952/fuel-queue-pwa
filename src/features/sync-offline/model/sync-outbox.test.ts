@@ -44,6 +44,13 @@ const mocks = vi.hoisted(() => {
           }),
         })),
       })),
+      filter: vi.fn((predicate: (row: MutableRecord) => boolean) => ({
+        modify: vi.fn(async (changes: Record<string, unknown>) => {
+          table.rows.filter(predicate).forEach((row) => {
+            Object.assign(row, changes)
+          })
+        }),
+      })),
     }
 
     return table
@@ -52,6 +59,7 @@ const mocks = vi.hoisted(() => {
   const tables = {
     local_fueling_records: makeTable(),
     local_manual_overrides: makeTable(),
+    local_reservation_call_logs: makeTable(),
     local_reservations: makeTable(),
     sync_outbox: makeTable(),
     sync_conflicts: makeTable(),
@@ -61,6 +69,7 @@ const mocks = vi.hoisted(() => {
     syncOfflineMutation: vi.fn(),
     parseCreateFuelingRecordResult: vi.fn((value: unknown) => value),
     parseCreateManualOverrideResult: vi.fn((value: unknown) => value),
+    parseCreateReservationCallLogResult: vi.fn((value: unknown) => value),
     parseCreateReservationResult: vi.fn((value: unknown) => value),
     tables,
     offlineDb: {
@@ -75,6 +84,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('@/shared/api/rpc', () => ({
   parseCreateFuelingRecordResult: mocks.parseCreateFuelingRecordResult,
   parseCreateManualOverrideResult: mocks.parseCreateManualOverrideResult,
+  parseCreateReservationCallLogResult: mocks.parseCreateReservationCallLogResult,
   parseCreateReservationResult: mocks.parseCreateReservationResult,
   syncOfflineMutation: mocks.syncOfflineMutation,
 }))
@@ -110,11 +120,13 @@ describe('syncPendingOutbox', () => {
       table.put.mockClear()
       table.update.mockClear()
       table.where.mockClear()
+      table.filter.mockClear()
     })
     mocks.offlineDb.transaction.mockClear()
     mocks.syncOfflineMutation.mockReset()
     mocks.parseCreateFuelingRecordResult.mockClear()
     mocks.parseCreateManualOverrideResult.mockClear()
+    mocks.parseCreateReservationCallLogResult.mockClear()
     mocks.parseCreateReservationResult.mockClear()
   })
 

@@ -138,6 +138,18 @@ describe('getProtectedRouteState', () => {
     ).toBe('allowed')
   })
 
+  it('allows queue access for cashier call workflow', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: { ...activeProfile, role: 'cashier' },
+        route: ROUTES.queue,
+      }),
+    ).toBe('allowed')
+  })
+
   it('allows reports for mayor', () => {
     expect(
       getProtectedRouteState({

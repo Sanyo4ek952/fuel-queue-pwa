@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 
-import type { FuelType, SyncStatus } from '@/shared/constants'
+import type { FuelType, ReservationCallStatus, SyncStatus } from '@/shared/constants'
 import type { UserRole } from '@/shared/config/roles'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
@@ -40,7 +40,30 @@ export type LocalReservation = LocalRecord & {
   comment?: string | null
   client_mutation_id?: string | null
   sync_status?: SyncStatus
+  is_within_today_limit?: boolean
+  latest_call_status?: ReservationCallStatus | null
+  latest_called_by_profile_id?: string | null
+  latest_called_by_full_name?: string | null
+  latest_called_by_role?: UserRole | string | null
+  latest_called_by_signature_name?: string | null
+  latest_called_at?: string | null
+  latest_call_comment?: string | null
+  latest_call_client_mutation_id?: string | null
+  latest_call_sync_status?: SyncStatus | null
   created_at?: string
+}
+
+export type LocalReservationCallLog = LocalRecord & {
+  reservation_id: string
+  status: ReservationCallStatus
+  called_by_profile_id?: string | null
+  called_by_full_name?: string | null
+  called_by_role?: UserRole | string | null
+  called_by_signature_name?: string | null
+  called_at: string
+  comment?: string | null
+  client_mutation_id?: string | null
+  sync_status?: SyncStatus
 }
 
 export type LocalQueueEntry = LocalRecord & {
@@ -171,6 +194,7 @@ export class FuelQueueOfflineDb extends Dexie {
   local_vehicles!: Table<LocalVehicle, string>
   local_daily_limits!: Table<LocalDailyLimit, string>
   local_reservations!: Table<LocalReservation, string>
+  local_reservation_call_logs!: Table<LocalReservationCallLog, string>
   local_queue_entries!: Table<LocalQueueEntry, string>
   local_fueling_records!: Table<LocalFuelingRecord, string>
   local_refusal_records!: Table<LocalRefusalRecord, string>
@@ -373,6 +397,26 @@ export class FuelQueueOfflineDb extends Dexie {
       local_daily_limits: 'id, date, status, cached_at, updated_at',
       local_reservations:
         'id, client_mutation_id, vehicle_id, queue_number, status, sync_status, updated_at',
+      local_queue_entries: 'id, [station_id+date], date, status, updated_at',
+      local_fueling_records:
+        'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',
+      local_refusal_records: 'id, date, updated_at',
+      local_manual_overrides:
+        'id, client_mutation_id, [vehicle_id+station_id+date], date, sync_status, updated_at',
+      local_app_settings: 'key, updated_at, cached_at',
+      sync_outbox: 'id, client_mutation_id, status, created_at',
+      sync_conflicts: 'id, client_mutation_id, operation_id, created_at',
+    })
+
+    this.version(11).stores({
+      local_profiles: 'id, updated_at',
+      local_stations: 'id, updated_at',
+      local_vehicles: 'id, normalized_plate_number, updated_at',
+      local_daily_limits: 'id, date, status, cached_at, updated_at',
+      local_reservations:
+        'id, client_mutation_id, vehicle_id, queue_number, status, sync_status, updated_at',
+      local_reservation_call_logs:
+        'id, client_mutation_id, reservation_id, status, called_at, sync_status, updated_at',
       local_queue_entries: 'id, [station_id+date], date, status, updated_at',
       local_fueling_records:
         'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',

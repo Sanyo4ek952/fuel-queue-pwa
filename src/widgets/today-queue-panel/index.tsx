@@ -1,14 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { CloudOff, ListChecks, Phone } from 'lucide-react'
+import {
+  CheckCircle2,
+  CloudOff,
+  ListChecks,
+  Phone,
+  PhoneOff,
+  RotateCcw,
+  XCircle,
+} from 'lucide-react'
 
 import { useTodayQueue, type TodayQueueRow } from '@/entities/reservation'
+import { useLogReservationCall } from '@/features/log-reservation-call'
 import { ROLE_LABELS, type UserRole } from '@/shared/config/roles'
 import {
   getFuelQueueCategory,
   type FuelQueueCategory,
   type FuelType,
+  type ReservationCallStatus,
 } from '@/shared/constants'
+import { cn } from '@/shared/lib/utils'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import {
   Accordion,
@@ -17,6 +28,7 @@ import {
   AccordionTrigger,
 } from '@/shared/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
+import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import {
   Card,
@@ -53,6 +65,9 @@ const categoryLabels: Record<FuelQueueCategory, string> = {
 const categoryOrder: FuelQueueCategory[] = ['GASOLINE', 'DIESEL', 'GAS']
 const ALL_AUTHORS_FILTER = 'all'
 const QUEUE_PAGE_SIZE = 10
+const CALL_FILTERS = ['all', 'call', 'contacted', 'no_answer', 'call_later'] as const
+
+type CallFilter = (typeof CALL_FILTERS)[number]
 
 type QueueAuthorOption = {
   value: string
@@ -138,14 +153,88 @@ function getPhoneHref(phone: string | null) {
   return normalizedPhone ? `tel:${normalizedPhone}` : null
 }
 
+const callFilterLabels: Record<CallFilter, string> = {
+  call: 'Обзвон',
+  all: 'Все',
+  contacted: 'Позвонили',
+  no_answer: 'Не дозвонились',
+  call_later: 'Перезвонить',
+}
+
+const callStatusLabels: Record<ReservationCallStatus, string> = {
+  NOT_CALLED: 'Не звонили',
+  CONTACTED: 'Позвонили',
+  NO_ANSWER: 'Не ответил',
+  CALL_LATER: 'Перезвонить',
+  WRONG_NUMBER: 'Неверный номер',
+}
+
+const callStatusBadgeClasses: Record<ReservationCallStatus, string> = {
+  NOT_CALLED: 'border-slate-200 bg-slate-50 text-slate-500',
+  CONTACTED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  NO_ANSWER: 'border-amber-200 bg-amber-50 text-amber-800',
+  CALL_LATER: 'border-sky-200 bg-sky-50 text-sky-700',
+  WRONG_NUMBER: 'border-rose-200 bg-rose-50 text-rose-700',
+}
+
+const callStatusButtonClasses: Record<ReservationCallStatus, string> = {
+  NOT_CALLED:
+    'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700',
+  CONTACTED:
+    'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800',
+  NO_ANSWER:
+    'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:text-amber-900',
+  CALL_LATER: 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800',
+  WRONG_NUMBER: 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800',
+}
+
+function getCalledByLabel(row: TodayQueueRow) {
+  return row.latest_called_by_signature_name || row.latest_called_by_full_name || 'Пользователь'
+}
+
+function matchesCallFilter(row: TodayQueueRow, filter: CallFilter) {
+  if (filter === 'all') {
+    return true
+  }
+
+  if (filter === 'call') {
+    return row.is_within_today_limit && row.latest_call_status !== 'CONTACTED'
+  }
+
+  if (filter === 'contacted') {
+    return row.latest_call_status === 'CONTACTED'
+  }
+
+  if (filter === 'no_answer') {
+    return row.latest_call_status === 'NO_ANSWER' || row.latest_call_status === 'WRONG_NUMBER'
+  }
+
+  return row.latest_call_status === 'CALL_LATER'
+}
+
+function formatCallTime(value: string | null) {
+  return value
+    ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null
+}
+
 function QueueRowCard({
   row,
   displayNumber,
+  isLoggingCall,
+  onLogCall,
 }: {
   row: TodayQueueRow
   displayNumber: number
+  isLoggingCall: boolean
+  onLogCall: (row: TodayQueueRow, status: ReservationCallStatus) => void
 }) {
   const phoneHref = getPhoneHref(row.driver_phone)
+  const callActionsDisabled = isLoggingCall || row.is_offline
+  const isContacted = row.latest_call_status === 'CONTACTED'
+  const hasPendingCallSync = row.latest_call_sync_status === 'PENDING'
+  const callTime = formatCallTime(row.latest_called_at)
+  const quickCallStatus: ReservationCallStatus = isContacted ? 'NOT_CALLED' : 'CONTACTED'
 
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -164,17 +253,53 @@ function QueueRowCard({
                   <p className="truncate text-xs text-slate-500">
                     {row.driver_full_name || 'Водитель не указан'}
                   </p>
+                  <div className="mt-1 flex max-w-full flex-nowrap gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {row.is_within_today_limit ? (
+                      <Badge className="h-4 shrink-0 rounded-md px-1.5 text-[11px]">
+                        В лимите
+                      </Badge>
+                    ) : null}
+                    {row.latest_call_status && row.latest_call_status !== 'NOT_CALLED' ? (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'h-4 shrink-0 rounded-md px-1.5 text-[11px]',
+                          callStatusBadgeClasses[row.latest_call_status],
+                        )}
+                      >
+                        {callStatusLabels[row.latest_call_status]}
+                      </Badge>
+                    ) : null}
+                    {hasPendingCallSync ? (
+                      <Badge
+                        variant="outline"
+                        className="h-4 shrink-0 rounded-md border-amber-200 px-1.5 text-[11px] text-amber-700"
+                      >
+                        Sync
+                      </Badge>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Дозвонились"
+                disabled={callActionsDisabled}
+                className={cn(
+                  isContacted
+                    ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
+                    : 'border-slate-200 text-slate-400 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700',
+                )}
+                onClick={() => onLogCall(row, quickCallStatus)}
+              >
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+              </Button>
               {phoneHref ? (
-                <Button
-                  asChild
-                  variant="outline"
-                  size="icon"
-                  aria-label="Позвонить"
-                >
+                <Button asChild variant="outline" size="icon" aria-label="Позвонить">
                   <a href={phoneHref}>
                     <Phone className="size-4" aria-hidden="true" />
                   </a>
@@ -210,26 +335,68 @@ function QueueRowCard({
               </div>
               <div>
                 <dt className="text-slate-500">Литры</dt>
-                <dd className="font-medium text-slate-950">
-                  {row.requested_liters} л
-                </dd>
+                <dd className="font-medium text-slate-950">{row.requested_liters} л</dd>
               </div>
               <div>
                 <dt className="text-slate-500">Телефон</dt>
-                <dd className="font-medium text-slate-950">
-                  {row.driver_phone || 'Не указан'}
-                </dd>
+                <dd className="font-medium text-slate-950">{row.driver_phone || 'Не указан'}</dd>
               </div>
               <div>
                 <dt className="text-slate-500">Добавил</dt>
-                <dd className="font-medium text-slate-950">
-                  {formatCreatedBy(row)}
-                </dd>
+                <dd className="font-medium text-slate-950">{formatCreatedBy(row)}</dd>
               </div>
             </dl>
 
-            {row.comment ? (
-              <p className="mt-3 text-sm text-slate-500">{row.comment}</p>
+            {row.comment ? <p className="mt-3 text-sm text-slate-500">{row.comment}</p> : null}
+
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <Button
+                type="button"
+                variant="outline"
+                className={cn('gap-2', callStatusButtonClasses.CONTACTED)}
+                disabled={callActionsDisabled}
+                onClick={() => onLogCall(row, 'CONTACTED')}
+              >
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+                Дозвонились
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className={cn('gap-2', callStatusButtonClasses.NO_ANSWER)}
+                disabled={callActionsDisabled}
+                onClick={() => onLogCall(row, 'NO_ANSWER')}
+              >
+                <PhoneOff className="size-4" aria-hidden="true" />
+                Не ответил
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className={cn('gap-2', callStatusButtonClasses.CALL_LATER)}
+                disabled={callActionsDisabled}
+                onClick={() => onLogCall(row, 'CALL_LATER')}
+              >
+                <RotateCcw className="size-4" aria-hidden="true" />
+                Перезвонить
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className={cn('gap-2', callStatusButtonClasses.WRONG_NUMBER)}
+                disabled={callActionsDisabled}
+                onClick={() => onLogCall(row, 'WRONG_NUMBER')}
+              >
+                <XCircle className="size-4" aria-hidden="true" />
+                Неверный
+              </Button>
+            </div>
+
+            {row.latest_call_status && row.latest_call_status !== 'NOT_CALLED' ? (
+              <p className="mt-3 text-xs text-slate-500">
+                Отметил: {getCalledByLabel(row)}
+                {callTime ? `, ${callTime}` : ''}
+              </p>
             ) : null}
           </AccordionContent>
         </AccordionItem>
@@ -241,15 +408,14 @@ function QueueRowCard({
 export function TodayQueuePanel() {
   const [plateSearch, setPlateSearch] = useState('')
   const [authorFilter, setAuthorFilter] = useState(ALL_AUTHORS_FILTER)
+  const [callFilter, setCallFilter] = useState<CallFilter>('all')
   const [visibleCountByCategory, setVisibleCountByCategory] = useState(
     getInitialVisibleCountByCategory,
   )
   const queue = useTodayQueue()
+  const logReservationCall = useLogReservationCall()
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
-  const authorOptions = useMemo(
-    () => buildAuthorOptions(queue.rows),
-    [queue.rows],
-  )
+  const authorOptions = useMemo(() => buildAuthorOptions(queue.rows), [queue.rows])
   const filteredRows = useMemo(
     () =>
       queue.rows.filter((row) => {
@@ -257,32 +423,40 @@ export function TodayQueuePanel() {
           normalizedPlateSearch.length === 0 ||
           row.normalized_plate_number.includes(normalizedPlateSearch)
         const matchesAuthor =
-          authorFilter === ALL_AUTHORS_FILTER ||
-          getAuthorFilterValue(row) === authorFilter
+          authorFilter === ALL_AUTHORS_FILTER || getAuthorFilterValue(row) === authorFilter
+        const matchesCall = matchesCallFilter(row, callFilter)
 
-        return matchesPlate && matchesAuthor
+        return matchesPlate && matchesAuthor && matchesCall
       }),
-    [authorFilter, normalizedPlateSearch, queue.rows],
+    [authorFilter, callFilter, normalizedPlateSearch, queue.rows],
   )
-  const pendingRows = filteredRows.filter((row) => row.sync_status !== 'SYNCED')
+  const pendingRows = filteredRows.filter(
+    (row) => row.sync_status !== 'SYNCED' || row.latest_call_sync_status === 'PENDING',
+  )
+  const callRowsCount = queue.rows.filter((row) => matchesCallFilter(row, 'call')).length
+  const contactedRowsCount = queue.rows.filter(
+    (row) => row.latest_call_status === 'CONTACTED',
+  ).length
   const rowsByCategory = categoryOrder.map((fuelCategory) => ({
     fuelCategory,
-    rows: filteredRows.filter(
-      (row) => getFuelQueueCategory(row.fuel_type) === fuelCategory,
-    ),
+    rows: filteredRows.filter((row) => getFuelQueueCategory(row.fuel_type) === fuelCategory),
   }))
   const hasActiveFilters =
-    normalizedPlateSearch.length > 0 || authorFilter !== ALL_AUTHORS_FILTER
+    normalizedPlateSearch.length > 0 || authorFilter !== ALL_AUTHORS_FILTER || callFilter !== 'all'
 
   useEffect(() => {
     setVisibleCountByCategory(getInitialVisibleCountByCategory())
-  }, [authorFilter, normalizedPlateSearch])
+  }, [authorFilter, callFilter, normalizedPlateSearch])
 
   function showMoreRows(fuelCategory: FuelQueueCategory) {
     setVisibleCountByCategory((current) => ({
       ...current,
       [fuelCategory]: current[fuelCategory] + QUEUE_PAGE_SIZE,
     }))
+  }
+
+  function handleLogCall(row: TodayQueueRow, status: ReservationCallStatus) {
+    logReservationCall.mutate({ reservation: row, status })
   }
 
   return (
@@ -303,24 +477,36 @@ export function TodayQueuePanel() {
               <CloudOff className="size-4" aria-hidden="true" />
               <AlertTitle>Offline-режим</AlertTitle>
               <AlertDescription>
-                Показан локальный снимок. Новые записи будут подтверждены после
+                Показан локальный снимок. Новые отметки обзвона будут подтверждены после
                 синхронизации.
               </AlertDescription>
             </Alert>
           ) : null}
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <SummaryTile label="Всего" value={filteredRows.length} />
-            <SummaryTile label="Активные" value={filteredRows.length} />
+            <SummaryTile label="Обзвон" value={callRowsCount} />
+            <SummaryTile label="Позвонили" value={contactedRowsCount} />
             <SummaryTile label="Sync" value={pendingRows.length} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {CALL_FILTERS.map((filter) => (
+              <Button
+                key={filter}
+                type="button"
+                variant={callFilter === filter ? 'default' : 'outline'}
+                className="h-9 px-2 text-xs"
+                onClick={() => setCallFilter(filter)}
+              >
+                {callFilterLabels[filter]}
+              </Button>
+            ))}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label
-                htmlFor="queuePlateSearch"
-                className="text-sm font-medium text-slate-700"
-              >
+              <label htmlFor="queuePlateSearch" className="text-sm font-medium text-slate-700">
                 Поиск по госномеру
               </label>
               <Input
@@ -332,10 +518,7 @@ export function TodayQueuePanel() {
               />
             </div>
             <div className="space-y-1.5">
-              <label
-                htmlFor="queueAuthorFilter"
-                className="text-sm font-medium text-slate-700"
-              >
+              <label htmlFor="queueAuthorFilter" className="text-sm font-medium text-slate-700">
                 Кто добавил
               </label>
               <Select value={authorFilter} onValueChange={setAuthorFilter}>
@@ -360,6 +543,13 @@ export function TodayQueuePanel() {
         <Alert variant="destructive">
           <AlertTitle>Очередь не загружена</AlertTitle>
           <AlertDescription>{queue.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {logReservationCall.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Отметка звонка не сохранена</AlertTitle>
+          <AlertDescription>{logReservationCall.error.message}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -399,11 +589,7 @@ export function TodayQueuePanel() {
             const hasMoreRows = rows.length > visibleCount
 
             return (
-              <TabsContent
-                key={fuelCategory}
-                value={fuelCategory}
-                className="space-y-3"
-              >
+              <TabsContent key={fuelCategory} value={fuelCategory} className="space-y-3">
                 {rows.length > 0 ? (
                   <>
                     {visibleRows.map((row, index) => (
@@ -411,6 +597,8 @@ export function TodayQueuePanel() {
                         key={row.id}
                         row={row}
                         displayNumber={index + 1}
+                        isLoggingCall={logReservationCall.isPending}
+                        onLogCall={handleLogCall}
                       />
                     ))}
                     {hasMoreRows ? (

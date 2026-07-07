@@ -1,6 +1,11 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { UserRole } from '@/shared/config/roles'
-import type { FuelType, ReservationStatus, SyncStatus } from '@/shared/constants'
+import type {
+  FuelType,
+  ReservationCallStatus,
+  ReservationStatus,
+  SyncStatus,
+} from '@/shared/constants'
 import { supabase } from '@/shared/api/supabase'
 import { offlineDb, type LocalReservation } from '@/shared/lib/offline-db'
 
@@ -35,6 +40,22 @@ type ReservationRow = {
   sync_status?: string | null
   created_at?: string
   updated_at?: string
+  is_within_today_limit?: boolean | null
+  normalized_plate_number?: string | null
+  driver_full_name?: string | null
+  driver_phone?: string | null
+  created_by_full_name?: string | null
+  created_by_role?: string | null
+  created_by_signature_name?: string | null
+  latest_call_status?: string | null
+  latest_called_by_profile_id?: string | null
+  latest_called_by_full_name?: string | null
+  latest_called_by_role?: string | null
+  latest_called_by_signature_name?: string | null
+  latest_called_at?: string | null
+  latest_call_comment?: string | null
+  latest_call_client_mutation_id?: string | null
+  latest_call_sync_status?: string | null
   vehicles?: RelatedVehicle | RelatedVehicle[] | null
   drivers?: RelatedDriver | RelatedDriver[] | null
   operator?: RelatedProfile | RelatedProfile[] | null
@@ -61,6 +82,16 @@ export type TodayQueueRow = {
   comment: string | null
   client_mutation_id: string | null
   is_offline: boolean
+  is_within_today_limit: boolean
+  latest_call_status: ReservationCallStatus | null
+  latest_called_by_profile_id: string | null
+  latest_called_by_full_name: string
+  latest_called_by_role: UserRole | string | null
+  latest_called_by_signature_name: string | null
+  latest_called_at: string | null
+  latest_call_comment: string | null
+  latest_call_client_mutation_id: string | null
+  latest_call_sync_status: SyncStatus | null
   updated_at?: string
 }
 
@@ -84,13 +115,13 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     vehicle_id: row.vehicle_id,
     driver_id: row.driver_id ?? null,
     created_by_profile_id: row.operator_id,
-    created_by_full_name: operator?.full_name ?? '',
-    created_by_role: operator?.role ?? null,
-    created_by_signature_name: operator?.signature_name ?? null,
+    created_by_full_name: row.created_by_full_name ?? operator?.full_name ?? '',
+    created_by_role: row.created_by_role ?? operator?.role ?? null,
+    created_by_signature_name: row.created_by_signature_name ?? operator?.signature_name ?? null,
     queue_number: toNumber(row.queue_number),
-    normalized_plate_number: vehicle?.normalized_plate_number ?? '',
-    driver_full_name: driver?.full_name ?? '',
-    driver_phone: driver?.phone ?? null,
+    normalized_plate_number: row.normalized_plate_number ?? vehicle?.normalized_plate_number ?? '',
+    driver_full_name: row.driver_full_name ?? driver?.full_name ?? '',
+    driver_phone: row.driver_phone ?? driver?.phone ?? null,
     fuel_type: row.fuel_type,
     requested_liters: toNumber(row.requested_liters),
     status: row.status as ReservationStatus,
@@ -98,6 +129,16 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     comment: row.comment ?? null,
     client_mutation_id: row.client_mutation_id ?? null,
     is_offline: false,
+    is_within_today_limit: Boolean(row.is_within_today_limit),
+    latest_call_status: (row.latest_call_status ?? null) as ReservationCallStatus | null,
+    latest_called_by_profile_id: row.latest_called_by_profile_id ?? null,
+    latest_called_by_full_name: row.latest_called_by_full_name ?? '',
+    latest_called_by_role: row.latest_called_by_role ?? null,
+    latest_called_by_signature_name: row.latest_called_by_signature_name ?? null,
+    latest_called_at: row.latest_called_at ?? null,
+    latest_call_comment: row.latest_call_comment ?? null,
+    latest_call_client_mutation_id: row.latest_call_client_mutation_id ?? null,
+    latest_call_sync_status: (row.latest_call_sync_status ?? null) as SyncStatus | null,
     updated_at: row.updated_at,
   }
 }
@@ -124,6 +165,16 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     comment: row.comment ?? null,
     client_mutation_id: row.client_mutation_id ?? null,
     is_offline: row.sync_status !== 'SYNCED',
+    is_within_today_limit: Boolean(row.is_within_today_limit),
+    latest_call_status: row.latest_call_status ?? null,
+    latest_called_by_profile_id: row.latest_called_by_profile_id ?? null,
+    latest_called_by_full_name: row.latest_called_by_full_name ?? '',
+    latest_called_by_role: row.latest_called_by_role ?? null,
+    latest_called_by_signature_name: row.latest_called_by_signature_name ?? null,
+    latest_called_at: row.latest_called_at ?? null,
+    latest_call_comment: row.latest_call_comment ?? null,
+    latest_call_client_mutation_id: row.latest_call_client_mutation_id ?? null,
+    latest_call_sync_status: row.latest_call_sync_status ?? null,
     updated_at: row.updated_at,
   }
 }
@@ -139,19 +190,15 @@ export async function listTodayQueueRows() {
     throw new Error(policyResult.error.message)
   }
 
-  const { data, error } = await supabase
-    .from('fuel_reservations')
-    .select(
-      'id,date,station_id,vehicle_id,driver_id,operator_id,fuel_type,requested_liters,queue_number,status,comment,client_mutation_id,sync_status,created_at,updated_at,vehicles(normalized_plate_number),drivers(full_name,phone),operator:profiles!fuel_reservations_operator_id_fkey(full_name,role,signature_name)',
-    )
-    .in('status', ['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'])
-    .order('queue_number', { ascending: true })
+  const { data, error } = await supabase.rpc('get_today_call_list', {
+    target_date: new Date().toISOString().slice(0, 10),
+  })
 
   if (error) {
     throw new Error(error.message)
   }
 
-  return (data as ReservationRow[]).map(toTodayQueueRow)
+  return (Array.isArray(data) ? (data as ReservationRow[]) : []).map(toTodayQueueRow)
 }
 
 export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
@@ -177,6 +224,16 @@ export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
         comment: row.comment,
         client_mutation_id: row.client_mutation_id,
         sync_status: row.sync_status,
+        is_within_today_limit: row.is_within_today_limit,
+        latest_call_status: row.latest_call_status,
+        latest_called_by_profile_id: row.latest_called_by_profile_id,
+        latest_called_by_full_name: row.latest_called_by_full_name,
+        latest_called_by_role: row.latest_called_by_role,
+        latest_called_by_signature_name: row.latest_called_by_signature_name,
+        latest_called_at: row.latest_called_at,
+        latest_call_comment: row.latest_call_comment,
+        latest_call_client_mutation_id: row.latest_call_client_mutation_id,
+        latest_call_sync_status: row.latest_call_sync_status,
         updated_at: row.updated_at,
       }),
     ),

@@ -4,6 +4,7 @@ import {
   parseCreateReservationResult,
   parseCreateFuelingRecordResult,
   parseCreateManualOverrideResult,
+  parseCreateReservationCallLogResult,
   syncOfflineMutation,
 } from '@/shared/api/rpc'
 import { offlineDb, type SyncOutboxOperation } from '@/shared/lib/offline-db'
@@ -130,6 +131,54 @@ async function markManualOverrideSynced(operation: SyncOutboxOperation, data: un
   )
 }
 
+async function markReservationCallLogSynced(operation: SyncOutboxOperation, data: unknown) {
+  const parsed = parseCreateReservationCallLogResult(data)
+  const syncedAt = new Date().toISOString()
+
+  await offlineDb.transaction(
+    'rw',
+    [offlineDb.sync_outbox, offlineDb.local_reservation_call_logs, offlineDb.local_reservations],
+    async () => {
+      await offlineDb.sync_outbox.update(operation.id, {
+        status: 'SYNCED',
+        synced_at: syncedAt,
+        error: undefined,
+      })
+
+      if (parsed) {
+        await offlineDb.local_reservation_call_logs
+          .where('client_mutation_id')
+          .equals(operation.client_mutation_id)
+          .modify({
+            id: parsed.id,
+            reservation_id: parsed.reservation_id,
+            status: parsed.status,
+            called_by_profile_id: parsed.called_by_profile_id,
+            called_by_full_name: parsed.called_by_full_name,
+            called_by_role: parsed.called_by_role,
+            called_by_signature_name: parsed.called_by_signature_name,
+            called_at: parsed.called_at,
+            comment: parsed.comment,
+            sync_status: 'SYNCED',
+            updated_at: syncedAt,
+          })
+        await offlineDb.local_reservations.update(parsed.reservation_id, {
+          latest_call_status: parsed.status,
+          latest_called_by_profile_id: parsed.called_by_profile_id,
+          latest_called_by_full_name: parsed.called_by_full_name,
+          latest_called_by_role: parsed.called_by_role,
+          latest_called_by_signature_name: parsed.called_by_signature_name,
+          latest_called_at: parsed.called_at,
+          latest_call_comment: parsed.comment,
+          latest_call_client_mutation_id: parsed.client_mutation_id,
+          latest_call_sync_status: 'SYNCED',
+          updated_at: syncedAt,
+        })
+      }
+    },
+  )
+}
+
 async function markOperationConflict(operation: SyncOutboxOperation, reason: string, payload: unknown) {
   const createdAt = new Date().toISOString()
 
@@ -139,6 +188,7 @@ async function markOperationConflict(operation: SyncOutboxOperation, reason: str
       offlineDb.sync_outbox,
       offlineDb.local_fueling_records,
       offlineDb.local_reservations,
+      offlineDb.local_reservation_call_logs,
       offlineDb.local_manual_overrides,
       offlineDb.sync_conflicts,
     ],
@@ -168,6 +218,19 @@ async function markOperationConflict(operation: SyncOutboxOperation, reason: str
         .equals(operation.client_mutation_id)
         .modify({
           sync_status: 'CONFLICT',
+          updated_at: createdAt,
+        })
+      await offlineDb.local_reservation_call_logs
+        .where('client_mutation_id')
+        .equals(operation.client_mutation_id)
+        .modify({
+          sync_status: 'CONFLICT',
+          updated_at: createdAt,
+        })
+      await offlineDb.local_reservations
+        .filter((reservation) => reservation.latest_call_client_mutation_id === operation.client_mutation_id)
+        .modify({
+          latest_call_sync_status: 'CONFLICT',
           updated_at: createdAt,
         })
       await offlineDb.sync_conflicts.put({
@@ -220,6 +283,11 @@ async function syncOutboxOperation(operation: SyncOutboxOperation) {
 
   if (operation.type === 'CREATE_MANUAL_OVERRIDE') {
     await markManualOverrideSynced(operation, result.data.data)
+    return
+  }
+
+  if (operation.type === 'CREATE_RESERVATION_CALL_LOG') {
+    await markReservationCallLogSynced(operation, result.data.data)
     return
   }
 
