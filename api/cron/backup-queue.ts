@@ -1,15 +1,5 @@
-import {
-  buildQueueBackupCsv,
-  getMoscowDateString,
-  getQueueBackupFileName,
-  type QueueBackupRow,
-} from './_lib/queue-backup.js'
-import {
-  cleanupOldQueueBackups,
-  getGoogleAccessToken,
-  getGoogleAccessTokenByRefreshToken,
-  uploadQueueBackupToDrive,
-} from './_lib/google-drive.js'
+import { getMoscowDateString, isQueueBackupDate } from './_lib/queue-backup.js'
+import { runQueueBackup } from './_lib/run-queue-backup.js'
 
 type CronRequest = {
   method?: string
@@ -82,53 +72,6 @@ function isAuthorized(req: CronRequest, cronSecret: string) {
   return authorization === `Bearer ${cronSecret}` || querySecret === cronSecret
 }
 
-async function getQueueBackupGoogleAccessToken(env: Env) {
-  if (env.googleOAuthClientId && env.googleOAuthClientSecret && env.googleOAuthRefreshToken) {
-    return getGoogleAccessTokenByRefreshToken({
-      clientId: env.googleOAuthClientId,
-      clientSecret: env.googleOAuthClientSecret,
-      refreshToken: env.googleOAuthRefreshToken,
-    })
-  }
-
-  if (env.googleServiceAccountEmail && env.googleServiceAccountPrivateKey) {
-    return getGoogleAccessToken({
-      clientEmail: env.googleServiceAccountEmail,
-      privateKey: env.googleServiceAccountPrivateKey,
-    })
-  }
-
-  throw new Error('Google Drive credentials are not configured.')
-}
-
-async function fetchQueueBackupRows({
-  env,
-  targetDate,
-}: {
-  env: Env
-  targetDate: string
-}) {
-  const response = await fetch(`${env.supabaseUrl}/rest/v1/rpc/export_queue_backup`, {
-    method: 'POST',
-    headers: {
-      apikey: env.supabaseServiceRoleKey,
-      Authorization: `Bearer ${env.supabaseServiceRoleKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      target_date: targetDate,
-    }),
-  })
-  const result = (await response.json()) as QueueBackupRow[] | { message?: string; error?: string }
-
-  if (!response.ok || !Array.isArray(result)) {
-    const error = Array.isArray(result) ? null : (result.message ?? result.error)
-    throw new Error(error ?? 'Supabase queue backup export failed.')
-  }
-
-  return result
-}
-
 export default async function handler(req: CronRequest, res: CronResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.setHeader('Allow', 'GET, POST')
@@ -152,30 +95,18 @@ export default async function handler(req: CronRequest, res: CronResponse) {
 
   try {
     const targetDate =
-      typeof req.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)
+      typeof req.query.date === 'string' && isQueueBackupDate(req.query.date)
         ? req.query.date
         : getMoscowDateString()
-    const fileName = getQueueBackupFileName(targetDate)
-    const rows = await fetchQueueBackupRows({ env, targetDate })
-    const csv = buildQueueBackupCsv(rows)
-    const accessToken = await getQueueBackupGoogleAccessToken(env)
-    const file = await uploadQueueBackupToDrive({
-      accessToken,
-      folderId: env.googleDriveFolderId,
-      fileName,
-      csv,
-    })
-    const deletedOldFilesCount = await cleanupOldQueueBackups({
-      accessToken,
-      folderId: env.googleDriveFolderId,
-    })
+    const result = await runQueueBackup({ env, targetDate })
 
     res.status(200).json({
       ok: true,
+      scope: 'date',
       targetDate,
-      file,
-      rowsCount: rows.length,
-      deletedOldFilesCount,
+      file: result.file,
+      rowsCount: result.rowsCount,
+      deletedOldFilesCount: result.deletedOldFilesCount,
     })
   } catch (error) {
     res.status(500).json({

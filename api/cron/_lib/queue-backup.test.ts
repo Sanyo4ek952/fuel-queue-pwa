@@ -4,6 +4,7 @@ import {
   buildQueueBackupCsv,
   getMoscowDateString,
   getQueueBackupFileName,
+  isQueueBackupDate,
   selectOldQueueBackupFileIds,
 } from './queue-backup.js'
 
@@ -32,6 +33,13 @@ describe('queue backup csv', () => {
   it('uses Moscow date for backup names', () => {
     expect(getMoscowDateString(new Date('2026-07-06T21:05:00.000Z'))).toBe('2026-07-07')
     expect(getQueueBackupFileName('2026-07-07')).toBe('azs-queue-backup-2026-07-07.csv')
+    expect(getQueueBackupFileName()).toBe('azs-queue-backup-all.csv')
+  })
+
+  it('validates queue backup date strings', () => {
+    expect(isQueueBackupDate('2026-07-07')).toBe(true)
+    expect(isQueueBackupDate('2026-7-7')).toBe(false)
+    expect(isQueueBackupDate('all')).toBe(false)
   })
 
   it('selects only old queue backup files beyond retention', () => {

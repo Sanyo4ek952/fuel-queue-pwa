@@ -104,8 +104,12 @@ export function getMoscowDateString(date = new Date()) {
   return formatter.format(date)
 }
 
-export function getQueueBackupFileName(targetDate: string) {
-  return `${QUEUE_BACKUP_FILE_PREFIX}${targetDate}.csv`
+export function getQueueBackupFileName(targetDate?: string | null) {
+  return `${QUEUE_BACKUP_FILE_PREFIX}${targetDate ?? 'all'}.csv`
+}
+
+export function isQueueBackupDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
 
 export function selectOldQueueBackupFileIds(

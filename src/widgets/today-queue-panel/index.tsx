@@ -70,10 +70,13 @@ const categoryLabels: Record<FuelQueueCategory, string> = {
 
 const categoryOrder: FuelQueueCategory[] = ['GASOLINE', 'DIESEL', 'GAS']
 const ALL_AUTHORS_FILTER = 'all'
+const ALL_GASOLINE_FILTER = 'all'
 const QUEUE_PAGE_SIZE = 10
 const CALL_FILTERS = ['all', 'call', 'contacted', 'no_answer', 'call_later'] as const
+const GASOLINE_FUEL_FILTERS = ['AI_92', 'AI_95', 'AI_100'] as const
 
 type CallFilter = (typeof CALL_FILTERS)[number]
+type GasolineFuelFilter = typeof ALL_GASOLINE_FILTER | (typeof GASOLINE_FUEL_FILTERS)[number]
 
 type QueueAuthorOption = {
   value: string
@@ -169,6 +172,12 @@ const callFilterLabels: Record<CallFilter, string> = {
 
 const callFiltersWithCounters = CALL_FILTERS.filter((filter) => filter !== 'all')
 
+const TODAY_ARRIVALS_LABEL = '\u0421\u0435\u0433\u043e\u0434\u043d\u044f \u043f\u0440\u0438\u0435\u0434\u0443\u0442'
+
+function getCallFilterLabel(filter: CallFilter) {
+  return filter === 'call' ? TODAY_ARRIVALS_LABEL : callFilterLabels[filter]
+}
+
 const callStatusLabels: Record<ReservationCallStatus, string> = {
   NOT_CALLED: 'Не звонили',
   CONTACTED: 'Позвонили',
@@ -234,6 +243,14 @@ function matchesCallFilter(row: TodayQueueRow, filter: CallFilter) {
   return row.latest_call_status === 'CALL_LATER'
 }
 
+function getEffectiveFuelType(row: TodayQueueRow) {
+  return row.matched_fuel_type ?? row.fuel_type
+}
+
+function matchesGasolineFuelFilter(row: TodayQueueRow, filter: GasolineFuelFilter) {
+  return filter === ALL_GASOLINE_FILTER || getEffectiveFuelType(row) === filter
+}
+
 function formatCallTime(value: string | null) {
   return value
     ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -242,10 +259,12 @@ function formatCallTime(value: string | null) {
 
 function QueueRowCard({
   row,
+  visibleNumber,
   isLoggingCall,
   onLogCall,
 }: {
   row: TodayQueueRow
+  visibleNumber: number
   isLoggingCall: boolean
   onLogCall: (row: TodayQueueRow, status: ReservationCallStatus) => void
 }) {
@@ -277,7 +296,7 @@ function QueueRowCard({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-semibold text-white">
-                  {row.queue_number}
+                  {visibleNumber}
                 </span>
                 <div className="min-w-0">
                   <h2 className="truncate text-base font-semibold tracking-normal text-slate-950">
@@ -489,6 +508,8 @@ function QueueRowCard({
 export function TodayQueuePanel() {
   const [plateSearch, setPlateSearch] = useState('')
   const [authorFilter, setAuthorFilter] = useState(ALL_AUTHORS_FILTER)
+  const [gasolineFuelFilter, setGasolineFuelFilter] =
+    useState<GasolineFuelFilter>(ALL_GASOLINE_FILTER)
   const [callFilter, setCallFilter] = useState<CallFilter>('all')
   const [visibleCountByCategory, setVisibleCountByCategory] = useState(
     getInitialVisibleCountByCategory,
@@ -535,14 +556,26 @@ export function TodayQueuePanel() {
   )
   const rowsByCategory = categoryOrder.map((fuelCategory) => ({
     fuelCategory,
-    rows: filteredRows.filter((row) => getFuelQueueCategory(row.fuel_type) === fuelCategory),
+    rows: filteredRows.filter((row) => {
+      const matchesCategory = getFuelQueueCategory(row.fuel_type) === fuelCategory
+
+      if (fuelCategory !== 'GASOLINE') {
+        return matchesCategory
+      }
+
+      return matchesCategory && matchesGasolineFuelFilter(row, gasolineFuelFilter)
+    }),
   }))
+  const visibleRowsCount = rowsByCategory.reduce((count, category) => count + category.rows.length, 0)
   const hasActiveFilters =
-    normalizedPlateSearch.length > 0 || authorFilter !== ALL_AUTHORS_FILTER || callFilter !== 'all'
+    normalizedPlateSearch.length > 0 ||
+    authorFilter !== ALL_AUTHORS_FILTER ||
+    gasolineFuelFilter !== ALL_GASOLINE_FILTER ||
+    callFilter !== 'all'
 
   useEffect(() => {
     setVisibleCountByCategory(getInitialVisibleCountByCategory())
-  }, [authorFilter, callFilter, normalizedPlateSearch])
+  }, [authorFilter, callFilter, gasolineFuelFilter, normalizedPlateSearch])
 
   function showMoreRows(fuelCategory: FuelQueueCategory) {
     setVisibleCountByCategory((current) => ({
@@ -580,7 +613,7 @@ export function TodayQueuePanel() {
           ) : null}
 
           <div className="grid grid-cols-3 gap-2">
-            <SummaryTile label="Всего" value={filteredRows.length} />
+            <SummaryTile label={'\u0412\u0441\u0435\u0433\u043e'} value={visibleRowsCount} />
             <SummaryTile label="Обзвон" value={callRowsCount} />
             <SummaryTile label="Позвонили" value={contactedRowsCount} />
           </div>
@@ -602,12 +635,12 @@ export function TodayQueuePanel() {
                 </SelectTrigger>
                 <SelectContent>
                   {CALL_FILTERS.map((filter) => (
-                    <SelectItem key={filter} value={filter} textValue={callFilterLabels[filter]}>
+                    <SelectItem key={filter} value={filter} textValue={getCallFilterLabel(filter)}>
                       {filter === 'all' ? (
-                        callFilterLabels[filter]
+                        getCallFilterLabel(filter)
                       ) : (
                         <span className="flex w-full items-center justify-between gap-3">
-                          <span>{callFilterLabels[filter]}</span>
+                          <span>{getCallFilterLabel(filter)}</span>
                           <span
                             data-call-filter-count
                             className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700"
@@ -633,7 +666,35 @@ export function TodayQueuePanel() {
                 autoComplete="off"
               />
             </div>
-            <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="queueGasolineFuelFilter"
+                className="text-sm font-medium text-slate-700"
+              >
+                {'\u041c\u0430\u0440\u043a\u0430 \u0431\u0435\u043d\u0437\u0438\u043d\u0430'}
+              </label>
+              <Select
+                value={gasolineFuelFilter}
+                onValueChange={(value) => setGasolineFuelFilter(value as GasolineFuelFilter)}
+              >
+                <SelectTrigger id="queueGasolineFuelFilter" className="h-8 w-full">
+                  <SelectValue
+                    placeholder={'\u0412\u0441\u0435 \u043c\u0430\u0440\u043a\u0438'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_GASOLINE_FILTER}>
+                    {'\u0412\u0441\u0435 \u043c\u0430\u0440\u043a\u0438'}
+                  </SelectItem>
+                  {GASOLINE_FUEL_FILTERS.map((fuelType) => (
+                    <SelectItem key={fuelType} value={fuelType}>
+                      {fuelTypeLabels[fuelType]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <label htmlFor="queueAuthorFilter" className="text-sm font-medium text-slate-700">
                 Кто добавил
               </label>
@@ -683,14 +744,14 @@ export function TodayQueuePanel() {
 
       {!queue.isLoading &&
       queue.rows.length > 0 &&
-      filteredRows.length === 0 &&
+      visibleRowsCount === 0 &&
       hasActiveFilters ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
           По выбранным фильтрам записей нет.
         </div>
       ) : null}
 
-      {filteredRows.length > 0 ? (
+      {visibleRowsCount > 0 ? (
         <Tabs defaultValue="GASOLINE" className="space-y-3">
           <TabsList className="grid w-full grid-cols-3">
             {rowsByCategory.map(({ fuelCategory, rows }) => (
@@ -708,10 +769,11 @@ export function TodayQueuePanel() {
               <TabsContent key={fuelCategory} value={fuelCategory} className="space-y-3">
                 {rows.length > 0 ? (
                   <>
-                    {visibleRows.map((row) => (
+                    {visibleRows.map((row, index) => (
                       <QueueRowCard
                         key={row.id}
                         row={row}
+                        visibleNumber={index + 1}
                         isLoggingCall={logReservationCall.isPending}
                         onLogCall={handleLogCall}
                       />

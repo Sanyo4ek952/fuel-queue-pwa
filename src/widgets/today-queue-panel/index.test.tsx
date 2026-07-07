@@ -23,6 +23,11 @@ vi.mock('@/features/log-reservation-call', () => ({
 
 import { TodayQueuePanel } from './index'
 
+const CALL_FILTER_NAME = '\u041e\u0431\u0437\u0432\u043e\u043d'
+const PLATE_SEARCH_NAME = '\u041f\u043e\u0438\u0441\u043a \u043f\u043e \u0433\u043e\u0441\u043d\u043e\u043c\u0435\u0440\u0443'
+const TODAY_ARRIVALS_LABEL = '\u0421\u0435\u0433\u043e\u0434\u043d\u044f \u043f\u0440\u0438\u0435\u0434\u0443\u0442'
+const DETAILS_BUTTON_NAME = '\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0434\u0435\u0442\u0430\u043b\u0438'
+
 beforeAll(() => {
   if (!Element.prototype.hasPointerCapture) {
     Element.prototype.hasPointerCapture = () => false
@@ -159,8 +164,8 @@ describe('TodayQueuePanel', () => {
 
     render(<TodayQueuePanel />)
 
-    await user.click(screen.getByRole('combobox', { name: 'Обзвон' }))
-    await user.click(screen.getByRole('option', { name: /^Обзвон1$/ }))
+    await user.click(screen.getByRole('combobox', { name: CALL_FILTER_NAME }))
+    await user.click(screen.getByRole('option', { name: new RegExp('^' + TODAY_ARRIVALS_LABEL + '1$') }))
 
     expect(screen.getByText('А123ВС777')).toBeInTheDocument()
     expect(screen.queryByText('В456ТС777')).not.toBeInTheDocument()
@@ -211,12 +216,12 @@ describe('TodayQueuePanel', () => {
 
     render(<TodayQueuePanel />)
 
-    await user.click(screen.getByRole('combobox', { name: 'Обзвон' }))
+    await user.click(screen.getByRole('combobox', { name: CALL_FILTER_NAME }))
 
     const allOption = screen.getByRole('option', { name: 'Все' })
 
     expect(within(allOption).queryByText(/\d+/)).not.toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /^Обзвон4$/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: new RegExp('^' + TODAY_ARRIVALS_LABEL + '4$') })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /^Позвонили1$/ })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /^Не дозвонились2$/ })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /^Перезвонить1$/ })).toBeInTheDocument()
@@ -247,10 +252,10 @@ describe('TodayQueuePanel', () => {
 
     render(<TodayQueuePanel />)
 
-    await user.type(screen.getByLabelText('Поиск по госномеру'), 'А123')
-    await user.click(screen.getByRole('combobox', { name: 'Обзвон' }))
+    await user.type(screen.getByLabelText(PLATE_SEARCH_NAME), '123')
+    await user.click(screen.getByRole('combobox', { name: CALL_FILTER_NAME }))
 
-    expect(screen.getByRole('option', { name: /^Обзвон1$/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: new RegExp('^' + TODAY_ARRIVALS_LABEL + '1$') })).toBeInTheDocument()
   })
 
   it('logs a contacted call from the quick action', async () => {
@@ -338,18 +343,18 @@ describe('TodayQueuePanel', () => {
     expect(screen.getByRole('button', { name: 'Показать еще' })).toBeInTheDocument()
   })
 
-  it('renders the stable queue number for visible category rows', async () => {
+  it('renders the visible queue number while keeping the stable queue number in details', async () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [
         makeQueueRow({
           id: 'first-row',
-          queue_number: 1,
+          queue_number: 4,
           normalized_plate_number: 'A123BC777',
         }),
         makeQueueRow({
           id: 'second-row',
           created_by_profile_id: 'second-profile',
-          queue_number: 3,
+          queue_number: 7,
           normalized_plate_number: 'B456TC777',
         }),
       ],
@@ -361,10 +366,108 @@ describe('TodayQueuePanel', () => {
 
     render(<TodayQueuePanel />)
 
+    await userEvent.type(screen.getByLabelText(PLATE_SEARCH_NAME), '456')
+
     const secondRow = screen.getByText('B456TC777').closest('article')
 
+    expect(screen.queryByText('A123BC777')).not.toBeInTheDocument()
     expect(secondRow).not.toBeNull()
-    expect(within(secondRow as HTMLElement).getByText('3')).toBeInTheDocument()
-    expect(within(secondRow as HTMLElement).queryByText('2')).not.toBeInTheDocument()
+    expect(within(secondRow as HTMLElement).getByText('1')).toBeInTheDocument()
+
+    await userEvent.click(
+      within(secondRow as HTMLElement).getByRole('button', { name: DETAILS_BUTTON_NAME }),
+    )
+
+    expect(within(secondRow as HTMLElement).getByText('7')).toBeInTheDocument()
+  })
+
+  it('shows today arrivals by callable server status', async () => {
+    const user = userEvent.setup()
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [
+        makeQueueRow({
+          id: 'callable',
+          queue_number: 1,
+          normalized_plate_number: 'CALLABLE-001',
+          is_callable_now: true,
+        }),
+        makeQueueRow({
+          id: 'outside-limit',
+          queue_number: 2,
+          normalized_plate_number: 'OUTSIDE-002',
+          is_callable_now: false,
+          is_within_today_limit: false,
+        }),
+        makeQueueRow({
+          id: 'no-fuel',
+          queue_number: 3,
+          normalized_plate_number: 'NOFUEL-003',
+          is_callable_now: false,
+          call_unavailable_reason: 'NO_COMPATIBLE_FUEL',
+        }),
+      ],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    await user.click(screen.getByRole('combobox', { name: CALL_FILTER_NAME }))
+    await user.click(
+      screen.getByRole('option', {
+        name: /^\u0421\u0435\u0433\u043e\u0434\u043d\u044f \u043f\u0440\u0438\u0435\u0434\u0443\u04421$/,
+      }),
+    )
+
+    expect(screen.getByText('CALLABLE-001')).toBeInTheDocument()
+    expect(screen.queryByText('OUTSIDE-002')).not.toBeInTheDocument()
+    expect(screen.queryByText('NOFUEL-003')).not.toBeInTheDocument()
+  })
+
+  it('filters gasoline rows by matched fuel type with a fuel type fallback', async () => {
+    const user = userEvent.setup()
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [
+        makeQueueRow({
+          id: 'matched-ai-95',
+          queue_number: 1,
+          normalized_plate_number: 'MATCHED-095',
+          fuel_type: 'AI_92',
+          matched_fuel_type: 'AI_95',
+          fuel_preference_mode: 'ANY_GASOLINE',
+        }),
+        makeQueueRow({
+          id: 'fallback-ai-95',
+          queue_number: 2,
+          normalized_plate_number: 'FALLBACK-095',
+          fuel_type: 'AI_95',
+          matched_fuel_type: null,
+        }),
+        makeQueueRow({
+          id: 'ai-100',
+          queue_number: 3,
+          normalized_plate_number: 'AI100-003',
+          fuel_type: 'AI_100',
+          matched_fuel_type: null,
+        }),
+      ],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    await user.click(screen.getByRole('combobox', { name: /^\u041c\u0430\u0440\u043a\u0430 \u0431\u0435\u043d\u0437\u0438\u043d\u0430$/ }))
+    await user.click(screen.getByRole('option', { name: /95/ }))
+
+    expect(screen.getByText('MATCHED-095')).toBeInTheDocument()
+    expect(screen.getByText('FALLBACK-095')).toBeInTheDocument()
+    expect(screen.queryByText('AI100-003')).not.toBeInTheDocument()
   })
 })

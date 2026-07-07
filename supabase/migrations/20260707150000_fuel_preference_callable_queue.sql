@@ -924,7 +924,6 @@ begin
     left join latest_calls lc on lc.reservation_id = fr.id
     left join public.profiles cp on cp.id = lc.called_by
     where fr.status in ('RESERVED', 'ARRIVED', 'APPROVED', 'FUELING')
-    order by fr.queue_number asc, fr.id asc
   ), '[]'::jsonb);
 end;
 $$;
