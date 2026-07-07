@@ -84,6 +84,44 @@ export async function getGoogleAccessToken({
   return result.access_token
 }
 
+export async function getGoogleAccessTokenByRefreshToken({
+  clientId,
+  clientSecret,
+  refreshToken,
+  fetchImpl = fetch,
+}: {
+  clientId: string
+  clientSecret: string
+  refreshToken: string
+  fetchImpl?: typeof fetch
+}) {
+  const response = await fetchImpl(googleTokenUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  })
+  const result = (await response.json()) as {
+    access_token?: string
+    error?: string
+    error_description?: string
+  }
+
+  if (!response.ok || !result.access_token) {
+    throw new Error(
+      result.error_description ?? result.error ?? 'Google refresh token request failed.',
+    )
+  }
+
+  return result.access_token
+}
+
 export async function findDriveFileByName({
   accessToken,
   folderId,

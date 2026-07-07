@@ -7,6 +7,7 @@ import {
 import {
   cleanupOldQueueBackups,
   getGoogleAccessToken,
+  getGoogleAccessTokenByRefreshToken,
   uploadQueueBackupToDrive,
 } from './_lib/google-drive.js'
 
@@ -30,8 +31,11 @@ type Env = {
   supabaseServiceRoleKey: string
   cronSecret: string
   googleDriveFolderId: string
-  googleServiceAccountEmail: string
-  googleServiceAccountPrivateKey: string
+  googleOAuthClientId?: string
+  googleOAuthClientSecret?: string
+  googleOAuthRefreshToken?: string
+  googleServiceAccountEmail?: string
+  googleServiceAccountPrivateKey?: string
 }
 
 function getEnv(): Env {
@@ -39,16 +43,21 @@ function getEnv(): Env {
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const cronSecret = process.env.CRON_SECRET
   const googleDriveFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID
+  const googleOAuthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID
+  const googleOAuthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  const googleOAuthRefreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN
   const googleServiceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const googleServiceAccountPrivateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
+  const hasOAuthCredentials =
+    googleOAuthClientId && googleOAuthClientSecret && googleOAuthRefreshToken
+  const hasServiceAccountCredentials = googleServiceAccountEmail && googleServiceAccountPrivateKey
 
   if (
     !supabaseUrl ||
     !supabaseServiceRoleKey ||
     !cronSecret ||
     !googleDriveFolderId ||
-    !googleServiceAccountEmail ||
-    !googleServiceAccountPrivateKey
+    (!hasOAuthCredentials && !hasServiceAccountCredentials)
   ) {
     throw new Error('Queue backup environment is not configured.')
   }
@@ -58,6 +67,9 @@ function getEnv(): Env {
     supabaseServiceRoleKey,
     cronSecret,
     googleDriveFolderId,
+    googleOAuthClientId,
+    googleOAuthClientSecret,
+    googleOAuthRefreshToken,
     googleServiceAccountEmail,
     googleServiceAccountPrivateKey,
   }
@@ -68,6 +80,25 @@ function isAuthorized(req: CronRequest, cronSecret: string) {
   const querySecret = typeof req.query.secret === 'string' ? req.query.secret : null
 
   return authorization === `Bearer ${cronSecret}` || querySecret === cronSecret
+}
+
+async function getQueueBackupGoogleAccessToken(env: Env) {
+  if (env.googleOAuthClientId && env.googleOAuthClientSecret && env.googleOAuthRefreshToken) {
+    return getGoogleAccessTokenByRefreshToken({
+      clientId: env.googleOAuthClientId,
+      clientSecret: env.googleOAuthClientSecret,
+      refreshToken: env.googleOAuthRefreshToken,
+    })
+  }
+
+  if (env.googleServiceAccountEmail && env.googleServiceAccountPrivateKey) {
+    return getGoogleAccessToken({
+      clientEmail: env.googleServiceAccountEmail,
+      privateKey: env.googleServiceAccountPrivateKey,
+    })
+  }
+
+  throw new Error('Google Drive credentials are not configured.')
 }
 
 async function fetchQueueBackupRows({
@@ -127,10 +158,7 @@ export default async function handler(req: CronRequest, res: CronResponse) {
     const fileName = getQueueBackupFileName(targetDate)
     const rows = await fetchQueueBackupRows({ env, targetDate })
     const csv = buildQueueBackupCsv(rows)
-    const accessToken = await getGoogleAccessToken({
-      clientEmail: env.googleServiceAccountEmail,
-      privateKey: env.googleServiceAccountPrivateKey,
-    })
+    const accessToken = await getQueueBackupGoogleAccessToken(env)
     const file = await uploadQueueBackupToDrive({
       accessToken,
       folderId: env.googleDriveFolderId,
