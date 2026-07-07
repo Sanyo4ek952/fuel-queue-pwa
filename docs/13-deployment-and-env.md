@@ -22,6 +22,37 @@ VITE_APP_VERSION=0.1.0
 
 Service role key нельзя хранить на клиенте.
 
+## Аварийная выгрузка очереди
+
+Если PWA не открывается, актуальный резервный список очереди нужно скачивать не из приложения, а из Google Drive.
+
+Настройка:
+
+1. Создать Google Drive папку для резервных файлов, например `АЗС backups`.
+2. Создать Google service account и дать его email доступ на запись в эту папку.
+3. Добавить в Vercel server-only переменные:
+
+```env
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+CRON_SECRET=
+GOOGLE_DRIVE_FOLDER_ID=
+GOOGLE_SERVICE_ACCOUNT_EMAIL=
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
+```
+
+Vercel Cron вызывает `/api/cron/backup-queue` каждый день в `00:05` по Москве (`21:05 UTC`).
+Файл сохраняется как `azs-queue-backup-YYYY-MM-DD.csv`, открывается в Excel и содержит активную очередь за дату выгрузки.
+Система хранит последние 10 ежедневных файлов, старые удаляет автоматически.
+
+Для ручной проверки после деплоя можно открыть:
+
+```text
+https://<your-domain>/api/cron/backup-queue?secret=<CRON_SECRET>
+```
+
+В нормальной эксплуатации скачивать файл нужно напрямую из Google Drive папки.
+
 ## Environments
 
 Желательно иметь:

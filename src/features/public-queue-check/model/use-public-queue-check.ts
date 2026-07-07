@@ -1,11 +1,11 @@
 import { useMutation } from '@tanstack/react-query'
 
-import { checkPublicQueuePosition } from '@/shared/api/rpc'
+import { checkPublicQueuePositionViaApi } from '@/shared/api/public-queue'
 
 export function usePublicQueueCheck() {
   return useMutation({
-    mutationFn: async (params: Parameters<typeof checkPublicQueuePosition>[0]) => {
-      const result = await checkPublicQueuePosition(params)
+    mutationFn: async (params: Parameters<typeof checkPublicQueuePositionViaApi>[0]) => {
+      const result = await checkPublicQueuePositionViaApi(params)
 
       if (result.error || !result.data) {
         throw new Error(result.error ?? 'Не удалось проверить очередь.')

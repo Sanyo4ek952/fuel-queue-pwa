@@ -15,8 +15,12 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/shared/api/rpc', () => ({
-  checkPublicQueuePosition: mocks.checkPublicQueuePosition,
   getNoShowGrace: mocks.getNoShowGrace,
+}))
+
+vi.mock('@/shared/api/public-queue', () => ({
+  checkPublicQueuePositionViaApi: mocks.checkPublicQueuePosition,
+  getPublicNoShowGraceViaApi: mocks.getNoShowGrace,
 }))
 
 function renderWithQueryClient(children: ReactNode) {
