@@ -4,6 +4,7 @@ export type RpcResult<TData> = {
 }
 
 export * from './check-vehicle-access'
+export * from './check-public-queue'
 export * from './cancel-preferential-queue-entry'
 export * from './create-daily-limit'
 export * from './create-fueling-record'

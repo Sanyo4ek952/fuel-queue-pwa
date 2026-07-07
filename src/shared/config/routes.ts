@@ -13,11 +13,12 @@ export const ROUTES = {
   sync: '/sync',
   settings: '/settings',
   promo: '/promo',
+  queueCheck: '/queue-check',
 } as const
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES]
 
-export const PUBLIC_ROUTES = [ROUTES.promo] as const
+export const PUBLIC_ROUTES = [ROUTES.promo, ROUTES.queueCheck] as const
 
 export const MAIN_SECTION_LINKS = [
   { path: ROUTES.preferentialQueues, label: 'Льготные очереди', description: 'Именованные списки мэра вне дневного лимита' },

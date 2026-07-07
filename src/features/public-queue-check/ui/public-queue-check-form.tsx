@@ -1,0 +1,214 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { CheckCircle2, Search, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
+
+import { PlateNumberInput } from '@/entities/vehicle'
+import {
+  type PublicQueueCheckFormInput,
+  type PublicQueueCheckFormValues,
+  publicQueueCheckSchema,
+} from '../model/schema'
+import { usePublicNoShowGrace } from '../model/use-public-no-show-grace'
+import { usePublicQueueCheck } from '../model/use-public-queue-check'
+import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
+import { Button } from '@/shared/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
+import { Input } from '@/shared/ui/input'
+
+const remainingAttemptsStorageKey = 'public-queue-check-remaining-attempts'
+
+function saveRemainingAttempts(value: number) {
+  try {
+    localStorage.setItem(remainingAttemptsStorageKey, String(value))
+  } catch {
+    // localStorage is only a UI hint.
+  }
+}
+
+function readRemainingAttemptsHint() {
+  try {
+    const value = localStorage.getItem(remainingAttemptsStorageKey)
+    const numericValue = value === null ? null : Number(value)
+
+    return Number.isFinite(numericValue) ? numericValue : null
+  } catch {
+    return null
+  }
+}
+
+function getNoShowGraceDescription(days: number | undefined) {
+  if (typeof days !== 'number') {
+    return 'Условия аннулирования записи зависят от текущих настроек очереди.'
+  }
+
+  if (days <= 0) {
+    return 'Автоматическое аннулирование записи по пропускам заправки сейчас отключено.'
+  }
+
+  return `Если вы не заправитесь в течение ${days} суток, ваша запись в очереди будет аннулирована.`
+}
+
+export function PublicQueueCheckForm() {
+  const publicQueueCheck = usePublicQueueCheck()
+  const noShowGrace = usePublicNoShowGrace()
+  const [remainingAttemptsHint, setRemainingAttemptsHint] = useState(readRemainingAttemptsHint)
+  const form = useForm<PublicQueueCheckFormInput, unknown, PublicQueueCheckFormValues>({
+    resolver: zodResolver(publicQueueCheckSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      plateNumber: '',
+      phoneLast4: '',
+    },
+  })
+
+  async function handleSubmit(values: PublicQueueCheckFormValues) {
+    const result = await publicQueueCheck.mutateAsync({
+      plateNumber: values.plateNumber,
+      phoneLast4: values.phoneLast4,
+    })
+
+    saveRemainingAttempts(result.remaining_attempts)
+    setRemainingAttemptsHint(result.remaining_attempts)
+  }
+
+  const result = publicQueueCheck.data
+  const isLimitExceeded = result?.status === 'LIMIT_EXCEEDED'
+  const isNotFound = result?.status === 'NOT_FOUND'
+  const isInvalid = result?.status === 'INVALID_INPUT'
+  const isFound = result?.status === 'FOUND' && result.queue_number !== null
+  const isWithinTodayLimit = isFound && result.is_within_today_limit === true
+  const noShowGraceDescription = getNoShowGraceDescription(noShowGrace.data?.days)
+
+  return (
+    <Card className="w-full rounded-lg border-slate-200 bg-white shadow-sm">
+      <CardHeader>
+        <div className="mb-1 flex size-11 items-center justify-center rounded-lg bg-slate-900 text-white">
+          <ShieldCheck className="size-5" aria-hidden="true" />
+        </div>
+        <CardTitle>Проверка очереди</CardTitle>
+        <CardDescription>
+          Введите госномер и последние 4 цифры телефона, указанного при записи.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form className="space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
+            <FormItem>
+              <FormLabel htmlFor="publicPlateNumber">Госномер</FormLabel>
+              <Controller
+                control={form.control}
+                name="plateNumber"
+                render={({ field }) => (
+                  <PlateNumberInput
+                    id="publicPlateNumber"
+                    className="h-12 text-lg uppercase"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
+                )}
+              />
+              {form.formState.errors.plateNumber ? (
+                <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>
+              ) : null}
+            </FormItem>
+
+            <FormItem>
+              <FormLabel htmlFor="phoneLast4">Последние 4 цифры телефона</FormLabel>
+              <Input
+                id="phoneLast4"
+                autoComplete="off"
+                className="h-12 text-lg"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="1234"
+                {...form.register('phoneLast4')}
+              />
+              {form.formState.errors.phoneLast4 ? (
+                <FormMessage>{form.formState.errors.phoneLast4.message}</FormMessage>
+              ) : null}
+            </FormItem>
+
+            <Button
+              type="submit"
+              className="h-11 w-full gap-2"
+              disabled={publicQueueCheck.isPending}
+            >
+              <Search className="size-4" aria-hidden="true" />
+              {publicQueueCheck.isPending ? 'Проверяем...' : 'Проверить очередь'}
+            </Button>
+            {remainingAttemptsHint !== null ? (
+              <p className="text-center text-xs text-slate-500">
+                Осталось проверок сегодня: примерно {remainingAttemptsHint}
+              </p>
+            ) : null}
+
+            {isFound && isWithinTodayLimit ? (
+              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+                <AlertTitle>Можно приехать на заправку</AlertTitle>
+                <AlertDescription>
+                  Ваша очередь подошла. Окончательный допуск подтвердит оператор на АЗС.
+                  <span className="mt-2 block">{noShowGraceDescription}</span>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {isFound && !isWithinTodayLimit ? (
+              <Alert className="border-amber-200 bg-amber-50 text-amber-950">
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>Очередь №{result.queue_number} ещё не подошла</AlertTitle>
+                <AlertDescription>
+                  Ваша запись найдена, но сегодня она ещё не входит в лимит. Пожалуйста,
+                  ожидайте своей очереди. Когда очередь подойдёт, вам позвонят.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {isNotFound ? (
+              <Alert className="border-amber-200 bg-amber-50 text-amber-950">
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>Запись не найдена</AlertTitle>
+                <AlertDescription>
+                  Проверьте госномер и последние 4 цифры телефона.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {isLimitExceeded ? (
+              <Alert variant="destructive">
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>Лимит проверок исчерпан</AlertTitle>
+                <AlertDescription>
+                  Сегодня выполнено максимальное количество проверок. Попробуйте завтра.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {isInvalid ? (
+              <Alert variant="destructive">
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>Проверьте данные</AlertTitle>
+                <AlertDescription>
+                  Введите корректный госномер и последние 4 цифры телефона.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {publicQueueCheck.error ? (
+              <Alert variant="destructive">
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>Проверка недоступна</AlertTitle>
+                <AlertDescription>{publicQueueCheck.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  )
+}

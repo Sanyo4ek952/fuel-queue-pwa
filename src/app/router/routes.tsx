@@ -48,6 +48,9 @@ const SettingsPage = lazy(() =>
   import('@/pages/settings').then((m) => ({ default: m.SettingsPage })),
 )
 const PromoPage = lazy(() => import('@/pages/promo').then((m) => ({ default: m.PromoPage })))
+const PublicQueueCheckPage = lazy(() =>
+  import('@/pages/public-queue-check').then((m) => ({ default: m.PublicQueueCheckPage })),
+)
 const LoginPage = lazy(() => import('@/pages/login').then((m) => ({ default: m.LoginPage })))
 
 function LoadingScreen() {
@@ -201,7 +204,7 @@ export function AppRoutes() {
   if (PUBLIC_ROUTES.includes(normalizedPathname as (typeof PUBLIC_ROUTES)[number])) {
     return (
       <Suspense fallback={<LoadingScreen />}>
-        <PromoPage />
+        {normalizedPathname === ROUTES.queueCheck ? <PublicQueueCheckPage /> : <PromoPage />}
       </Suspense>
     )
   }
