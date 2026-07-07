@@ -9,25 +9,37 @@ import {
 } from './queue-backup.js'
 
 describe('queue backup csv', () => {
-  it('builds an Excel-friendly semicolon CSV with BOM and escaped values', () => {
+  it('builds an Excel-friendly semicolon CSV with callable queue fields', () => {
     const csv = buildQueueBackupCsv([
       {
         date: '2026-07-07',
         queue_number: 1,
-        station_name: 'АЗС #1',
-        normalized_plate_number: 'А123ВС777',
-        driver_full_name: 'Иванов "Иван"',
+        station_name: 'AZS #1',
+        normalized_plate_number: 'A123BC777',
+        driver_full_name: 'Ivanov "Ivan"',
         driver_phone: '+7;900',
+        fuel_type: 'AI_95',
+        fuel_preference_mode: 'ANY_GASOLINE',
+        compatible_fuel_types: ['AI_95', 'AI_92', 'AI_100'],
+        matched_fuel_type: 'AI_92',
         is_within_today_limit: true,
-        comment: 'строка 1\nстрока 2',
+        is_callable_now: false,
+        call_unavailable_reason: 'ALREADY_CONTACTED',
+        invitation_status: 'CONTACTED',
+        comment: 'line 1\nline 2',
       },
     ])
 
-    expect(csv.startsWith('\uFEFFДата;Номер очереди;АЗС')).toBe(true)
-    expect(csv).toContain('"Иванов ""Иван"""')
+    expect(csv.startsWith('\uFEFFДата;Номер очереди;АЗС;Назначенная АЗС')).toBe(true)
+    expect(csv).toContain('ANY_GASOLINE')
+    expect(csv).toContain('AI_95, AI_92, AI_100')
+    expect(csv).toContain('AI_92')
+    expect(csv).toContain('ALREADY_CONTACTED')
+    expect(csv).toContain('CONTACTED')
+    expect(csv).toContain('"Ivanov ""Ivan"""')
     expect(csv).toContain('"+7;900"')
-    expect(csv).toContain('"строка 1\nстрока 2"')
-    expect(csv).toContain(';Да;')
+    expect(csv).toContain('"line 1\nline 2"')
+    expect(csv).toContain(';Да;Нет;')
   })
 
   it('uses Moscow date for backup names', () => {
