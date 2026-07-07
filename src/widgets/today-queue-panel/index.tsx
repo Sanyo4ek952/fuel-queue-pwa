@@ -440,9 +440,6 @@ export function TodayQueuePanel() {
       }),
     [callFilter, rowsMatchingBaseFilters],
   )
-  const pendingRows = filteredRows.filter(
-    (row) => row.sync_status !== 'SYNCED' || row.latest_call_sync_status === 'PENDING',
-  )
   const callRowsCount = rowsMatchingBaseFilters.filter((row) => matchesCallFilter(row, 'call')).length
   const contactedRowsCount = rowsMatchingBaseFilters.filter(
     (row) => row.latest_call_status === 'CONTACTED',
@@ -503,11 +500,10 @@ export function TodayQueuePanel() {
             </Alert>
           ) : null}
 
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <SummaryTile label="Всего" value={filteredRows.length} />
             <SummaryTile label="Обзвон" value={callRowsCount} />
             <SummaryTile label="Позвонили" value={contactedRowsCount} />
-            <SummaryTile label="Sync" value={pendingRows.length} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
