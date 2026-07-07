@@ -410,7 +410,9 @@ export function CreateReservationForm() {
               <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
                 <AlertTitle>Запись создана</AlertTitle>
                 <AlertDescription>
-                  Очередь №{createReservationMutation.data.queue_number},{' '}
+                  {'Номер записи №'}
+                  {createReservationMutation.data.ticket_number ??
+                    createReservationMutation.data.queue_number},{' '}
                   {createReservationMutation.data.normalized_plate_number},{' '}
                   {createReservationMutation.data.requested_liters} л,{' '}
                   {fuelPreferenceLabels[createReservationMutation.data.fuel_preference_mode]}.

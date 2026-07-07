@@ -31,6 +31,9 @@ export type PublicQueueStatus = (typeof PUBLIC_QUEUE_STATUSES)[number]
 export type PublicQueueCheckResult = {
   status: PublicQueueCheckStatus
   queue_number: number | null
+  ticket_number: number | null
+  current_position: number | null
+  people_ahead: number | null
   preferred_fuel_type: QueueFuelType | string | null
   fuel_preference_mode: FuelPreferenceMode | null
   public_status: PublicQueueStatus
@@ -88,7 +91,9 @@ export function parsePublicQueueCheckResult(value: unknown): PublicQueueCheckRes
 
   const result = value as Partial<PublicQueueCheckResult>
   const remainingAttempts = toNumber(result.remaining_attempts)
-  const queueNumber = toNullableNumber(result.queue_number)
+  const ticketNumber = toNullableNumber(result.ticket_number) ?? toNullableNumber(result.queue_number)
+  const currentPosition = toNullableNumber(result.current_position)
+  const peopleAhead = toNullableNumber(result.people_ahead)
   const isWithinTodayLimit = toNullableBoolean(result.is_within_today_limit)
   const isCallableNow = toNullableBoolean(result.is_callable_now)
   const publicStatus =
@@ -103,11 +108,16 @@ export function parsePublicQueueCheckResult(value: unknown): PublicQueueCheckRes
     PUBLIC_QUEUE_CHECK_STATUSES.includes(result.status as PublicQueueCheckStatus) &&
     PUBLIC_QUEUE_STATUSES.includes(publicStatus as PublicQueueStatus) &&
     remainingAttempts !== null &&
-    (queueNumber === null || queueNumber > 0)
+    (ticketNumber === null || ticketNumber > 0) &&
+    (currentPosition === null || currentPosition > 0) &&
+    (peopleAhead === null || peopleAhead >= 0)
   ) {
     return {
       status: result.status as PublicQueueCheckStatus,
-      queue_number: queueNumber,
+      queue_number: ticketNumber,
+      ticket_number: ticketNumber,
+      current_position: currentPosition,
+      people_ahead: peopleAhead,
       preferred_fuel_type: result.preferred_fuel_type ?? null,
       fuel_preference_mode: result.fuel_preference_mode ?? null,
       public_status: publicStatus as PublicQueueStatus,

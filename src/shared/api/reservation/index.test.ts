@@ -41,4 +41,55 @@ describe('listTodayQueueRows', () => {
       target_date: '2026-07-08',
     })
   })
+
+  it('returns ticket number, current position and people ahead from the call list', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: { status: 'SYNCED' }, error: null })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'first-reservation-id',
+            vehicle_id: 'first-vehicle-id',
+            operator_id: 'profile-id',
+            fuel_type: 'AI_92',
+            requested_liters: 20,
+            queue_number: 100,
+            ticket_number: 100,
+            current_position: 1,
+            people_ahead: 0,
+            status: 'RESERVED',
+          },
+          {
+            id: 'reservation-id',
+            vehicle_id: 'vehicle-id',
+            operator_id: 'profile-id',
+            fuel_type: 'AI_95',
+            requested_liters: 40,
+            queue_number: 2847,
+            ticket_number: 2847,
+            current_position: 2,
+            people_ahead: 1,
+            status: 'RESERVED',
+          },
+        ],
+        error: null,
+      })
+
+    await expect(listTodayQueueRows()).resolves.toMatchObject([
+      {
+        id: 'first-reservation-id',
+        queue_number: 100,
+        ticket_number: 100,
+        current_position: 1,
+        people_ahead: 0,
+      },
+      {
+        id: 'reservation-id',
+        queue_number: 2847,
+        ticket_number: 2847,
+        current_position: 2,
+        people_ahead: 1,
+      },
+    ])
+  })
 })

@@ -79,6 +79,9 @@ describe('createOfflineReservation', () => {
       date: null,
       station_id: null,
       queue_number: 1,
+      ticket_number: 1,
+      current_position: 1,
+      people_ahead: 0,
       sync_status: 'PENDING',
     })
     expect(mocks.tables.local_vehicles.rows).toHaveLength(1)
@@ -141,6 +144,9 @@ describe('createOfflineReservation', () => {
     })
 
     expect(result.queue_number).toBe(11)
+    expect(result.ticket_number).toBe(11)
+    expect(result.current_position).toBe(2)
+    expect(result.people_ahead).toBe(1)
   })
 
   it('blocks a local reservation when cached refuel cooldown is active', async () => {

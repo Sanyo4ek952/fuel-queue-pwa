@@ -13,13 +13,18 @@ describe('parsePublicQueueCheckResult', () => {
     expect(
       parsePublicQueueCheckResult({
         status: 'FOUND',
-        queue_number: '12',
+        ticket_number: '2847',
+        current_position: '71',
+        people_ahead: '70',
         is_within_today_limit: true,
         remaining_attempts: '4',
       }),
     ).toEqual({
       status: 'FOUND',
-      queue_number: 12,
+      queue_number: 2847,
+      ticket_number: 2847,
+      current_position: 71,
+      people_ahead: 70,
       preferred_fuel_type: null,
       fuel_preference_mode: null,
       public_status: 'WAIT_FOR_CALL',
@@ -41,6 +46,9 @@ describe('parsePublicQueueCheckResult', () => {
     ).toEqual({
       status: 'FOUND',
       queue_number: 15,
+      ticket_number: 15,
+      current_position: null,
+      people_ahead: null,
       preferred_fuel_type: null,
       fuel_preference_mode: null,
       public_status: 'QUEUE_NOT_READY',
@@ -62,6 +70,9 @@ describe('parsePublicQueueCheckResult', () => {
     ).toEqual({
       status: 'NOT_FOUND',
       queue_number: null,
+      ticket_number: null,
+      current_position: null,
+      people_ahead: null,
       preferred_fuel_type: null,
       fuel_preference_mode: null,
       public_status: 'NOT_FOUND',
@@ -83,6 +94,9 @@ describe('parsePublicQueueCheckResult', () => {
     ).toEqual({
       status: 'LIMIT_EXCEEDED',
       queue_number: null,
+      ticket_number: null,
+      current_position: null,
+      people_ahead: null,
       preferred_fuel_type: null,
       fuel_preference_mode: null,
       public_status: 'LIMIT_EXCEEDED',

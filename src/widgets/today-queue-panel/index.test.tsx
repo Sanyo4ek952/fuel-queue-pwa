@@ -68,6 +68,9 @@ function makeQueueRow(overrides: Partial<TodayQueueRow> = {}): TodayQueueRow {
     created_by_role: 'cashier',
     created_by_signature_name: 'Петрова М.',
     queue_number: 1,
+    ticket_number: 1,
+    current_position: 1,
+    people_ahead: 0,
     normalized_plate_number: 'А123ВС777',
     driver_full_name: 'Иван Иванов',
     driver_phone: '+79990000000',
@@ -100,6 +103,9 @@ function makeGasolineQueueRows(count: number) {
       id: `gasoline-row-${number}`,
       created_by_profile_id: `profile-${number}`,
       queue_number: number,
+      ticket_number: number,
+      current_position: number,
+      people_ahead: number - 1,
       normalized_plate_number: `QUEUE-${String(number).padStart(3, '0')}`,
     })
   })
@@ -368,18 +374,24 @@ describe('TodayQueuePanel', () => {
     expect(screen.getByRole('button', { name: 'Показать еще' })).toBeInTheDocument()
   })
 
-  it('renders the visible queue number while keeping the stable queue number in details', async () => {
+  it('renders the current position while keeping the stable ticket number in details', async () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [
         makeQueueRow({
           id: 'first-row',
           queue_number: 4,
+          ticket_number: 4,
+          current_position: 70,
+          people_ahead: 69,
           normalized_plate_number: 'A123BC777',
         }),
         makeQueueRow({
           id: 'second-row',
           created_by_profile_id: 'second-profile',
-          queue_number: 7,
+          queue_number: 2847,
+          ticket_number: 2847,
+          current_position: 71,
+          people_ahead: 70,
           normalized_plate_number: 'B456TC777',
         }),
       ],
@@ -397,13 +409,16 @@ describe('TodayQueuePanel', () => {
 
     expect(screen.queryByText('A123BC777')).not.toBeInTheDocument()
     expect(secondRow).not.toBeNull()
-    expect(within(secondRow as HTMLElement).getByText('1')).toBeInTheDocument()
+    expect(
+      within(secondRow as HTMLElement).getByLabelText('Текущая позиция 71'),
+    ).toBeInTheDocument()
 
     await userEvent.click(
       within(secondRow as HTMLElement).getByRole('button', { name: DETAILS_BUTTON_NAME }),
     )
 
-    expect(within(secondRow as HTMLElement).getByText('7')).toBeInTheDocument()
+    expect(within(secondRow as HTMLElement).getByText('2847')).toBeInTheDocument()
+    expect(within(secondRow as HTMLElement).getByText('70')).toBeInTheDocument()
   })
 
   it('shows today arrivals by callable server status', async () => {
@@ -501,6 +516,7 @@ describe('TodayQueuePanel', () => {
     const row = makeQueueRow({
       id: 'reservation-id',
       queue_number: 7,
+      ticket_number: 7,
       fuel_type: 'AI_95',
       fuel_preference_mode: 'EXACT',
     })

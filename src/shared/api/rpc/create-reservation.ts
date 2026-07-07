@@ -29,6 +29,9 @@ export type CreateReservationResult = {
   fuel_preference_mode: FuelPreferenceMode
   requested_liters: number
   queue_number: number
+  ticket_number: number
+  current_position: number | null
+  people_ahead: number | null
   status: ReservationStatus
   client_mutation_id: string
 }
@@ -37,19 +40,31 @@ function toNumber(value: unknown) {
   return typeof value === 'number' ? value : Number(value)
 }
 
+function toNullableNumber(value: unknown) {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  const numericValue = toNumber(value)
+
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
 export function parseCreateReservationResult(value: unknown): CreateReservationResult | null {
   if (!value || typeof value !== 'object') {
     return null
   }
 
   const result = value as Partial<CreateReservationResult>
+  const ticketNumber = toNullableNumber(result.ticket_number) ?? toNumber(result.queue_number)
 
   if (
     typeof result.id === 'string' &&
     typeof result.vehicle_id === 'string' &&
     typeof result.fuel_type === 'string' &&
     typeof result.status === 'string' &&
-    typeof result.client_mutation_id === 'string'
+    typeof result.client_mutation_id === 'string' &&
+    Number.isFinite(ticketNumber)
   ) {
     return {
       id: result.id,
@@ -63,7 +78,10 @@ export function parseCreateReservationResult(value: unknown): CreateReservationR
       fuel_type: result.fuel_type as FuelType,
       fuel_preference_mode: (result.fuel_preference_mode ?? 'EXACT') as FuelPreferenceMode,
       requested_liters: toNumber(result.requested_liters),
-      queue_number: toNumber(result.queue_number),
+      queue_number: ticketNumber,
+      ticket_number: ticketNumber,
+      current_position: toNullableNumber(result.current_position),
+      people_ahead: toNullableNumber(result.people_ahead),
       status: result.status as ReservationStatus,
       client_mutation_id: result.client_mutation_id,
     }

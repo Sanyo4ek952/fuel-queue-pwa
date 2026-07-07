@@ -6,6 +6,7 @@ import {
   cacheTodayQueueRows,
   listTodayQueueRows,
   toTodayQueueRowFromLocal,
+  withCurrentQueuePositions,
   type TodayQueueRow,
 } from '@/shared/api/reservation'
 import { offlineDb } from '@/shared/lib/offline-db'
@@ -16,7 +17,7 @@ const activeReservationStatuses = new Set(['RESERVED', 'ARRIVED', 'APPROVED', 'F
 export const todayQueueQueryKey = () => ['today-queue'] as const
 
 function compareQueueRows(left: TodayQueueRow, right: TodayQueueRow) {
-  return left.queue_number - right.queue_number || left.id.localeCompare(right.id)
+  return left.ticket_number - right.ticket_number || left.id.localeCompare(right.id)
 }
 
 function mergeRows(onlineRows: TodayQueueRow[], localRows: TodayQueueRow[]) {
@@ -51,7 +52,9 @@ function mergeRows(onlineRows: TodayQueueRow[], localRows: TodayQueueRow[]) {
     (row) => row.sync_status !== 'SYNCED' && !byClientMutationId.has(row.client_mutation_id),
   )
 
-  return [...onlineRowsWithPendingCallState, ...unsyncedLocalRows].sort(compareQueueRows)
+  return withCurrentQueuePositions(
+    [...onlineRowsWithPendingCallState, ...unsyncedLocalRows].sort(compareQueueRows),
+  )
 }
 
 export function useTodayQueue() {
@@ -62,12 +65,12 @@ export function useTodayQueue() {
 
   useEffect(() => {
     const subscription = liveQuery(async () => {
-      const rows = await offlineDb.local_reservations.toArray()
-
-      return rows
+      const rows = (await offlineDb.local_reservations.toArray())
         .filter((row) => activeReservationStatuses.has(row.status))
         .map(toTodayQueueRowFromLocal)
         .sort(compareQueueRows)
+
+      return withCurrentQueuePositions(rows)
     }).subscribe({
       next: (rows) => {
         setLocalRows(rows)

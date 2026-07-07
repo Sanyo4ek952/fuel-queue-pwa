@@ -279,7 +279,6 @@ function formatCallTime(value: string | null) {
 
 function QueueRowCard({
   row,
-  visibleNumber,
   isLoggingCall,
   isUpdatingFuelPreference,
   isFuelPreferenceUpdateUnavailable,
@@ -287,7 +286,6 @@ function QueueRowCard({
   onUpdateFuelPreference,
 }: {
   row: TodayQueueRow
-  visibleNumber: number
   isLoggingCall: boolean
   isUpdatingFuelPreference: boolean
   isFuelPreferenceUpdateUnavailable: boolean
@@ -355,9 +353,17 @@ function QueueRowCard({
           <div className="flex items-center justify-between gap-3 p-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-900 text-sm font-semibold text-white">
-                  {visibleNumber}
-                </span>
+                <div
+                  className="flex h-11 w-12 shrink-0 flex-col items-center justify-center rounded-md bg-slate-900 text-white"
+                  aria-label={`Текущая позиция ${row.current_position}`}
+                >
+                  <span className="text-[10px] font-medium leading-none text-slate-300">
+                    Позиция
+                  </span>
+                  <span className="text-sm font-semibold leading-tight">
+                    {row.current_position}
+                  </span>
+                </div>
                 <div className="min-w-0">
                   <h2 className="truncate text-base font-semibold tracking-normal text-slate-950">
                     {row.normalized_plate_number || 'Номер не загружен'}
@@ -466,8 +472,12 @@ function QueueRowCard({
             <span className="sr-only">Сведения о записи</span>
             <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-slate-500">№ общей очереди</dt>
-                <dd className="font-medium text-slate-950">{row.queue_number}</dd>
+                <dt className="text-slate-500">Номер записи</dt>
+                <dd className="font-medium text-slate-950">{row.ticket_number}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Перед вами</dt>
+                <dd className="font-medium text-slate-950">{row.people_ahead}</dd>
               </div>
               <div>
                 <dt className="text-slate-500">Топливо</dt>
@@ -490,7 +500,7 @@ function QueueRowCard({
                       <DialogHeader>
                         <DialogTitle>Марка топлива</DialogTitle>
                         <DialogDescription>
-                          Очередь №{row.queue_number} сохранится без изменения.
+                          Номер записи №{row.ticket_number} сохранится без изменения.
                         </DialogDescription>
                       </DialogHeader>
                       <form
@@ -957,11 +967,10 @@ export function TodayQueuePanel() {
               <TabsContent key={fuelCategory} value={fuelCategory} className="space-y-3">
                 {rows.length > 0 ? (
                   <>
-                    {visibleRows.map((row, index) => (
+                    {visibleRows.map((row) => (
                       <QueueRowCard
                         key={row.id}
                         row={row}
-                        visibleNumber={index + 1}
                         isLoggingCall={logReservationCall.isPending}
                         isUpdatingFuelPreference={
                           updateReservationFuelPreference.isPending &&

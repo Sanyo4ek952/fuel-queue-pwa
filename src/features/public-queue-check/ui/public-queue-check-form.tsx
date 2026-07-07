@@ -58,6 +58,29 @@ function getNoShowGraceDescription(days: number | undefined) {
   return `Если вы не заправитесь в течение ${days} суток, ваша запись в очереди будет аннулирована.`
 }
 
+function QueuePositionSummary({
+  ticketNumber,
+  currentPosition,
+  peopleAhead,
+}: {
+  ticketNumber: number | null
+  currentPosition: number | null
+  peopleAhead: number | null
+}) {
+  if (ticketNumber === null) {
+    return null
+  }
+
+  return (
+    <span className="block">
+      Номер записи №{ticketNumber}.
+      {currentPosition !== null && peopleAhead !== null
+        ? ` Текущая позиция: ${currentPosition}, впереди: ${peopleAhead}.`
+        : ''}
+    </span>
+  )
+}
+
 export function PublicQueueCheckForm() {
   const publicQueueCheck = usePublicQueueCheck()
   const noShowGrace = usePublicNoShowGrace()
@@ -85,13 +108,15 @@ export function PublicQueueCheckForm() {
   const isLimitExceeded = result?.status === 'LIMIT_EXCEEDED'
   const isNotFound = result?.status === 'NOT_FOUND'
   const isInvalid = result?.status === 'INVALID_INPUT'
-  const isFound = result?.status === 'FOUND' && result.queue_number !== null
+  const isFound =
+    result?.status === 'FOUND' && (result.ticket_number !== null || result.queue_number !== null)
   const isInvited = isFound && result.public_status === 'INVITED_BY_OPERATOR'
   const isInCallList = isFound && result.public_status === 'IN_CALL_LIST'
   const isWaitingFuel = isFound && result.public_status === 'WAITING_FOR_PREFERRED_FUEL'
   const isQueueNotReady =
     isFound &&
     (result.public_status === 'QUEUE_NOT_READY' || result.public_status === 'WAIT_FOR_CALL')
+  const foundTicketNumber = isFound ? (result.ticket_number ?? result.queue_number) : null
   const noShowGraceDescription = getNoShowGraceDescription(noShowGrace.data?.days)
 
   return (
@@ -165,7 +190,12 @@ export function PublicQueueCheckForm() {
                 <CheckCircle2 className="size-4" aria-hidden="true" />
                 <AlertTitle>Оператор подтвердил возможность приехать</AlertTitle>
                 <AlertDescription>
-                  Очередь №{result.queue_number}. Окончательный допуск подтвердят на АЗС.
+                  <QueuePositionSummary
+                    ticketNumber={foundTicketNumber}
+                    currentPosition={result.current_position}
+                    peopleAhead={result.people_ahead}
+                  />
+                  Окончательный допуск подтвердят на АЗС.
                   <span className="mt-2 block">{noShowGraceDescription}</span>
                 </AlertDescription>
               </Alert>
@@ -176,7 +206,12 @@ export function PublicQueueCheckForm() {
                 <CheckCircle2 className="size-4" aria-hidden="true" />
                 <AlertTitle>Запись включена в список обзвона</AlertTitle>
                 <AlertDescription>
-                  Очередь №{result.queue_number}. Ожидайте звонка оператора
+                  <QueuePositionSummary
+                    ticketNumber={foundTicketNumber}
+                    currentPosition={result.current_position}
+                    peopleAhead={result.people_ahead}
+                  />
+                  Ожидайте звонка оператора
                   {result.matched_fuel_type
                     ? `, доступно ${fuelTypeLabels[result.matched_fuel_type] ?? result.matched_fuel_type}`
                     : ''}
@@ -190,8 +225,12 @@ export function PublicQueueCheckForm() {
                 <TriangleAlert className="size-4" aria-hidden="true" />
                 <AlertTitle>Ожидается выбранное топливо</AlertTitle>
                 <AlertDescription>
-                  Очередь №{result.queue_number}. Сейчас нет подходящей марки топлива для вашей
-                  записи.
+                  <QueuePositionSummary
+                    ticketNumber={foundTicketNumber}
+                    currentPosition={result.current_position}
+                    peopleAhead={result.people_ahead}
+                  />
+                  Сейчас нет подходящей марки топлива для вашей записи.
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -199,10 +238,15 @@ export function PublicQueueCheckForm() {
             {isQueueNotReady ? (
               <Alert className="border-amber-200 bg-amber-50 text-amber-950">
                 <TriangleAlert className="size-4" aria-hidden="true" />
-                <AlertTitle>Очередь №{result.queue_number} ещё не подошла</AlertTitle>
+                <AlertTitle>Номер записи №{foundTicketNumber} еще не подошел</AlertTitle>
                 <AlertDescription>
-                  Ваша запись найдена, но сегодня она ещё не входит в лимит. Пожалуйста,
-                  ожидайте своей очереди. Когда очередь подойдёт, вам позвонят.
+                  <QueuePositionSummary
+                    ticketNumber={foundTicketNumber}
+                    currentPosition={result.current_position}
+                    peopleAhead={result.people_ahead}
+                  />
+                  Ваша запись найдена, но сегодня она еще не входит в лимит. Пожалуйста,
+                  ожидайте своей очереди. Когда очередь подойдет, вам позвонят.
                 </AlertDescription>
               </Alert>
             ) : null}

@@ -38,6 +38,9 @@ type ReservationRow = {
   fuel_preference_mode?: string | null
   requested_liters: number | string
   queue_number: number
+  ticket_number?: number | string | null
+  current_position?: number | string | null
+  people_ahead?: number | string | null
   status: string
   comment?: string | null
   client_mutation_id?: string | null
@@ -79,6 +82,9 @@ export type TodayQueueRow = {
   created_by_role: UserRole | string | null
   created_by_signature_name: string | null
   queue_number: number
+  ticket_number: number
+  current_position: number
+  people_ahead: number
   normalized_plate_number: string
   driver_full_name: string
   driver_phone: string | null
@@ -111,6 +117,16 @@ function toNumber(value: unknown) {
   return typeof value === 'number' ? value : Number(value)
 }
 
+function toNullableNumber(value: unknown) {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  const numericValue = toNumber(value)
+
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
 function firstRelation<TRelation>(value: TRelation | TRelation[] | null | undefined) {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
 }
@@ -119,6 +135,9 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
   const vehicle = firstRelation(row.vehicles)
   const driver = firstRelation(row.drivers)
   const operator = firstRelation(row.operator)
+  const ticketNumber = toNullableNumber(row.ticket_number) ?? toNumber(row.queue_number)
+  const currentPosition = toNullableNumber(row.current_position)
+  const peopleAhead = toNullableNumber(row.people_ahead)
 
   return {
     id: row.id,
@@ -130,7 +149,10 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     created_by_full_name: row.created_by_full_name ?? operator?.full_name ?? '',
     created_by_role: row.created_by_role ?? operator?.role ?? null,
     created_by_signature_name: row.created_by_signature_name ?? operator?.signature_name ?? null,
-    queue_number: toNumber(row.queue_number),
+    queue_number: ticketNumber,
+    ticket_number: ticketNumber,
+    current_position: currentPosition ?? ticketNumber,
+    people_ahead: peopleAhead ?? Math.max((currentPosition ?? ticketNumber) - 1, 0),
     normalized_plate_number: row.normalized_plate_number ?? vehicle?.normalized_plate_number ?? '',
     driver_full_name: row.driver_full_name ?? driver?.full_name ?? '',
     driver_phone: row.driver_phone ?? driver?.phone ?? null,
@@ -161,6 +183,10 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
 }
 
 export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
+  const ticketNumber = row.ticket_number ?? row.queue_number
+  const currentPosition = row.current_position ?? ticketNumber
+  const peopleAhead = row.people_ahead ?? Math.max(currentPosition - 1, 0)
+
   return {
     id: row.id,
     date: row.date ?? null,
@@ -171,7 +197,10 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     created_by_full_name: row.created_by_full_name ?? '',
     created_by_role: row.created_by_role ?? null,
     created_by_signature_name: row.created_by_signature_name ?? null,
-    queue_number: row.queue_number,
+    queue_number: ticketNumber,
+    ticket_number: ticketNumber,
+    current_position: currentPosition,
+    people_ahead: peopleAhead,
     normalized_plate_number: row.normalized_plate_number ?? '',
     driver_full_name: row.driver_full_name ?? '',
     driver_phone: row.driver_phone ?? null,
@@ -201,6 +230,24 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
   }
 }
 
+export function withCurrentQueuePositions(rows: TodayQueueRow[]) {
+  const positionsById = new Map(
+    [...rows]
+      .sort((left, right) => left.ticket_number - right.ticket_number || left.id.localeCompare(right.id))
+      .map((row, index) => [row.id, index + 1]),
+  )
+
+  return rows.map((row) => {
+    const currentPosition = positionsById.get(row.id) ?? row.current_position
+
+    return {
+      ...row,
+      current_position: currentPosition,
+      people_ahead: Math.max(currentPosition - 1, 0),
+    }
+  })
+}
+
 export async function listTodayQueueRows() {
   if (!isSupabaseConfigured) {
     throw new Error('Supabase is not configured.')
@@ -220,7 +267,9 @@ export async function listTodayQueueRows() {
     throw new Error(error.message)
   }
 
-  return (Array.isArray(data) ? (data as ReservationRow[]) : []).map(toTodayQueueRow)
+  return withCurrentQueuePositions(
+    (Array.isArray(data) ? (data as ReservationRow[]) : []).map(toTodayQueueRow),
+  )
 }
 
 export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
@@ -240,6 +289,9 @@ export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
         fuel_preference_mode: row.fuel_preference_mode,
         requested_liters: row.requested_liters,
         queue_number: row.queue_number,
+        ticket_number: row.ticket_number,
+        current_position: row.current_position,
+        people_ahead: row.people_ahead,
         status: row.status,
         normalized_plate_number: row.normalized_plate_number,
         driver_full_name: row.driver_full_name,

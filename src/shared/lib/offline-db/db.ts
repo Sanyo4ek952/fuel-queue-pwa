@@ -37,6 +37,9 @@ export type LocalReservation = LocalRecord & {
   date?: string | null
   status: string
   queue_number: number
+  ticket_number?: number
+  current_position?: number
+  people_ahead?: number
   fuel_type: FuelType | string
   fuel_preference_mode?: FuelPreferenceMode | string
   requested_liters: number

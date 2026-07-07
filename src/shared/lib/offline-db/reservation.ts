@@ -45,6 +45,9 @@ export type OfflineReservationResult = {
   fuel_preference_mode: FuelPreferenceMode
   requested_liters: number
   queue_number: number
+  ticket_number: number
+  current_position: number
+  people_ahead: number
   status: 'RESERVED'
   client_mutation_id: string
   sync_status: 'PENDING'
@@ -181,6 +184,10 @@ export async function createOfflineReservation({
 
   const nextQueueNumber =
     Math.max(0, ...reservations.map((reservation) => reservation.queue_number)) + 1
+  const activeReservationsAhead = reservations.filter((reservation) =>
+    activeReservationStatuses.has(reservation.status),
+  ).length
+  const currentPosition = activeReservationsAhead + 1
   const id = `local-${clientMutationId}`
   const now = new Date().toISOString()
   const localReservation: LocalReservation = {
@@ -197,6 +204,9 @@ export async function createOfflineReservation({
     fuel_preference_mode: fuelPreferenceMode,
     requested_liters: requestedLiters,
     queue_number: nextQueueNumber,
+    ticket_number: nextQueueNumber,
+    current_position: currentPosition,
+    people_ahead: activeReservationsAhead,
     status: 'RESERVED',
     normalized_plate_number: normalizedPlateNumber,
     driver_full_name: trimmedDriverFullName,
@@ -256,6 +266,9 @@ export async function createOfflineReservation({
     fuel_preference_mode: fuelPreferenceMode,
     requested_liters: requestedLiters,
     queue_number: nextQueueNumber,
+    ticket_number: nextQueueNumber,
+    current_position: currentPosition,
+    people_ahead: activeReservationsAhead,
     status: 'RESERVED',
     client_mutation_id: clientMutationId,
     sync_status: 'PENDING',
