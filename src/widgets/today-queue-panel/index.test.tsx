@@ -9,8 +9,10 @@ import type { TodayQueueRow } from '@/entities/reservation'
 
 const mocks = vi.hoisted(() => ({
   mutateCall: vi.fn(),
+  mutateFuelPreference: vi.fn(),
   useTodayQueue: vi.fn(),
   useLogReservationCall: vi.fn(),
+  useUpdateReservationFuelPreference: vi.fn(),
 }))
 
 vi.mock('@/entities/reservation', () => ({
@@ -20,6 +22,17 @@ vi.mock('@/entities/reservation', () => ({
 vi.mock('@/features/log-reservation-call', () => ({
   useLogReservationCall: mocks.useLogReservationCall,
 }))
+
+vi.mock('@/features/update-reservation-fuel-preference', async () => {
+  const actual = await vi.importActual<typeof import('@/features/update-reservation-fuel-preference')>(
+    '@/features/update-reservation-fuel-preference',
+  )
+
+  return {
+    ...actual,
+    useUpdateReservationFuelPreference: mocks.useUpdateReservationFuelPreference,
+  }
+})
 
 import { TodayQueuePanel } from './index'
 
@@ -34,6 +47,12 @@ beforeAll(() => {
   }
   if (!Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = vi.fn()
+  }
+  if (!globalThis.crypto.randomUUID) {
+    Object.defineProperty(globalThis.crypto, 'randomUUID', {
+      value: vi.fn(() => 'mutation-id'),
+      configurable: true,
+    })
   }
 })
 
@@ -99,6 +118,12 @@ describe('TodayQueuePanel', () => {
       mutate: mocks.mutateCall,
       isPending: false,
       error: null,
+    })
+    mocks.useUpdateReservationFuelPreference.mockReturnValue({
+      mutate: mocks.mutateFuelPreference,
+      isPending: false,
+      error: null,
+      variables: undefined,
     })
   })
 
@@ -469,5 +494,70 @@ describe('TodayQueuePanel', () => {
     expect(screen.getByText('MATCHED-095')).toBeInTheDocument()
     expect(screen.getByText('FALLBACK-095')).toBeInTheDocument()
     expect(screen.queryByText('AI100-003')).not.toBeInTheDocument()
+  })
+
+  it('updates fuel preference from a queue card without changing the reservation id', async () => {
+    const user = userEvent.setup()
+    const row = makeQueueRow({
+      id: 'reservation-id',
+      queue_number: 7,
+      fuel_type: 'AI_95',
+      fuel_preference_mode: 'EXACT',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [row],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    const article = screen.getByRole('article')
+
+    await user.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
+    await user.click(within(article).getByRole('button', { name: /Изменить марку топлива/ }))
+
+    const [fuelTypeSelect, fuelPreferenceSelect] = screen.getAllByRole('combobox')
+
+    await user.click(fuelTypeSelect)
+    await user.click(screen.getByRole('option', { name: /92/ }))
+    await user.click(fuelPreferenceSelect)
+    await user.click(screen.getByRole('option', { name: /92\/95\/100/ }))
+    await user.click(screen.getByRole('button', { name: /Сохранить/ }))
+
+    expect(mocks.mutateFuelPreference).toHaveBeenCalledWith({
+      reservationId: 'reservation-id',
+      fuelType: 'AI_92',
+      fuelPreferenceMode: 'ANY_GASOLINE',
+      clientMutationId: expect.any(String),
+    })
+    expect(within(article).getByText('7')).toBeInTheDocument()
+  })
+
+  it('disables fuel preference editing while the queue is offline', async () => {
+    const row = makeQueueRow({
+      id: 'reservation-id',
+      is_offline: true,
+      sync_status: 'PENDING',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [row],
+      isOnline: false,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    const article = screen.getByRole('article')
+
+    await userEvent.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
+
+    expect(within(article).getByRole('button', { name: /Изменить марку топлива/ })).toBeDisabled()
   })
 })

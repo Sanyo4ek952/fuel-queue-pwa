@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { todayQueueQueryKey } from '@/entities/reservation'
 import {
   createDailyLimit,
   type CreateDailyLimitParams,
@@ -22,6 +23,7 @@ export function useCreateDailyLimit() {
       return result.data
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: todayQueueQueryKey() })
       void queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === 'daily-limit-overview',
       })

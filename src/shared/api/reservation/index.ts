@@ -8,6 +8,7 @@ import type {
   SyncStatus,
 } from '@/shared/constants'
 import { supabase } from '@/shared/api/supabase'
+import { getTodayDateInputValue } from '@/shared/lib/date'
 import { offlineDb, type LocalReservation } from '@/shared/lib/offline-db'
 
 type RelatedVehicle = {
@@ -212,7 +213,7 @@ export async function listTodayQueueRows() {
   }
 
   const { data, error } = await supabase.rpc('get_today_call_list', {
-    target_date: new Date().toISOString().slice(0, 10),
+    target_date: getTodayDateInputValue(),
   })
 
   if (error) {

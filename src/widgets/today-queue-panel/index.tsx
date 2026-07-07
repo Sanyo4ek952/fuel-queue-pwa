@@ -1,9 +1,12 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
 
 import {
   CheckCircle2,
   CloudOff,
   ListChecks,
+  Pencil,
   Phone,
   PhoneOff,
   RotateCcw,
@@ -12,12 +15,20 @@ import {
 
 import { useTodayQueue, type TodayQueueRow } from '@/entities/reservation'
 import { useLogReservationCall } from '@/features/log-reservation-call'
+import {
+  type UpdateReservationFuelPreferenceFormValues,
+  updateReservationFuelPreferenceSchema,
+  useUpdateReservationFuelPreference,
+} from '@/features/update-reservation-fuel-preference'
 import { ROLE_LABELS, type UserRole } from '@/shared/config/roles'
 import {
   getFuelQueueCategory,
+  isGasolineFuelType,
   type FuelPreferenceMode,
   type FuelQueueCategory,
   type FuelType,
+  type QueueFuelType,
+  QUEUE_FUEL_TYPES,
   type ReservationCallStatus,
 } from '@/shared/constants'
 import { cn } from '@/shared/lib/utils'
@@ -38,6 +49,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/shared/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
 import {
   Select,
@@ -261,15 +281,35 @@ function QueueRowCard({
   row,
   visibleNumber,
   isLoggingCall,
+  isUpdatingFuelPreference,
+  isFuelPreferenceUpdateUnavailable,
   onLogCall,
+  onUpdateFuelPreference,
 }: {
   row: TodayQueueRow
   visibleNumber: number
   isLoggingCall: boolean
+  isUpdatingFuelPreference: boolean
+  isFuelPreferenceUpdateUnavailable: boolean
   onLogCall: (row: TodayQueueRow, status: ReservationCallStatus) => void
+  onUpdateFuelPreference: (
+    row: TodayQueueRow,
+    values: UpdateReservationFuelPreferenceFormValues,
+  ) => void
 }) {
+  const [isFuelDialogOpen, setIsFuelDialogOpen] = useState(false)
+  const fuelPreferenceForm = useForm<UpdateReservationFuelPreferenceFormValues>({
+    resolver: zodResolver(updateReservationFuelPreferenceSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      fuelType: row.fuel_type as QueueFuelType,
+      fuelPreferenceMode: (row.fuel_preference_mode ?? 'EXACT') as FuelPreferenceMode,
+    },
+  })
   const phoneHref = getPhoneHref(row.driver_phone)
   const callActionsDisabled = isLoggingCall || row.is_offline
+  const fuelPreferenceActionsDisabled =
+    isFuelPreferenceUpdateUnavailable || row.is_offline || isUpdatingFuelPreference
   const callableNow = isRowCallable(row)
   const isContacted = row.latest_call_status === 'CONTACTED'
   const hasPendingCallSync = row.latest_call_sync_status === 'PENDING'
@@ -287,6 +327,26 @@ function QueueRowCard({
   const fuelPreferenceLabel =
     fuelPreferenceLabels[row.fuel_preference_mode as FuelPreferenceMode] ??
     fuelPreferenceLabels.EXACT
+  const watchedFuelType = fuelPreferenceForm.watch('fuelType')
+  const isGasolineSelected = isGasolineFuelType(watchedFuelType)
+
+  useEffect(() => {
+    fuelPreferenceForm.reset({
+      fuelType: row.fuel_type as QueueFuelType,
+      fuelPreferenceMode: (row.fuel_preference_mode ?? 'EXACT') as FuelPreferenceMode,
+    })
+  }, [fuelPreferenceForm, row.fuel_preference_mode, row.fuel_type])
+
+  useEffect(() => {
+    if (!isGasolineSelected) {
+      fuelPreferenceForm.setValue('fuelPreferenceMode', 'EXACT', { shouldValidate: true })
+    }
+  }, [fuelPreferenceForm, isGasolineSelected])
+
+  function handleFuelPreferenceSubmit(values: UpdateReservationFuelPreferenceFormValues) {
+    onUpdateFuelPreference(row, values)
+    setIsFuelDialogOpen(false)
+  }
 
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -411,8 +471,116 @@ function QueueRowCard({
               </div>
               <div>
                 <dt className="text-slate-500">Топливо</dt>
-                <dd className="font-medium text-slate-950">
-                  {fuelTypeLabels[row.fuel_type as FuelType] ?? row.fuel_type}
+                <dd className="flex items-center gap-2 font-medium text-slate-950">
+                  <span>{fuelTypeLabels[row.fuel_type as FuelType] ?? row.fuel_type}</span>
+                  <Dialog open={isFuelDialogOpen} onOpenChange={setIsFuelDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 text-slate-500 hover:text-slate-900"
+                        aria-label="Изменить марку топлива"
+                        disabled={fuelPreferenceActionsDisabled}
+                      >
+                        <Pencil className="size-4" aria-hidden="true" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Марка топлива</DialogTitle>
+                        <DialogDescription>
+                          Очередь №{row.queue_number} сохранится без изменения.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form
+                        className="space-y-4"
+                        onSubmit={fuelPreferenceForm.handleSubmit(handleFuelPreferenceSubmit)}
+                      >
+                        <div className="space-y-1.5">
+                          <label
+                            htmlFor={`fuelType-${row.id}`}
+                            className="text-sm font-medium text-slate-700"
+                          >
+                            Марка топлива
+                          </label>
+                          <Select
+                            value={fuelPreferenceForm.watch('fuelType')}
+                            disabled={fuelPreferenceActionsDisabled}
+                            onValueChange={(value) =>
+                              fuelPreferenceForm.setValue('fuelType', value as QueueFuelType, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              })
+                            }
+                          >
+                            <SelectTrigger id={`fuelType-${row.id}`} className="h-10 w-full bg-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper" align="start">
+                              {QUEUE_FUEL_TYPES.map((fuelType) => (
+                                <SelectItem key={fuelType} value={fuelType}>
+                                  {fuelTypeLabels[fuelType]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label
+                            htmlFor={`fuelPreferenceMode-${row.id}`}
+                            className="text-sm font-medium text-slate-700"
+                          >
+                            Предпочтение
+                          </label>
+                          <Select
+                            value={fuelPreferenceForm.watch('fuelPreferenceMode')}
+                            disabled={fuelPreferenceActionsDisabled || !isGasolineSelected}
+                            onValueChange={(value) =>
+                              fuelPreferenceForm.setValue(
+                                'fuelPreferenceMode',
+                                value as FuelPreferenceMode,
+                                {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                },
+                              )
+                            }
+                          >
+                            <SelectTrigger
+                              id={`fuelPreferenceMode-${row.id}`}
+                              className="h-10 w-full bg-white"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper" align="start">
+                              <SelectItem value="EXACT">{fuelPreferenceLabels.EXACT}</SelectItem>
+                              <SelectItem value="ANY_GASOLINE">
+                                {fuelPreferenceLabels.ANY_GASOLINE}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {fuelPreferenceForm.formState.errors.fuelPreferenceMode ? (
+                          <p className="text-sm text-red-600">
+                            {fuelPreferenceForm.formState.errors.fuelPreferenceMode.message}
+                          </p>
+                        ) : null}
+
+                        <DialogFooter>
+                          <Button
+                            type="submit"
+                            className="w-full sm:w-auto"
+                            disabled={fuelPreferenceActionsDisabled}
+                          >
+                            {isUpdatingFuelPreference ? 'Сохраняем...' : 'Сохранить'}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                 </dd>
               </div>
               <div>
@@ -516,6 +684,7 @@ export function TodayQueuePanel() {
   )
   const queue = useTodayQueue()
   const logReservationCall = useLogReservationCall()
+  const updateReservationFuelPreference = useUpdateReservationFuelPreference()
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
   const authorOptions = useMemo(() => buildAuthorOptions(queue.rows), [queue.rows])
   const rowsMatchingBaseFilters = useMemo(
@@ -586,6 +755,18 @@ export function TodayQueuePanel() {
 
   function handleLogCall(row: TodayQueueRow, status: ReservationCallStatus) {
     logReservationCall.mutate({ reservation: row, status })
+  }
+
+  function handleUpdateFuelPreference(
+    row: TodayQueueRow,
+    values: UpdateReservationFuelPreferenceFormValues,
+  ) {
+    updateReservationFuelPreference.mutate({
+      reservationId: row.id,
+      fuelType: values.fuelType,
+      fuelPreferenceMode: values.fuelPreferenceMode,
+      clientMutationId: crypto.randomUUID(),
+    })
   }
 
   return (
@@ -730,6 +911,13 @@ export function TodayQueuePanel() {
         </Alert>
       ) : null}
 
+      {updateReservationFuelPreference.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Марка топлива не сохранена</AlertTitle>
+          <AlertDescription>{updateReservationFuelPreference.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
       {queue.isLoading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
           Загрузка очереди...
@@ -775,7 +963,13 @@ export function TodayQueuePanel() {
                         row={row}
                         visibleNumber={index + 1}
                         isLoggingCall={logReservationCall.isPending}
+                        isUpdatingFuelPreference={
+                          updateReservationFuelPreference.isPending &&
+                          updateReservationFuelPreference.variables?.reservationId === row.id
+                        }
+                        isFuelPreferenceUpdateUnavailable={!queue.isOnline}
                         onLogCall={handleLogCall}
+                        onUpdateFuelPreference={handleUpdateFuelPreference}
                       />
                     ))}
                     {hasMoreRows ? (

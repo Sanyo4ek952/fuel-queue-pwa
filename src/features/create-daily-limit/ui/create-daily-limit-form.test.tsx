@@ -17,6 +17,10 @@ vi.mock('@/shared/api/rpc', () => ({
   createDailyLimit: mocks.createDailyLimit,
 }))
 
+vi.mock('@/entities/reservation', () => ({
+  todayQueueQueryKey: () => ['today-queue'],
+}))
+
 function renderWithQueryClient(children: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -28,8 +32,12 @@ function renderWithQueryClient(children: ReactNode) {
       },
     },
   })
+  const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
-  return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>)
+  return {
+    ...render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>),
+    invalidateQueriesSpy,
+  }
 }
 
 describe('CreateDailyLimitForm', () => {
@@ -67,7 +75,7 @@ describe('CreateDailyLimitForm', () => {
       error: null,
     })
 
-    renderWithQueryClient(<CreateDailyLimitForm />)
+    const { invalidateQueriesSpy } = renderWithQueryClient(<CreateDailyLimitForm />)
     await userEvent.click(screen.getByRole('button', { name: /сохранить лимит/i }))
 
     await waitFor(() => {
@@ -102,6 +110,11 @@ describe('CreateDailyLimitForm', () => {
           ],
         }),
       )
+    })
+
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['today-queue'] })
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      predicate: expect.any(Function),
     })
   })
 })
