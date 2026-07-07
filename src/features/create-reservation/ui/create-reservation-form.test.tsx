@@ -199,6 +199,86 @@ describe('CreateReservationForm', () => {
     expect(await screen.findByText('Запись создана')).toBeInTheDocument()
   })
 
+  it('clears form fields, check result and history after successful reservation', async () => {
+    mockVehicleCheckResult({
+      status: 'ALLOWED',
+      reason: 'MANUAL_OVERRIDE_ACTIVE',
+      normalized_plate_number: 'А123ВС777',
+    })
+    mocks.getVehicleFuelingHistory.mockResolvedValue({
+      data: {
+        normalized_plate_number: 'А123ВС777',
+        vehicle_id: 'vehicle-id',
+        vehicle_found: true,
+        total_fueling_count: 0,
+        regular_fueling_count: 0,
+        manual_override_fueling_count: 0,
+        total_liters: 0,
+        first_fueled_at: null,
+        last_fueled_at: null,
+        station_summaries: [],
+        fuel_type_summaries: [],
+        records: [],
+        has_more: false,
+      },
+      error: null,
+    })
+    mocks.createReservation.mockResolvedValue({
+      data: {
+        id: 'reservation-id',
+        date: null,
+        station_id: null,
+        vehicle_id: 'vehicle-id',
+        driver_id: 'driver-id',
+        normalized_plate_number: 'А123ВС777',
+        driver_full_name: 'Иван Иванов',
+        driver_phone: '+79991234567',
+        fuel_type: 'AI_95',
+        fuel_preference_mode: 'EXACT',
+        requested_liters: 35,
+        queue_number: 1,
+        status: 'RESERVED',
+        client_mutation_id: 'mutation-id',
+      },
+      error: null,
+    })
+
+    renderWithQueryClient(<CreateReservationForm />)
+
+    const plateInput = screen.getByLabelText('Госномер')
+    const driverNameInput = screen.getByLabelText('Водитель')
+    const driverPhoneInput = screen.getByLabelText('Телефон')
+    const requestedLitersInput = screen.getByLabelText('Литры')
+    const commentInput = screen.getByLabelText('Комментарий')
+    const submitButton = screen.getByRole('button', { name: /создать запись/i })
+
+    await userEvent.type(plateInput, 'А123ВС777')
+    await userEvent.click(screen.getByRole('button', { name: /проверить/i }))
+    expect(await screen.findByText('Допуск разрешен')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /История заправок/i }))
+    expect(await screen.findByText('Заправок не найдено.')).toBeInTheDocument()
+
+    await userEvent.type(driverNameInput, 'Иван Иванов')
+    await userEvent.type(driverPhoneInput, '9991234567')
+    await userEvent.clear(requestedLitersInput)
+    await userEvent.type(requestedLitersInput, '35')
+    await userEvent.type(commentInput, 'Без очереди не пускать')
+    await userEvent.click(submitButton)
+
+    expect(await screen.findByText('Запись создана')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(plateInput).toHaveValue('')
+      expect(driverNameInput).toHaveValue('')
+      expect(driverPhoneInput).toHaveValue('')
+      expect(requestedLitersInput).toHaveValue(20)
+      expect(commentInput).toHaveValue('')
+      expect(screen.queryByText('Допуск разрешен')).not.toBeInTheDocument()
+      expect(screen.queryByText('Заправок не найдено.')).not.toBeInTheDocument()
+      expect(submitButton).toBeDisabled()
+    })
+  })
+
   it('shows a clear error when the vehicle already has an active queue entry', async () => {
     mockVehicleCheckResult({
       status: 'ALLOWED',

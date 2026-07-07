@@ -1,10 +1,6 @@
 import { useCurrentProfile } from '@/entities/profile'
 import { CreateDailyLimitForm } from '@/features/create-daily-limit'
-import { CreatePersonalVehicleLiterLimitForm } from '@/features/create-personal-vehicle-liter-limit'
-import {
-  canCreateDailyLimit,
-  canCreatePersonalVehicleLiterLimit,
-} from '@/shared/lib/permissions'
+import { canCreateDailyLimit } from '@/shared/lib/permissions'
 import { DailyLimitOverviewPanel } from '@/widgets/daily-limit-overview-panel'
 
 export function DailyLimitsPage() {
@@ -21,9 +17,6 @@ export function DailyLimitsPage() {
       </div>
       <DailyLimitOverviewPanel />
       {role && canCreateDailyLimit(role) ? <CreateDailyLimitForm /> : null}
-      {role && canCreatePersonalVehicleLiterLimit(role) ? (
-        <CreatePersonalVehicleLiterLimitForm />
-      ) : null}
     </div>
   )
 }

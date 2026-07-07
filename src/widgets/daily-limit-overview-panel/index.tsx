@@ -76,10 +76,6 @@ function CategoryCard({ row }: { row: DailyLimitCategoryOverview }) {
 
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <SummaryTile label="Остаток" value={remainingValue} />
-        <SummaryTile
-          label="Хватит до №"
-          value={row.projected_queue_number ?? 'Нет прогноза'}
-        />
       </div>
     </article>
   )
@@ -95,13 +91,6 @@ function LimitSummary({ overview }: { overview: DailyLimitOverviewResult }) {
   const totalCovered = categoryOverviews.reduce(
     (sum, item) => sum + item.covered_vehicle_count,
     0,
-  )
-  const lastQueueNumber = categoryOverviews.reduce<number | null>(
-    (maxQueueNumber, item) =>
-      item.projected_queue_number == null
-        ? maxQueueNumber
-        : Math.max(maxQueueNumber ?? 0, item.projected_queue_number),
-    null,
   )
 
   return (
@@ -123,10 +112,9 @@ function LimitSummary({ overview }: { overview: DailyLimitOverviewResult }) {
             : ''}
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-3 gap-2">
+      <CardContent className="grid grid-cols-2 gap-2">
         <SummaryTile label="В очереди" value={totalQueue} />
         <SummaryTile label="Заправится" value={totalCovered} />
-        <SummaryTile label="До номера" value={lastQueueNumber ?? 'Нет'} />
       </CardContent>
     </Card>
   )

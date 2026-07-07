@@ -58,6 +58,16 @@ const fuelPreferenceLabels: Record<FuelPreferenceMode, string> = {
   ANY_GASOLINE: 'Подойдёт АИ-92/95/100',
 }
 
+const createReservationFormDefaultValues = {
+  plateNumber: '',
+  driverFullName: '',
+  driverPhone: '',
+  fuelType: 'AI_95',
+  fuelPreferenceMode: 'EXACT',
+  requestedLiters: 20,
+  comment: '',
+} satisfies CreateReservationFormInput
+
 const HISTORY_ACCORDION_VALUE = 'fueling-history'
 const RESERVATION_HISTORY_PAGE_SIZE = 5
 const reservationCheckReasonLabelOverrides = {
@@ -109,15 +119,7 @@ export function CreateReservationForm() {
   const form = useForm<CreateReservationFormInput, unknown, CreateReservationFormValues>({
     resolver: zodResolver(createReservationSchema),
     mode: 'onBlur',
-    defaultValues: {
-      plateNumber: '',
-      driverFullName: '',
-      driverPhone: '',
-      fuelType: 'AI_95',
-      fuelPreferenceMode: 'EXACT',
-      requestedLiters: 20,
-      comment: '',
-    },
+    defaultValues: createReservationFormDefaultValues,
   })
   const watchedPlateNumber = form.watch('plateNumber')
   const watchedFuelType = form.watch('fuelType')
@@ -158,6 +160,10 @@ export function CreateReservationForm() {
         comment: values.comment,
         clientMutationId: crypto.randomUUID(),
       })
+      form.reset(createReservationFormDefaultValues)
+      resetCheckVehicleAccess()
+      setHistoryPlateNumber('')
+      setHistoryAccordionValue('')
     } catch {
       // Mutation state renders the error alert below.
     }

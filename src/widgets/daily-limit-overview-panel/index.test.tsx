@@ -87,8 +87,8 @@ describe('DailyLimitOverviewPanel', () => {
     expect(screen.getByText('Закрыт')).toBeInTheDocument()
     expect(screen.getByText('Прогноз дня')).toBeInTheDocument()
     expect(screen.getByText('Бензин')).toBeInTheDocument()
-    expect(screen.getByText('Хватит до №')).toBeInTheDocument()
-    expect(screen.getAllByText('12')[0]).toBeInTheDocument()
+    expect(screen.queryByText('Хватит до №')).not.toBeInTheDocument()
+    expect(screen.queryByText('До номера')).not.toBeInTheDocument()
   })
 
   it('shows offline and estimated snapshot warnings', () => {

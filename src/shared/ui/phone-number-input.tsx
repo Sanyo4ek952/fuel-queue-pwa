@@ -48,7 +48,7 @@ export function PhoneNumberInput({
       inputMode="tel"
       maxLength={17}
       placeholder="+7 999 123-45-67"
-      value={formatRuPhoneNumber(value)}
+      value={value ? formatRuPhoneNumber(value) : ''}
       onChange={handleChange}
       onBlur={handleBlur}
       {...props}
