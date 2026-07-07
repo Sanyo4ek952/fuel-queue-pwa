@@ -8,12 +8,56 @@ import {
 import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
 
 const publicApiTimeoutMs = 10_000
-const publicApiUnavailableMessage = 'Проверка временно недоступна. Попробуйте ещё раз позже.'
+const publicApiUnavailableMessage =
+  'Не удалось проверить номер: сервер проверки временно недоступен.'
+const publicApiTimeoutMessage =
+  'Не удалось проверить номер: сервер проверки не ответил за 10 секунд.'
+const publicApiNetworkMessage =
+  'Не удалось проверить номер: нет соединения с сервером проверки.'
+
+function buildPublicQueueCheckErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) {
+    return publicApiUnavailableMessage
+  }
+
+  const message = error.message.trim()
+  const normalizedMessage = message.toLowerCase()
+
+  if (!message) {
+    return publicApiUnavailableMessage
+  }
+
+  if (message === publicApiTimeoutMessage || normalizedMessage.includes('timed out')) {
+    return publicApiTimeoutMessage
+  }
+
+  if (
+    normalizedMessage.includes('failed to fetch') ||
+    normalizedMessage.includes('network') ||
+    normalizedMessage.includes('load failed')
+  ) {
+    return publicApiNetworkMessage
+  }
+
+  if (message === 'Supabase is not configured.') {
+    return 'Не удалось проверить номер: публичная проверка не настроена на сервере.'
+  }
+
+  if (message === 'Unexpected public queue check response.') {
+    return 'Не удалось проверить номер: сервер вернул неполный ответ.'
+  }
+
+  if (message === 'Public queue check failed.') {
+    return 'Не удалось проверить номер: сервер проверки вернул ошибку.'
+  }
+
+  return `Не удалось проверить номер: ${message}`
+}
 
 async function requestPublicApi(path: string, init?: RequestInit) {
   return fetchWithTimeout(path, init, {
     timeoutMs: publicApiTimeoutMs,
-    timeoutMessage: publicApiUnavailableMessage,
+    timeoutMessage: publicApiTimeoutMessage,
   })
 }
 
@@ -72,7 +116,9 @@ export async function checkPublicQueuePositionViaApi({
     if (!parsed) {
       return {
         data: null,
-        error: 'Unexpected public queue check response.',
+        error: buildPublicQueueCheckErrorMessage(
+          new Error('Unexpected public queue check response.'),
+        ),
       }
     }
 
@@ -83,7 +129,7 @@ export async function checkPublicQueuePositionViaApi({
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error.message : publicApiUnavailableMessage,
+      error: buildPublicQueueCheckErrorMessage(error),
     }
   }
 }

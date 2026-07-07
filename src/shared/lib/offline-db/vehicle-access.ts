@@ -3,7 +3,11 @@ import {
   type VehicleAccessReason,
   type VehicleAccessResult,
 } from '@/shared/types/vehicle-access'
-import { getFuelQueueCategory } from '@/shared/constants'
+import {
+  getCompatibleFuelTypes,
+  getFuelQueueCategory,
+  type QueueFuelType,
+} from '@/shared/constants'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import { getCachedRefuelCooldownDays } from './app-settings'
@@ -48,6 +52,72 @@ function getEffectiveLiters(reservation: LocalReservation) {
   return reservation.requested_liters || 20
 }
 
+type LimitOverview = NonNullable<LocalDailyLimit['category_overviews']>[number]
+
+function getOverviewKey(overview: LimitOverview) {
+  return overview.fuel_type ?? overview.fuel_category
+}
+
+function cloneFuelOverviews(dailyLimit: LocalDailyLimit | undefined) {
+  return new Map(
+    (dailyLimit?.category_overviews ?? []).map((overview) => [
+      getOverviewKey(overview),
+      { ...overview },
+    ]),
+  )
+}
+
+function canCoverOverview(overview: LimitOverview | undefined, effectiveLiters: number) {
+  if (!overview) {
+    return false
+  }
+
+  if (overview.limit_mode === 'fuel_liters') {
+    return overview.liters_limit != null && overview.liters_limit >= effectiveLiters
+  }
+
+  return overview.vehicle_limit > 0
+}
+
+function consumeOverview(overview: LimitOverview, effectiveLiters: number) {
+  if (overview.limit_mode === 'fuel_liters' && overview.liters_limit != null) {
+    overview.liters_limit = Math.max(overview.liters_limit - effectiveLiters, 0)
+    return
+  }
+
+  overview.vehicle_limit = Math.max(overview.vehicle_limit - 1, 0)
+}
+
+function pickMatchedFuelType(
+  reservation: LocalReservation,
+  overviewsByFuel: Map<string, LimitOverview>,
+  effectiveLiters: number,
+): QueueFuelType | null {
+  const compatibleFuelTypes = getCompatibleFuelTypes(
+    reservation.fuel_type,
+    reservation.fuel_preference_mode ?? 'EXACT',
+  )
+
+  for (const fuelType of compatibleFuelTypes) {
+    const exactOverview = overviewsByFuel.get(fuelType)
+
+    if (exactOverview && canCoverOverview(exactOverview, effectiveLiters)) {
+      consumeOverview(exactOverview, effectiveLiters)
+      return fuelType
+    }
+  }
+
+  const category = getFuelQueueCategory(reservation.fuel_type)
+  const categoryOverview = category ? overviewsByFuel.get(category) : undefined
+
+  if (categoryOverview && canCoverOverview(categoryOverview, effectiveLiters)) {
+    consumeOverview(categoryOverview, effectiveLiters)
+    return compatibleFuelTypes[0] ?? null
+  }
+
+  return null
+}
+
 function addDays(dateValue: string, days: number) {
   const date = new Date(`${dateValue}T00:00:00.000Z`)
   date.setUTCDate(date.getUTCDate() + days)
@@ -76,55 +146,36 @@ function isReservationCoveredByDailyLimit(
     return {
       isCovered: false,
       fuelCategory,
+      matchedFuelType: null,
       reason: dailyLimit ? 'OUTSIDE_TODAY_LIMIT' : 'NO_GLOBAL_DAILY_LIMIT',
     } as const
   }
 
-  const categoryOverview = dailyLimit.category_overviews?.find(
-    (item) => item.fuel_category === fuelCategory,
-  )
-
-  if (!categoryOverview) {
-    return {
-      isCovered: false,
-      fuelCategory,
-      reason: 'OUTSIDE_TODAY_LIMIT',
-    } as const
-  }
-
-  const categoryReservations = reservations
-    .filter(
-      (item) =>
-        activeReservationStatuses.has(item.status) &&
-        getFuelQueueCategory(item.fuel_type) === fuelCategory,
-    )
+  const overviewsByFuel = cloneFuelOverviews(dailyLimit)
+  const activeReservations = reservations
+    .filter((item) => activeReservationStatuses.has(item.status))
     .sort((left, right) => left.queue_number - right.queue_number || left.id.localeCompare(right.id))
 
   let coveredVehicleCount = 0
   let coveredLiters = 0
 
-  for (const item of categoryReservations) {
+  for (const item of activeReservations) {
     const effectiveLiters = getEffectiveLiters(item)
-    const nextVehicleCount = coveredVehicleCount + 1
-    const nextLiters = coveredLiters + effectiveLiters
-    const isCurrentCovered =
-      categoryOverview.limit_mode === 'vehicle_count'
-        ? nextVehicleCount <= categoryOverview.vehicle_limit
-        : categoryOverview.liters_limit != null && nextLiters <= categoryOverview.liters_limit
+    const matchedFuelType = pickMatchedFuelType(item, overviewsByFuel, effectiveLiters)
+    const isCurrentCovered = Boolean(matchedFuelType)
+    const nextVehicleCount = coveredVehicleCount + (isCurrentCovered ? 1 : 0)
+    const nextLiters = coveredLiters + (isCurrentCovered ? effectiveLiters : 0)
 
     if (item.id === reservation.id) {
       return {
         isCovered: isCurrentCovered,
         fuelCategory,
+        matchedFuelType,
         effectiveLiters,
-        categoryPosition: nextVehicleCount,
-        categoryLiters: nextLiters,
+        categoryPosition: nextVehicleCount || undefined,
+        categoryLiters: nextLiters || undefined,
         reason: 'OUTSIDE_TODAY_LIMIT',
       } as const
-    }
-
-    if (!isCurrentCovered) {
-      break
     }
 
     coveredVehicleCount = nextVehicleCount
@@ -134,6 +185,7 @@ function isReservationCoveredByDailyLimit(
   return {
     isCovered: false,
     fuelCategory,
+    matchedFuelType: null,
     reason: 'OUTSIDE_TODAY_LIMIT',
   } as const
 }
@@ -250,6 +302,10 @@ export function evaluateVehicleAccessOffline(
         manual_override_id: manualOverride.id,
         station_id: stationId,
         date: checkDate,
+        matched_fuel_type: null,
+        is_within_today_limit: true,
+        is_callable_now: true,
+        call_unavailable_reason: null,
       }
     }
 
@@ -271,6 +327,12 @@ export function evaluateVehicleAccessOffline(
       date: checkDate,
       queue_number: reservation.queue_number,
       fuel_type: reservation.fuel_type,
+      preferred_fuel_type: reservation.fuel_type,
+      fuel_preference_mode: reservation.fuel_preference_mode ?? 'EXACT',
+      matched_fuel_type: null,
+      is_within_today_limit: true,
+      is_callable_now: true,
+      call_unavailable_reason: null,
       fuel_category: getFuelQueueCategory(reservation.fuel_type) ?? undefined,
       requested_liters: reservation.requested_liters,
       manual_override_id: manualOverride.id,
@@ -292,6 +354,15 @@ export function evaluateVehicleAccessOffline(
       date: checkDate,
       queue_number: reservation.queue_number,
       fuel_type: reservation.fuel_type,
+      preferred_fuel_type: reservation.fuel_type,
+      fuel_preference_mode: reservation.fuel_preference_mode ?? 'EXACT',
+      matched_fuel_type: limitDecision.matchedFuelType,
+      is_within_today_limit: false,
+      is_callable_now: false,
+      call_unavailable_reason:
+        limitDecision.reason === 'NO_GLOBAL_DAILY_LIMIT'
+          ? 'NO_OPEN_DAILY_LIMIT'
+          : 'OUTSIDE_TODAY_LIMIT',
       fuel_category: limitDecision.fuelCategory ?? undefined,
       effective_liters: limitDecision.effectiveLiters,
       category_position: limitDecision.categoryPosition,
@@ -309,6 +380,12 @@ export function evaluateVehicleAccessOffline(
     date: checkDate,
     queue_number: reservation.queue_number,
     fuel_type: reservation.fuel_type,
+    preferred_fuel_type: reservation.fuel_type,
+    fuel_preference_mode: reservation.fuel_preference_mode ?? 'EXACT',
+    matched_fuel_type: limitDecision.matchedFuelType,
+    is_within_today_limit: true,
+    is_callable_now: true,
+    call_unavailable_reason: null,
     fuel_category: limitDecision.fuelCategory ?? undefined,
     requested_liters: reservation.requested_liters,
     effective_liters: limitDecision.effectiveLiters,

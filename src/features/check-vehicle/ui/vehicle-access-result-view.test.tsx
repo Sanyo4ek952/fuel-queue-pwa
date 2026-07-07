@@ -31,4 +31,21 @@ describe('VehicleAccessResultView', () => {
     expect(screen.getByText('Желаемое топливо')).toBeInTheDocument()
     expect(screen.getByText('AI_95')).toBeInTheDocument()
   })
+
+  it('shows matched fuel when it differs from the desired fuel', () => {
+    render(
+      <VehicleAccessResultView
+        result={{
+          status: 'ALLOWED',
+          reason: 'ACTIVE_RESERVATION',
+          normalized_plate_number: 'Рђ123Р’РЎ777',
+          fuel_type: 'AI_95',
+          matched_fuel_type: 'AI_92',
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('AI_95').length).toBeGreaterThan(0)
+    expect(screen.getByText('AI_92')).toBeInTheDocument()
+  })
 })

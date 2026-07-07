@@ -103,7 +103,9 @@ export async function createOfflineFuelingRecord({
   }
 
   const vehicleId = accessResult.vehicle_id
-  const effectiveFuelType = (accessResult.fuel_type ?? fuelType) as FuelType | undefined
+  const effectiveFuelType = (accessResult.matched_fuel_type ??
+    accessResult.fuel_type ??
+    fuelType) as FuelType | undefined
 
   if (!vehicleId) {
     throw new Error('VEHICLE_NOT_FOUND')

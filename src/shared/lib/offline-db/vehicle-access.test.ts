@@ -86,6 +86,96 @@ describe('evaluateVehicleAccessOffline', () => {
     })
   })
 
+  it('allows an any-gasoline reservation when AI-92 has exact limit room', () => {
+    expect(
+      check(
+        makeSnapshot({
+          reservations: [
+            {
+              id: 'reservation-1',
+              station_id: stationId,
+              vehicle_id: vehicleId,
+              date: checkDate,
+              status: 'RESERVED',
+              queue_number: 7,
+              fuel_type: 'AI_95',
+              fuel_preference_mode: 'ANY_GASOLINE',
+              requested_liters: 40,
+            },
+          ],
+          dailyLimits: [
+            {
+              id: 'daily-limit-1',
+              station_id: null,
+              date: checkDate,
+              status: 'OPEN',
+              category_overviews: [
+                {
+                  fuel_type: 'AI_92',
+                  fuel_category: 'GASOLINE',
+                  label: 'РђР-92',
+                  limit_mode: 'vehicle_count',
+                  vehicle_limit: 1,
+                  liters_limit: null,
+                  queue_count: 1,
+                  queued_liters: 40,
+                  covered_vehicle_count: 0,
+                  covered_liters: 0,
+                  remaining_vehicle_count: 1,
+                  remaining_liters: null,
+                  projected_queue_number: null,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toMatchObject({
+      status: 'ALLOWED',
+      reason: 'ACTIVE_RESERVATION',
+      fuel_type: 'AI_95',
+      fuel_preference_mode: 'ANY_GASOLINE',
+      matched_fuel_type: 'AI_92',
+    })
+  })
+
+  it('blocks an exact AI-95 reservation when only AI-92 has limit room', () => {
+    expect(
+      check(
+        makeSnapshot({
+          dailyLimits: [
+            {
+              id: 'daily-limit-1',
+              station_id: null,
+              date: checkDate,
+              status: 'OPEN',
+              category_overviews: [
+                {
+                  fuel_type: 'AI_92',
+                  fuel_category: 'GASOLINE',
+                  label: 'РђР-92',
+                  limit_mode: 'vehicle_count',
+                  vehicle_limit: 1,
+                  liters_limit: null,
+                  queue_count: 1,
+                  queued_liters: 40,
+                  covered_vehicle_count: 0,
+                  covered_liters: 0,
+                  remaining_vehicle_count: 1,
+                  remaining_liters: null,
+                  projected_queue_number: null,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toMatchObject({
+      status: 'BLOCKED',
+      reason: 'OUTSIDE_TODAY_LIMIT',
+    })
+  })
+
   it('blocks when there is no active reservation', () => {
     expect(check(makeSnapshot({ reservations: [] }))).toMatchObject({
       status: 'BLOCKED',

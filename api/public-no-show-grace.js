@@ -1,8 +1,12 @@
 const requestTimeoutMs = 9_000
 
+function normalizeSupabaseUrl(url) {
+  return url?.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '')
+}
+
 function getSupabaseConfig() {
   return {
-    url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+    url: normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
     anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
   }
 }

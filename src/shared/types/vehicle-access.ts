@@ -29,6 +29,12 @@ export type VehicleAccessResult = {
   daily_limit_status?: string
   queue_number?: number
   fuel_type?: string
+  preferred_fuel_type?: string
+  fuel_preference_mode?: string
+  matched_fuel_type?: string | null
+  is_within_today_limit?: boolean
+  is_callable_now?: boolean
+  call_unavailable_reason?: string | null
   fuel_category?: string
   requested_liters?: number
   effective_liters?: number

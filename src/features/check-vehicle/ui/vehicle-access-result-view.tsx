@@ -128,6 +128,12 @@ export function VehicleAccessResultView({
                 <dd className="font-semibold">{result.fuel_type}</dd>
               </div>
             ) : null}
+            {result.matched_fuel_type && result.matched_fuel_type !== result.fuel_type ? (
+              <div>
+                <dt className="opacity-70">Доступно к заправке</dt>
+                <dd className="font-semibold">{result.matched_fuel_type}</dd>
+              </div>
+            ) : null}
             {result.effective_liters ? (
               <div>
                 <dt className="opacity-70">В расчёте</dt>

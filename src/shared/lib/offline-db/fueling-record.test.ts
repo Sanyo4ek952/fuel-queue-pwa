@@ -135,6 +135,44 @@ describe('createOfflineFuelingRecord', () => {
     expect(mocks.tables.local_reservations.rows[0].status).toBe('FUELED')
   })
 
+  it('uses matched AI-92 in the offline outbox for any-gasoline reservations', async () => {
+    Object.assign(mocks.tables.local_reservations.rows[0], {
+      fuel_type: 'AI_95',
+      fuel_preference_mode: 'ANY_GASOLINE',
+    })
+    mocks.tables.local_daily_limits.rows[0].category_overviews = [
+      {
+        fuel_type: 'AI_92',
+        fuel_category: 'GASOLINE',
+        label: 'РђР-92',
+        limit_mode: 'vehicle_count',
+        vehicle_limit: 1,
+        liters_limit: null,
+        queue_count: 1,
+        queued_liters: 40,
+        covered_vehicle_count: 0,
+        covered_liters: 0,
+        remaining_vehicle_count: 1,
+        remaining_liters: null,
+        projected_queue_number: null,
+      },
+    ]
+
+    const result = await createOfflineFuelingRecord({
+      stationId,
+      plateNumber: String(mocks.tables.local_vehicles.rows[0].normalized_plate_number),
+      liters: 40,
+      targetDate,
+      fueledAt: '2026-07-05T10:00:00.000Z',
+      clientMutationId: 'mutation-id',
+    })
+
+    expect(result.fuel_type).toBe('AI_92')
+    expect(mocks.tables.sync_outbox.rows[0].payload).toMatchObject({
+      fuel_type: 'AI_92',
+    })
+  })
+
   it('removes the fueled reservation from the active local queue snapshot', async () => {
     await createOfflineFuelingRecord({
       stationId,

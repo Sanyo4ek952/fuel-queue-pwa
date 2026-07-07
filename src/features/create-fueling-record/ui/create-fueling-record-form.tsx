@@ -119,8 +119,14 @@ function AccessResultCard({ result }: { result: VehicleAccessResult }) {
             ) : null}
             {result.fuel_type ? (
               <div>
-                <dt className="opacity-70">Топливо</dt>
+                <dt className="opacity-70">Желаемое топливо</dt>
                 <dd className="font-semibold">{result.fuel_type}</dd>
+              </div>
+            ) : null}
+            {result.matched_fuel_type && result.matched_fuel_type !== result.fuel_type ? (
+              <div>
+                <dt className="opacity-70">Доступно к заправке</dt>
+                <dd className="font-semibold">{result.matched_fuel_type}</dd>
               </div>
             ) : null}
             {result.requested_liters ? (
@@ -188,8 +194,10 @@ export function CreateFuelingRecordForm() {
       form.setValue('liters', result.requested_liters, { shouldValidate: true })
     }
 
-    if (result.fuel_type) {
-      form.setValue('fuelType', result.fuel_type as FuelType, { shouldValidate: true })
+    const actualFuelType = result.matched_fuel_type ?? result.fuel_type
+
+    if (actualFuelType) {
+      form.setValue('fuelType', actualFuelType as FuelType, { shouldValidate: true })
     }
   }
 
@@ -202,7 +210,11 @@ export function CreateFuelingRecordForm() {
       stationId: selectedStationId,
       plateNumber: values.plateNumber,
       liters: values.liters,
-      fuelType: accessResult?.fuel_type ? (accessResult.fuel_type as FuelType) : values.fuelType,
+      fuelType: accessResult?.matched_fuel_type
+        ? (accessResult.matched_fuel_type as FuelType)
+        : accessResult?.fuel_type
+          ? (accessResult.fuel_type as FuelType)
+          : values.fuelType,
       targetDate: getTodayDateInputValue(),
       fueledAt: new Date().toISOString(),
       comment: values.comment,
