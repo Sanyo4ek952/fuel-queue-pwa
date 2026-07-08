@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { useCurrentProfile } from '@/entities/profile'
@@ -64,6 +64,63 @@ function LoadingScreen() {
   )
 }
 
+function useLoadingTimeout(isLoading: boolean, timeoutMs: number) {
+  const [hasTimedOut, setHasTimedOut] = useState(false)
+
+  useEffect(() => {
+    if (!isLoading) {
+      setHasTimedOut(false)
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => setHasTimedOut(true), timeoutMs)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [isLoading, timeoutMs])
+
+  return hasTimedOut
+}
+
+function ProfileLoadErrorScreen({
+  isRetrying,
+  onRetry,
+}: {
+  isRetrying: boolean
+  onRetry: () => void
+}) {
+  const logoutMutation = useLogout()
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+      <Card className="w-full max-w-md rounded-lg border-slate-200 bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle>Не удалось загрузить профиль</CardTitle>
+          <CardDescription>Проверьте интернет, VPN или повторите попытку.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Alert variant="destructive">
+            <AlertTitle>Загрузка остановлена</AlertTitle>
+            <AlertDescription>
+              Приложение не получило профиль пользователя достаточно быстро.
+            </AlertDescription>
+          </Alert>
+          <Button className="w-full" disabled={isRetrying} onClick={onRetry}>
+            {isRetrying ? 'Повторяем...' : 'Повторить'}
+          </Button>
+          <Button
+            className="w-full"
+            variant="outline"
+            disabled={logoutMutation.isPending}
+            onClick={() => logoutMutation.mutate()}
+          >
+            {logoutMutation.isPending ? 'Выходим...' : 'Выйти'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 function AccessStateScreen({ state }: { state: ProtectedRouteState | 'profile-error' }) {
   const logoutMutation = useLogout()
   const message =
@@ -118,11 +175,22 @@ function getRouteForAccess(pathname: string) {
 }
 
 function AppShell() {
+  const currentProfileQuery = useCurrentProfile()
+  const isProfileFromCache = Boolean(currentProfileQuery.data?.is_from_cache)
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
       <OfflineBanner />
       <AppHeader />
       <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-4">
+        {isProfileFromCache ? (
+          <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-950">
+            <AlertTitle>Профиль загружен из локального кэша</AlertTitle>
+            <AlertDescription>
+              Права и данные обновятся после восстановления связи с сервером.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <Suspense fallback={<LoadingScreen />}>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -154,6 +222,7 @@ function AuthenticatedAppShell() {
   const currentProfileQuery = useCurrentProfile({
     enabled: Boolean(auth.session) && !auth.isLoading,
   })
+  const profileLoadingTimedOut = useLoadingTimeout(currentProfileQuery.isLoading, 8_000)
   const route = getRouteForAccess(location.pathname)
 
   const state = getProtectedRouteState({
@@ -164,7 +233,20 @@ function AuthenticatedAppShell() {
     route,
   })
 
-  if (state === 'auth-loading' || state === 'profile-loading') {
+  if (state === 'auth-loading') {
+    return <LoadingScreen />
+  }
+
+  if (state === 'profile-loading') {
+    if (profileLoadingTimedOut) {
+      return (
+        <ProfileLoadErrorScreen
+          isRetrying={currentProfileQuery.isFetching}
+          onRetry={() => void currentProfileQuery.refetch()}
+        />
+      )
+    }
+
     return <LoadingScreen />
   }
 
@@ -173,7 +255,12 @@ function AuthenticatedAppShell() {
   }
 
   if (currentProfileQuery.isError) {
-    return <AccessStateScreen state="profile-error" />
+    return (
+      <ProfileLoadErrorScreen
+        isRetrying={currentProfileQuery.isFetching}
+        onRetry={() => void currentProfileQuery.refetch()}
+      />
+    )
   }
 
   if (state !== 'allowed') {

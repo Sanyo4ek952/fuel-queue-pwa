@@ -1,7 +1,12 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { UserRole } from '@/shared/config/roles'
 import { USER_ROLES } from '@/shared/config/roles'
-import { canViewAllStations } from '@/shared/lib/permissions'
+import { getAuthSession } from '@/shared/api/auth'
+import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
+import {
+  getCachedCurrentProfile,
+  saveCachedCurrentProfile,
+} from '@/shared/lib/offline-db'
 import { supabase } from '@/shared/api/supabase'
 
 export type ProfileStation = {
@@ -32,6 +37,7 @@ export type CurrentProfile = {
   deactivated_at: string | null
   deactivation_reason: string | null
   stations: ProfileStation[]
+  is_from_cache?: boolean
 }
 
 export type ProfileApprovalStatus = 'pending' | 'approved' | 'rejected'
@@ -67,16 +73,6 @@ type ProfileRow = {
   deactivated_by: string | null
   deactivated_at: string | null
   deactivation_reason: string | null
-}
-
-type StationRow = {
-  id: string
-  name: string
-  address: string | null
-}
-
-type UserStationRow = {
-  stations?: StationRow | StationRow[] | null
 }
 
 function isUserRole(value: string): value is UserRole {
@@ -117,109 +113,42 @@ function toProfile(value: ProfileRow, stations: ProfileStation[]): CurrentProfil
   }
 }
 
-function toStation(value: StationRow): ProfileStation {
-  return {
-    id: value.id,
-    name: value.name,
-    address: value.address,
-  }
-}
-
-async function getAllStations(): Promise<ProfileStation[]> {
-  const { data, error } = await supabase
-    .from('stations')
-    .select('id, name, address')
-    .eq('is_active', true)
-    .order('name', { ascending: true })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return (data ?? []).map(toStation)
-}
-
-async function getAssignedStations(profileId: string): Promise<ProfileStation[]> {
-  const { data, error } = await supabase
-    .from('user_stations')
-    .select('stations(id, name, address)')
-    .eq('user_id', profileId)
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return (data ?? [])
-    .flatMap((item: UserStationRow) => {
-      if (!item.stations) {
-        return []
-      }
-
-      return Array.isArray(item.stations) ? item.stations : [item.stations]
-    })
-    .map(toStation)
-}
-
 export async function getCurrentProfile(): Promise<CurrentProfile | null> {
   if (!isSupabaseConfigured) {
     return null
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
+  const sessionResult = await getAuthSession()
 
-  if (userError) {
-    throw new Error(userError.message)
+  if (sessionResult.error) {
+    throw new Error(sessionResult.error)
   }
 
-  if (!user) {
+  if (!sessionResult.data?.access_token) {
     return null
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select(
-      [
-        'id',
-        'auth_user_id',
-        'full_name',
-        'first_name',
-        'last_name',
-        'middle_name',
-        'position',
-        'signature_name',
-        'role',
-        'is_active',
-        'approval_status',
-        'requested_station_id',
-        'approved_by',
-        'approved_at',
-        'rejected_by',
-        'rejected_at',
-        'rejection_reason',
-        'deactivated_by',
-        'deactivated_at',
-        'deactivation_reason',
-      ].join(', '),
-    )
-    .eq('auth_user_id', user.id)
-    .maybeSingle<ProfileRow>()
+  try {
+    const profile = await getCurrentProfileViaApi(sessionResult.data.access_token)
 
-  if (profileError) {
-    throw new Error(profileError.message)
+    if (profile) {
+      await saveCachedCurrentProfile(profile)
+    }
+
+    return profile ? { ...profile, is_from_cache: false } : null
+  } catch (error) {
+    if (!shouldUseCachedCurrentProfile(error)) {
+      throw error
+    }
+
+    const cachedProfile = await getCachedCurrentProfile()
+
+    if (cachedProfile) {
+      return { ...cachedProfile, is_from_cache: true }
+    }
+
+    throw error
   }
-
-  if (!profile) {
-    return null
-  }
-
-  const stations = isUserRole(profile.role) && canViewAllStations(profile.role)
-    ? await getAllStations()
-    : await getAssignedStations(profile.id)
-
-  return toProfile(profile, stations)
 }
 
 function isProfileStation(value: unknown): value is ProfileStation {
@@ -283,6 +212,81 @@ function toManagedProfile(value: unknown): ManagedProfile | null {
   }
 
   return null
+}
+
+class CurrentProfileApiError extends Error {
+  statusCode: number | null
+
+  constructor(message: string, statusCode: number | null = null) {
+    super(message)
+    this.statusCode = statusCode
+  }
+}
+
+function shouldUseCachedCurrentProfile(error: unknown) {
+  if (error instanceof CurrentProfileApiError) {
+    return error.statusCode === 504 || (error.statusCode !== null && error.statusCode >= 500)
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase()
+
+    return (
+      message.includes('timed out') ||
+      message.includes('failed to fetch') ||
+      message.includes('network') ||
+      message.includes('load failed')
+    )
+  }
+
+  return false
+}
+
+async function readCurrentProfileApiResponse(response: Response) {
+  const value = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const message =
+      value && typeof value === 'object' && 'error' in value && typeof value.error === 'string'
+        ? value.error
+        : 'Current profile request failed.'
+
+    throw new CurrentProfileApiError(message, response.status)
+  }
+
+  return value
+}
+
+async function getCurrentProfileViaApi(accessToken: string): Promise<CurrentProfile | null> {
+  const response = await fetchWithTimeout(
+    '/api/current-profile',
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+    {
+      timeoutMs: 8_000,
+      timeoutMessage: 'Current profile request timed out.',
+    },
+  )
+  const value = await readCurrentProfileApiResponse(response)
+
+  if (value === null) {
+    return null
+  }
+
+  if (!value || typeof value !== 'object') {
+    throw new CurrentProfileApiError('Unexpected current profile response.')
+  }
+
+  const profile = value as ProfileRow & { stations?: ProfileStation[] }
+
+  if (!Array.isArray(profile.stations)) {
+    throw new CurrentProfileApiError('Unexpected current profile stations response.')
+  }
+
+  return toProfile(profile, profile.stations)
 }
 
 export async function listManagedProfiles(): Promise<ManagedProfile[]> {
