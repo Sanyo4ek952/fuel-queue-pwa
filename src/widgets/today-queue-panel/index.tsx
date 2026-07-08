@@ -365,7 +365,7 @@ function QueueRowCard({
                   className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-md bg-slate-900 text-white"
                   aria-label={`Текущая позиция ${row.current_position}`}
                 >
-            
+          
                   <span className="text-sm font-semibold leading-tight">
                     {row.current_position}
                   </span>
