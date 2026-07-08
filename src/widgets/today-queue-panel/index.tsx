@@ -13,6 +13,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
+import { useDailyLimitOverview } from '@/entities/daily-limit'
 import { useTodayQueue, type TodayQueueRow } from '@/entities/reservation'
 import { useLogReservationCall } from '@/features/log-reservation-call'
 import {
@@ -31,6 +32,7 @@ import {
   QUEUE_FUEL_TYPES,
   type ReservationCallStatus,
 } from '@/shared/constants'
+import { getTodayDateInputValue } from '@/shared/lib/date'
 import { cn } from '@/shared/lib/utils'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import {
@@ -282,6 +284,7 @@ function QueueRowCard({
   isLoggingCall,
   isUpdatingFuelPreference,
   isFuelPreferenceUpdateUnavailable,
+  isFuelPreferenceLockedByOpenLimit,
   onLogCall,
   onUpdateFuelPreference,
 }: {
@@ -289,6 +292,7 @@ function QueueRowCard({
   isLoggingCall: boolean
   isUpdatingFuelPreference: boolean
   isFuelPreferenceUpdateUnavailable: boolean
+  isFuelPreferenceLockedByOpenLimit: boolean
   onLogCall: (row: TodayQueueRow, status: ReservationCallStatus) => void
   onUpdateFuelPreference: (
     row: TodayQueueRow,
@@ -305,16 +309,20 @@ function QueueRowCard({
     },
   })
   const phoneHref = getPhoneHref(row.driver_phone)
-  const callActionsDisabled = isLoggingCall || row.is_offline
-  const fuelPreferenceActionsDisabled =
-    isFuelPreferenceUpdateUnavailable || row.is_offline || isUpdatingFuelPreference
   const callableNow = isRowCallable(row)
+  const callActionsDisabled = isLoggingCall || row.is_offline || !callableNow
+  const fuelPreferenceActionsDisabled =
+    isFuelPreferenceUpdateUnavailable ||
+    isFuelPreferenceLockedByOpenLimit ||
+    row.is_offline ||
+    isUpdatingFuelPreference
+  const fuelPreferenceEditLabel = isFuelPreferenceLockedByOpenLimit
+    ? 'Топливо нельзя изменить после открытия лимитов на сегодня'
+    : 'Изменить марку топлива'
   const isContacted = row.latest_call_status === 'CONTACTED'
   const hasPendingCallSync = row.latest_call_sync_status === 'PENDING'
   const callTime = formatCallTime(row.latest_called_at)
   const quickCallStatus: ReservationCallStatus = isContacted ? 'NOT_CALLED' : 'CONTACTED'
-  const contactedActionDisabled =
-    callActionsDisabled || (quickCallStatus === 'CONTACTED' && !callableNow)
   const phoneActionDisabled = !callableNow
   const matchedFuelLabel = row.matched_fuel_type
     ? (fuelTypeLabels[row.matched_fuel_type as FuelType] ?? row.matched_fuel_type)
@@ -354,12 +362,10 @@ function QueueRowCard({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <div
-                  className="flex h-11 w-12 shrink-0 flex-col items-center justify-center rounded-md bg-slate-900 text-white"
+                  className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-md bg-slate-900 text-white"
                   aria-label={`Текущая позиция ${row.current_position}`}
                 >
-                  <span className="text-[10px] font-medium leading-none text-slate-300">
-                    Позиция
-                  </span>
+            
                   <span className="text-sm font-semibold leading-tight">
                     {row.current_position}
                   </span>
@@ -432,7 +438,7 @@ function QueueRowCard({
                 variant="outline"
                 size="icon"
                 aria-label="Дозвонились"
-                disabled={contactedActionDisabled}
+                disabled={callActionsDisabled}
                 className={cn(
                   isContacted
                     ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
@@ -490,7 +496,8 @@ function QueueRowCard({
                         variant="ghost"
                         size="icon"
                         className="size-7 text-slate-500 hover:text-slate-900"
-                        aria-label="Изменить марку топлива"
+                        aria-label={fuelPreferenceEditLabel}
+                        title={fuelPreferenceEditLabel}
                         disabled={fuelPreferenceActionsDisabled}
                       >
                         <Pencil className="size-4" aria-hidden="true" />
@@ -632,7 +639,7 @@ function QueueRowCard({
                 type="button"
                 variant="outline"
                 className={cn('gap-2', callStatusButtonClasses.CONTACTED)}
-                disabled={contactedActionDisabled}
+                disabled={callActionsDisabled}
                 onClick={() => onLogCall(row, 'CONTACTED')}
               >
                 <CheckCircle2 className="size-4" aria-hidden="true" />
@@ -684,6 +691,7 @@ function QueueRowCard({
 }
 
 export function TodayQueuePanel() {
+  const todayDate = getTodayDateInputValue()
   const [plateSearch, setPlateSearch] = useState('')
   const [authorFilter, setAuthorFilter] = useState(ALL_AUTHORS_FILTER)
   const [gasolineFuelFilter, setGasolineFuelFilter] =
@@ -693,8 +701,11 @@ export function TodayQueuePanel() {
     getInitialVisibleCountByCategory,
   )
   const queue = useTodayQueue()
+  const dailyLimitOverview = useDailyLimitOverview({ date: todayDate })
   const logReservationCall = useLogReservationCall()
   const updateReservationFuelPreference = useUpdateReservationFuelPreference()
+  const isFuelPreferenceLockedByOpenLimit =
+    dailyLimitOverview.data?.exists === true && dailyLimitOverview.data.status === 'OPEN'
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
   const authorOptions = useMemo(() => buildAuthorOptions(queue.rows), [queue.rows])
   const rowsMatchingBaseFilters = useMemo(
@@ -977,6 +988,7 @@ export function TodayQueuePanel() {
                           updateReservationFuelPreference.variables?.reservationId === row.id
                         }
                         isFuelPreferenceUpdateUnavailable={!queue.isOnline}
+                        isFuelPreferenceLockedByOpenLimit={isFuelPreferenceLockedByOpenLimit}
                         onLogCall={handleLogCall}
                         onUpdateFuelPreference={handleUpdateFuelPreference}
                       />

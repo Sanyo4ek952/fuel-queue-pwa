@@ -104,4 +104,23 @@ describe('updateReservationFuelPreference', () => {
       error: 'RESERVATION_NOT_ACTIVE',
     })
   })
+
+  it('returns the open limit lock error from the RPC', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: null,
+      error: { message: 'FUEL_PREFERENCE_LOCKED_BY_OPEN_LIMIT' },
+    } as never)
+
+    const result = await updateReservationFuelPreference({
+      reservationId: 'reservation-id',
+      fuelType: 'AI_92',
+      fuelPreferenceMode: 'EXACT',
+      clientMutationId: 'mutation-id',
+    })
+
+    expect(result).toEqual({
+      data: null,
+      error: 'FUEL_PREFERENCE_LOCKED_BY_OPEN_LIMIT',
+    })
+  })
 })

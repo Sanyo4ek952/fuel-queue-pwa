@@ -80,7 +80,7 @@ preferred_fuel_type
 
 Проверяет активность записи.
 
-Для `CONTACTED` дополнительно требует `is_callable_now = true`; иначе возвращает ошибку `RESERVATION_NOT_CALLABLE`.
+Для любого статуса звонка требует `is_callable_now = true`; иначе возвращает ошибку `RESERVATION_NOT_CALLABLE`.
 
 ### check_public_queue_position
 

@@ -14,6 +14,15 @@ export type {
   UpdateReservationFuelPreferenceResult,
 }
 
+const updateReservationFuelPreferenceErrorMessages: Record<string, string> = {
+  FUEL_PREFERENCE_LOCKED_BY_OPEN_LIMIT:
+    'Топливо нельзя изменить после открытия лимитов на сегодня.',
+}
+
+function getUpdateReservationFuelPreferenceErrorMessage(error: string) {
+  return updateReservationFuelPreferenceErrorMessages[error] ?? error
+}
+
 export function useUpdateReservationFuelPreference() {
   const isOnline = useOnlineStatus()
   const queryClient = useQueryClient()
@@ -27,7 +36,11 @@ export function useUpdateReservationFuelPreference() {
       const result = await updateReservationFuelPreference(params)
 
       if (result.error || !result.data) {
-        throw new Error(result.error ?? 'UPDATE_RESERVATION_FUEL_PREFERENCE_FAILED')
+        throw new Error(
+          result.error
+            ? getUpdateReservationFuelPreferenceErrorMessage(result.error)
+            : 'UPDATE_RESERVATION_FUEL_PREFERENCE_FAILED',
+        )
       }
 
       return result.data

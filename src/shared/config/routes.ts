@@ -28,4 +28,5 @@ export const MAIN_SECTION_LINKS = [
   { path: ROUTES.limits, label: 'Лимиты', description: 'Дневные лимиты по АЗС и топливу' },
   { path: ROUTES.users, label: 'Сотрудники', description: 'Заявки на регистрацию и доступ сотрудников' },
   { path: ROUTES.sync, label: 'Синхронизация', description: 'Outbox, ошибки и конфликты' },
+  { path: ROUTES.reports, label: 'Отчеты', description: 'Отчеты по отпуску топлива для мэра' },
 ] as const

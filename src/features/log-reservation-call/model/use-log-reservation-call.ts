@@ -115,7 +115,7 @@ async function createOfflineReservationCallLog({
     throw new Error('RESERVATION_NOT_SYNCED')
   }
 
-  if (status === 'CONTACTED' && !reservation.is_callable_now) {
+  if (!reservation.is_callable_now) {
     throw new Error(reservation.call_unavailable_reason ?? 'RESERVATION_NOT_CALLABLE')
   }
 
@@ -200,7 +200,7 @@ export function useLogReservationCall() {
         throw new Error('PROFILE_NOT_LOADED')
       }
 
-      if (status === 'CONTACTED' && !reservation.is_callable_now) {
+      if (!reservation.is_callable_now) {
         throw new Error(reservation.call_unavailable_reason ?? 'RESERVATION_NOT_CALLABLE')
       }
 

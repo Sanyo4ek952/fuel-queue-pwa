@@ -11,8 +11,13 @@ const mocks = vi.hoisted(() => ({
   mutateCall: vi.fn(),
   mutateFuelPreference: vi.fn(),
   useTodayQueue: vi.fn(),
+  useDailyLimitOverview: vi.fn(),
   useLogReservationCall: vi.fn(),
   useUpdateReservationFuelPreference: vi.fn(),
+}))
+
+vi.mock('@/entities/daily-limit', () => ({
+  useDailyLimitOverview: mocks.useDailyLimitOverview,
 }))
 
 vi.mock('@/entities/reservation', () => ({
@@ -115,6 +120,24 @@ describe('TodayQueuePanel', () => {
   beforeEach(() => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useDailyLimitOverview.mockReturnValue({
+      data: {
+        exists: false,
+        id: null,
+        date: '2026-07-08',
+        station_id: null,
+        status: null,
+        category_overviews: [],
+        updated_at: null,
+        source: 'online',
+        is_estimated: false,
+        unsynced_reservation_count: 0,
+      },
       isOnline: true,
       isLoading: false,
       isFetching: false,
@@ -335,6 +358,56 @@ describe('TodayQueuePanel', () => {
     })
   })
 
+  it('disables every call status action outside the call list', async () => {
+    const row = makeQueueRow({
+      is_callable_now: false,
+      is_within_today_limit: false,
+      call_unavailable_reason: 'OUTSIDE_TODAY_LIMIT',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [row],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    const article = screen.getByRole('article')
+
+    expect(within(article).getByRole('button', { name: 'Дозвонились' })).toBeDisabled()
+
+    await userEvent.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
+
+    expect(within(article).getByRole('button', { name: 'Не ответил' })).toBeDisabled()
+    expect(within(article).getByRole('button', { name: 'Перезвонить' })).toBeDisabled()
+    expect(within(article).getByRole('button', { name: 'Неверный' })).toBeDisabled()
+
+    expect(mocks.mutateCall).not.toHaveBeenCalled()
+  })
+
+  it('disables resetting a contacted call after it leaves the call list', () => {
+    const row = makeQueueRow({
+      is_callable_now: false,
+      call_unavailable_reason: 'ALREADY_CONTACTED',
+      latest_call_status: 'CONTACTED',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [row],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    expect(screen.getByRole('button', { name: 'Дозвонились' })).toBeDisabled()
+  })
+
   it('renders the latest call author on the card details', async () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [
@@ -551,6 +624,52 @@ describe('TodayQueuePanel', () => {
       clientMutationId: expect.any(String),
     })
     expect(within(article).getByText('7')).toBeInTheDocument()
+  })
+
+  it('disables fuel preference editing while today daily limit is open', async () => {
+    const row = makeQueueRow({
+      id: 'reservation-id',
+      fuel_type: 'AI_95',
+      fuel_preference_mode: 'EXACT',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [row],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useDailyLimitOverview.mockReturnValue({
+      data: {
+        exists: true,
+        id: 'daily-limit-id',
+        date: '2026-07-08',
+        station_id: null,
+        status: 'OPEN',
+        category_overviews: [],
+        updated_at: '2026-07-08T10:00:00.000Z',
+        source: 'online',
+        is_estimated: false,
+        unsynced_reservation_count: 0,
+      },
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    const article = screen.getByRole('article')
+
+    await userEvent.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
+
+    expect(
+      within(article).getByRole('button', {
+        name: 'Топливо нельзя изменить после открытия лимитов на сегодня',
+      }),
+    ).toBeDisabled()
   })
 
   it('disables fuel preference editing while the queue is offline', async () => {
