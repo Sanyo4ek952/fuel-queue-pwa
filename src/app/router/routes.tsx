@@ -47,6 +47,9 @@ const SyncStatusPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('@/pages/settings').then((m) => ({ default: m.SettingsPage })),
 )
+const QueueCheckQrPage = lazy(() =>
+  import('@/pages/queue-check-qr').then((m) => ({ default: m.QueueCheckQrPage })),
+)
 const PromoPage = lazy(() => import('@/pages/promo').then((m) => ({ default: m.PromoPage })))
 const PublicQueueCheckPage = lazy(() =>
   import('@/pages/public-queue-check').then((m) => ({ default: m.PublicQueueCheckPage })),
@@ -135,6 +138,7 @@ function AppShell() {
             <Route path="/users" element={<UsersPage />} />
             <Route path="/sync" element={<SyncStatusPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/queue-check-qr" element={<QueueCheckQrPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Suspense>

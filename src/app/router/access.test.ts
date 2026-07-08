@@ -173,4 +173,26 @@ describe('getProtectedRouteState', () => {
       }),
     ).toBe('allowed')
   })
+
+  it('allows QR sharing page for cashier and mayor assistant', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: { ...activeProfile, role: 'cashier' },
+        route: ROUTES.queueCheckQr,
+      }),
+    ).toBe('allowed')
+
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: activeProfile,
+        route: ROUTES.queueCheckQr,
+      }),
+    ).toBe('allowed')
+  })
 })

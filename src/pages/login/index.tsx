@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { LoginForm, RegistrationForm } from '@/features/auth'
 import { ROUTES } from '@/shared/config/routes'
@@ -34,6 +34,12 @@ export function LoginPage() {
             <RegistrationForm onSuccess={() => navigate(ROUTES.dashboard, { replace: true })} />
           </TabsContent>
         </Tabs>
+        <Link
+          to={ROUTES.queueCheck}
+          className="block rounded-lg border border-slate-200 bg-white p-3 text-center text-sm font-medium text-slate-700 underline-offset-4 shadow-sm transition-colors hover:bg-slate-50 hover:underline"
+        >
+          Проверить номер без входа
+        </Link>
       </div>
     </main>
   )

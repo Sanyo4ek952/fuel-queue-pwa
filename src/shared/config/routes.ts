@@ -12,6 +12,7 @@ export const ROUTES = {
   users: '/users',
   sync: '/sync',
   settings: '/settings',
+  queueCheckQr: '/queue-check-qr',
   promo: '/promo',
   queueCheck: '/queue-check',
 } as const
@@ -29,4 +30,5 @@ export const MAIN_SECTION_LINKS = [
   { path: ROUTES.users, label: 'Сотрудники', description: 'Заявки на регистрацию и доступ сотрудников' },
   { path: ROUTES.sync, label: 'Синхронизация', description: 'Outbox, ошибки и конфликты' },
   { path: ROUTES.reports, label: 'Отчеты', description: 'Отчеты по отпуску топлива для мэра' },
+  { path: ROUTES.queueCheckQr, label: 'QR для проверки', description: 'Ссылка для водителей на публичную проверку номера' },
 ] as const
