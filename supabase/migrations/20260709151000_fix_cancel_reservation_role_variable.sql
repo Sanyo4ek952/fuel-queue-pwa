@@ -1,23 +1,6 @@
 set check_function_bodies = off;
 set search_path = public, extensions;
 
-alter table public.fuel_reservations
-  add column if not exists cancelled_by uuid references public.profiles(id),
-  add column if not exists cancelled_at timestamptz,
-  add column if not exists cancel_reason text,
-  add column if not exists cancel_comment text;
-
-alter table public.fuel_reservations
-  drop constraint if exists fuel_reservations_cancel_reason_check;
-
-alter table public.fuel_reservations
-  add constraint fuel_reservations_cancel_reason_check
-  check (cancel_reason is null or cancel_reason in ('OWNER_CANCELLED', 'OTHER'));
-
-create index if not exists idx_reservations_cancelled_at
-on public.fuel_reservations (cancelled_at desc)
-where status = 'CANCELLED';
-
 create or replace function public.cancel_reservation(
   reservation_id uuid,
   reason text,
@@ -32,19 +15,19 @@ set search_path = public, extensions
 as $$
 declare
   current_profile_id uuid;
-  actor_role text;
+  actor_user_role text;
   reservation_row public.fuel_reservations%rowtype;
   saved_reservation_row public.fuel_reservations%rowtype;
   normalized_comment text := nullif(trim(coalesce(cancel_reservation.comment, '')), '');
 begin
   current_profile_id := public.get_current_profile_id();
-  actor_role := public.get_current_user_role();
+  actor_user_role := public.get_current_user_role();
 
   if current_profile_id is null then
     raise exception 'FORBIDDEN';
   end if;
 
-  if actor_role not in ('mayor', 'station_manager', 'mayor_assistant') then
+  if actor_user_role not in ('mayor', 'station_manager', 'mayor_assistant') then
     raise exception 'FORBIDDEN';
   end if;
 
@@ -134,18 +117,18 @@ set search_path = public
 as $$
 declare
   current_profile_id uuid;
-  actor_role text;
+  actor_user_role text;
   effective_date_from date := coalesce(get_cancelled_reservations.date_from, current_date - 30);
   effective_date_to date := coalesce(get_cancelled_reservations.date_to, current_date);
 begin
   current_profile_id := public.get_current_profile_id();
-  actor_role := public.get_current_user_role();
+  actor_user_role := public.get_current_user_role();
 
   if current_profile_id is null then
     raise exception 'FORBIDDEN';
   end if;
 
-  if actor_role not in ('mayor', 'station_manager', 'mayor_assistant') then
+  if actor_user_role not in ('mayor', 'station_manager', 'mayor_assistant') then
     raise exception 'FORBIDDEN';
   end if;
 
