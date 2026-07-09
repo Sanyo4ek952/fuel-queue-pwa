@@ -54,17 +54,14 @@ describe('today queue model', () => {
   it('matches call filters by server callable flag and latest call status', () => {
     const callable = makeQueueRow({ latest_call_status: null, is_callable_now: true })
     const contacted = makeQueueRow({ latest_call_status: 'CONTACTED', is_callable_now: true })
-    const wrongNumber = makeQueueRow({
-      latest_call_status: 'WRONG_NUMBER',
-      is_callable_now: true,
-    })
+    const noAnswer = makeQueueRow({ latest_call_status: 'NO_ANSWER', is_callable_now: true })
     const outsideLimit = makeQueueRow({ is_callable_now: false, is_within_today_limit: true })
 
     expect(isRowCallable(callable)).toBe(true)
     expect(matchesCallFilter(callable, 'call')).toBe(true)
     expect(matchesCallFilter(contacted, 'call')).toBe(false)
     expect(matchesCallFilter(contacted, 'contacted')).toBe(true)
-    expect(matchesCallFilter(wrongNumber, 'no_answer')).toBe(true)
+    expect(matchesCallFilter(noAnswer, 'no_answer')).toBe(true)
     expect(matchesCallFilter(outsideLimit, 'call')).toBe(false)
   })
 
@@ -73,15 +70,12 @@ describe('today queue model', () => {
       makeQueueRow({ id: 'callable', latest_call_status: null, is_callable_now: true }),
       makeQueueRow({ id: 'contacted', latest_call_status: 'CONTACTED', is_callable_now: true }),
       makeQueueRow({ id: 'no-answer', latest_call_status: 'NO_ANSWER', is_callable_now: true }),
-      makeQueueRow({ id: 'wrong', latest_call_status: 'WRONG_NUMBER', is_callable_now: true }),
-      makeQueueRow({ id: 'later', latest_call_status: 'CALL_LATER', is_callable_now: true }),
     ]
 
     expect(getCallFilterCounts(rows)).toEqual({
-      call: 4,
+      call: 2,
       contacted: 1,
-      no_answer: 2,
-      call_later: 1,
+      no_answer: 1,
     })
   })
 

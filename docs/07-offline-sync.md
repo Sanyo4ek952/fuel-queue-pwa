@@ -74,6 +74,9 @@ UPDATE_DAILY_LIMIT
 CREATE_RESERVATION_CALL_LOG
 ```
 
+`CREATE_RESERVATION_CALL_LOG` accepts only `NOT_CALLED`, `CONTACTED`, and `NO_ANSWER`.
+Legacy `CALL_LATER` and `WRONG_NUMBER` statuses are not valid new offline mutations.
+
 ## Статусы синхронизации
 
 ```text
@@ -149,6 +152,7 @@ CONFLICT
 - ручное разрешение уже использовано;
 - АЗС не совпадает.
 - успешный звонок был сохранён офлайн, но запись больше не входит в актуальный список обзвона.
+- offline `NO_ANSWER` was saved, but the server no longer confirms that the reservation was callable/within limit for that date.
 
 ## Очередь и топливо
 
@@ -162,6 +166,8 @@ matched_fuel_type
 ```
 
 Эти поля нужны для UX в offline-режиме, но не являются окончательным разрешением. При синхронизации сервер заново вычисляет совместимость топлива, дневной лимит и возможность успешного звонка.
+
+`NO_ANSWER` is synced through the same outbox flow as `CONTACTED`. If the driver does not fuel on that date, the server no-show policy may count that date as one missed fueling day after sync.
 
 ## Кто решает конфликты
 

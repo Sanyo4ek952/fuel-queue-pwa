@@ -338,20 +338,8 @@ describe('TodayQueuePanel', () => {
           latest_call_status: 'NO_ANSWER',
         }),
         makeQueueRow({
-          id: 'wrong-number',
-          queue_number: 4,
-          normalized_plate_number: 'Е111КХ777',
-          latest_call_status: 'WRONG_NUMBER',
-        }),
-        makeQueueRow({
-          id: 'call-later',
-          queue_number: 5,
-          normalized_plate_number: 'М222ОР777',
-          latest_call_status: 'CALL_LATER',
-        }),
-        makeQueueRow({
           id: 'outside-limit',
-          queue_number: 6,
+          queue_number: 4,
           normalized_plate_number: 'Н333РТ777',
           is_within_today_limit: false,
         }),
@@ -369,10 +357,10 @@ describe('TodayQueuePanel', () => {
     const allOption = screen.getByRole('option', { name: 'Все' })
 
     expect(within(allOption).queryByText(/\d+/)).not.toBeInTheDocument()
-    expect(screen.getByRole('option', { name: new RegExp('^' + TODAY_ARRIVALS_LABEL + '4$') })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: new RegExp('^' + TODAY_ARRIVALS_LABEL + '2$') })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /^Позвонили1$/ })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /^Не дозвонились2$/ })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /^Перезвонить1$/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /^Не дозвонились1$/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /^Перезвонить/ })).not.toBeInTheDocument()
   })
 
   it('counts call filter options after the plate search filter is applied', async () => {
@@ -510,8 +498,8 @@ describe('TodayQueuePanel', () => {
     await userEvent.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
 
     expect(within(article).getByRole('button', { name: 'Не ответил' })).toBeDisabled()
-    expect(within(article).getByRole('button', { name: 'Перезвонить' })).toBeDisabled()
-    expect(within(article).getByRole('button', { name: 'Неверный' })).toBeDisabled()
+    expect(within(article).queryByRole('button', { name: 'Перезвонить' })).not.toBeInTheDocument()
+    expect(within(article).queryByRole('button', { name: 'Неверный' })).not.toBeInTheDocument()
 
     expect(mocks.mutateCall).not.toHaveBeenCalled()
   })

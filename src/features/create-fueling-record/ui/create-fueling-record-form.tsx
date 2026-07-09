@@ -346,7 +346,10 @@ export function CreateFuelingRecordForm() {
                       id="plateNumber"
                       className="h-11 uppercase"
                       value={field.value}
-                      onChange={field.onChange}
+                      onChange={(value) => {
+                        field.onChange(value)
+                        form.clearErrors('plateNumber')
+                      }}
                       onBlur={field.onBlur}
                       name={field.name}
                       ref={field.ref}
@@ -359,7 +362,7 @@ export function CreateFuelingRecordForm() {
                   </FormMessage>
                 ) : null}
               </FormItem>
-              <div className="flex items-end">
+              <div className="flex sm:pt-5">
                 <Button
                   type="button"
                   variant="outline"

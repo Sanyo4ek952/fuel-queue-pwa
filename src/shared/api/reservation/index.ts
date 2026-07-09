@@ -142,7 +142,7 @@ type CancelledReservationRow = {
   cancelled_by_signature_name?: string | null
 }
 
-export type QueueCallFilter = 'all' | 'call' | 'contacted' | 'no_answer' | 'call_later'
+export type QueueCallFilter = 'all' | 'call' | 'contacted' | 'no_answer'
 export type QueueGasolineFuelFilter = 'all' | 'AI_92' | 'AI_95' | 'AI_100'
 
 export type TodayQueueCursor = {

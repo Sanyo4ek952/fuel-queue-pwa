@@ -17,8 +17,6 @@ export const RESERVATION_CALL_STATUSES = [
   'NOT_CALLED',
   'CONTACTED',
   'NO_ANSWER',
-  'CALL_LATER',
-  'WRONG_NUMBER',
 ] as const
 
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number]
