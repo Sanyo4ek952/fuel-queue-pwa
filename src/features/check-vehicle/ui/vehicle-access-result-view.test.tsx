@@ -1,12 +1,16 @@
 /** @vitest-environment jsdom */
 import '@testing-library/jest-dom/vitest'
 
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { VehicleAccessResultView } from './vehicle-access-result-view'
 
 describe('VehicleAccessResultView', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   it('hides preferential queue name and shows desired fuel label', () => {
     render(
       <VehicleAccessResultView
@@ -23,7 +27,9 @@ describe('VehicleAccessResultView', () => {
 
     expect(screen.getByText('Льготная очередь')).toBeInTheDocument()
     expect(screen.queryByText('Врачи')).not.toBeInTheDocument()
-    expect(screen.queryByText('Машина есть в активной льготной очереди мэра.')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Машина есть в активной льготной очереди мэра.'),
+    ).not.toBeInTheDocument()
     expect(screen.queryByText('Номер')).not.toBeInTheDocument()
     expect(screen.queryByText('А333АА333')).not.toBeInTheDocument()
     expect(screen.queryByText('Очередь')).not.toBeInTheDocument()
@@ -67,6 +73,45 @@ describe('VehicleAccessResultView', () => {
       />,
     )
 
-    expect(screen.getByText('Заправить желаемую марку: АИ-95.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Заправить желаемую марку: АИ-95.'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows preferential queue name when it is explicitly allowed', () => {
+    render(
+      <VehicleAccessResultView
+        canShowPreferentialQueueName
+        result={{
+          status: 'ALLOWED',
+          reason: 'PREFERENTIAL_QUEUE_ACTIVE',
+          normalized_plate_number: 'А333АА333',
+          preferential_queue_name: 'Врачи',
+          fuel_type: 'AI_95',
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Врачи')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Машина есть в активной льготной очереди мэра.'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows generic preferential queue label when the name is redacted by RPC', () => {
+    render(
+      <VehicleAccessResultView
+        result={{
+          status: 'ALLOWED',
+          reason: 'PREFERENTIAL_QUEUE_ACTIVE',
+          normalized_plate_number: 'А333АА333',
+          preferential_queue_entry_id: 'entry-id',
+          preferential_queue_id: 'queue-id',
+          fuel_type: 'AI_95',
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Льготная очередь')).toBeInTheDocument()
   })
 })

@@ -2,7 +2,13 @@
 import '@testing-library/jest-dom/vitest'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,7 +27,7 @@ const mocks = vi.hoisted(() => ({
   currentProfile: {
     id: 'profile-id',
     full_name: 'Петрова М.',
-    role: 'cashier',
+    role: 'cashier' as 'cashier' | 'mayor',
     stations: [] as Array<{ id: string; name: string; address: string | null }>,
   },
 }))
@@ -61,7 +67,9 @@ function renderWithQueryClient(children: ReactNode) {
     },
   })
 
-  return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>)
+  return render(
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+  )
 }
 
 async function checkPlate() {
@@ -94,6 +102,7 @@ describe('CreateFuelingRecordForm', () => {
     mocks.createFuelingRecord.mockReset()
     mocks.createOfflineFuelingRecord.mockReset()
     mocks.localReservationUpdate.mockReset()
+    mocks.currentProfile.role = 'cashier'
     mocks.currentProfile.stations = [STATIONS[0]]
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
   })
@@ -196,5 +205,57 @@ describe('CreateFuelingRecordForm', () => {
         expect.objectContaining({ fuelType: 'DIESEL' }),
       )
     })
+  })
+
+  it('hides preferential queue name for cashier', async () => {
+    mocks.checkVehicleAccess.mockResolvedValue({
+      data: {
+        status: 'ALLOWED',
+        reason: 'PREFERENTIAL_QUEUE_ACTIVE',
+        normalized_plate_number: 'А123ВС777',
+        preferential_queue_entry_id: 'entry-id',
+        preferential_queue_id: 'queue-id',
+        preferential_queue_name: 'Врачи',
+        fuel_type: 'AI_95',
+        matched_fuel_type: 'AI_95',
+        requested_liters: 40,
+      },
+      error: null,
+    })
+
+    renderWithQueryClient(<CreateFuelingRecordForm />)
+    await checkPlate()
+
+    expect(await screen.findByText('Льготная очередь')).toBeInTheDocument()
+    expect(screen.queryByText('Врачи')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Машина есть в активной льготной очереди мэра.'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows preferential queue name for mayor', async () => {
+    mocks.currentProfile.role = 'mayor'
+    mocks.checkVehicleAccess.mockResolvedValue({
+      data: {
+        status: 'ALLOWED',
+        reason: 'PREFERENTIAL_QUEUE_ACTIVE',
+        normalized_plate_number: 'А123ВС777',
+        preferential_queue_entry_id: 'entry-id',
+        preferential_queue_id: 'queue-id',
+        preferential_queue_name: 'Врачи',
+        fuel_type: 'AI_95',
+        matched_fuel_type: 'AI_95',
+        requested_liters: 40,
+      },
+      error: null,
+    })
+
+    renderWithQueryClient(<CreateFuelingRecordForm />)
+    await checkPlate()
+
+    expect(await screen.findByText('Врачи')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Машина есть в активной льготной очереди мэра.'),
+    ).not.toBeInTheDocument()
   })
 })

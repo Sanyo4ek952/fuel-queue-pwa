@@ -30,9 +30,12 @@ export function CheckVehicleForm() {
   const currentProfileQuery = useCurrentProfile()
   const currentProfile = currentProfileQuery.data
   const stations = currentProfile?.stations ?? []
-  const [selectedStationId, setSelectedStationId] = useProfileStationSelection(stations)
+  const [selectedStationId, setSelectedStationId] =
+    useProfileStationSelection(stations)
   const [historyPlateNumber, setHistoryPlateNumber] = useState('')
-  const [historyAccordionValue, setHistoryAccordionValue] = useState<string | undefined>()
+  const [historyAccordionValue, setHistoryAccordionValue] = useState<
+    string | undefined
+  >()
   const checkVehicleAccessMutation = useCheckVehicleAccess()
   const isHistoryOpen = historyAccordionValue === HISTORY_ACCORDION_VALUE
   const vehicleFuelingHistoryQuery = useVehicleFuelingHistory({
@@ -70,11 +73,12 @@ export function CheckVehicleForm() {
   const canShowManualOverride =
     Boolean(
       selectedStationId &&
-        accessResult &&
-        currentProfile &&
-        canCreateManualOverride(currentProfile.role),
+      accessResult &&
+      currentProfile &&
+      canCreateManualOverride(currentProfile.role),
     ) &&
-    (accessResult?.status === 'BLOCKED' || accessResult?.offline_decision === 'BLOCKED') &&
+    (accessResult?.status === 'BLOCKED' ||
+      accessResult?.offline_decision === 'BLOCKED') &&
     accessResult?.reason !== 'MANUAL_OVERRIDE_ACTIVE'
 
   return (
@@ -105,7 +109,9 @@ export function CheckVehicleForm() {
             )}
           />
           {form.formState.errors.plateNumber ? (
-            <FormMessage>{form.formState.errors.plateNumber.message}</FormMessage>
+            <FormMessage>
+              {form.formState.errors.plateNumber.message}
+            </FormMessage>
           ) : null}
         </FormItem>
         <Button
@@ -116,7 +122,12 @@ export function CheckVehicleForm() {
           <Search className="size-4" aria-hidden="true" />
           {checkVehicleAccessMutation.isPending ? 'Проверяем...' : 'Проверить'}
         </Button>
-        {accessResult ? <VehicleAccessResultView result={accessResult} /> : null}
+        {accessResult ? (
+          <VehicleAccessResultView
+            result={accessResult}
+            canShowPreferentialQueueName={currentProfile?.role === 'mayor'}
+          />
+        ) : null}
         {historyPlateNumber ? (
           <VehicleFuelingHistoryAccordion
             plateNumber={historyPlateNumber}
@@ -135,7 +146,9 @@ export function CheckVehicleForm() {
         {canShowManualOverride && accessResult ? (
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="mb-4">
-              <h2 className="text-base font-semibold text-slate-950">Ручное разрешение</h2>
+              <h2 className="text-base font-semibold text-slate-950">
+                Ручное разрешение
+              </h2>
               <p className="mt-1 text-sm text-slate-500">
                 Доступно для старшего смены или администратора АЗС.
               </p>
@@ -149,7 +162,9 @@ export function CheckVehicleForm() {
               targetDate={getTodayDateInputValue()}
               onCreated={() => {
                 checkVehicleAccessMutation.mutate({
-                  plateNumber: normalizePlateNumber(form.getValues('plateNumber')),
+                  plateNumber: normalizePlateNumber(
+                    form.getValues('plateNumber'),
+                  ),
                   stationId: selectedStationId,
                   checkDate: getTodayDateInputValue(),
                 })

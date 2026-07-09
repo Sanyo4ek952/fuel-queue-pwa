@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 import { DAILY_LIMIT_MODES, QUEUE_FUEL_TYPES } from '@/shared/constants'
 
+const targetDateSchema = z.string().min(1, 'Выберите дату')
+
 const optionalPositiveNumber = z.preprocess(
   (value) => (value === '' || value == null ? null : Number(value)),
   z.number().min(0, 'Лимит не может быть отрицательным').nullable(),
@@ -36,9 +38,15 @@ export const dailyFuelTypeLimitSchema = z
   })
 
 export const createDailyLimitSchema = z.object({
-  targetDate: z.string().min(1, 'Выберите дату'),
-  fuelTypeLimits: z.array(dailyFuelTypeLimitSchema).length(5),
+  targetDate: targetDateSchema,
+  fuelTypeLimits: z.array(dailyFuelTypeLimitSchema),
+})
+
+export const saveDailyFuelTypeLimitSchema = z.object({
+  targetDate: targetDateSchema,
+  fuelTypeLimit: dailyFuelTypeLimitSchema,
 })
 
 export type CreateDailyLimitFormInput = z.input<typeof createDailyLimitSchema>
 export type CreateDailyLimitFormValues = z.infer<typeof createDailyLimitSchema>
+export type SaveDailyFuelTypeLimitValues = z.infer<typeof saveDailyFuelTypeLimitSchema>

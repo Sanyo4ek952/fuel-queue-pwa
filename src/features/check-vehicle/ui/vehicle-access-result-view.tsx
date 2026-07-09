@@ -1,6 +1,9 @@
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 
-import type { VehicleAccessReason, VehicleAccessResult } from '@/features/check-vehicle'
+import type {
+  VehicleAccessReason,
+  VehicleAccessResult,
+} from '@/features/check-vehicle'
 
 const reasonLabels: Record<VehicleAccessReason, string> = {
   ACTIVE_RESERVATION: 'Есть активная запись в общей очереди.',
@@ -10,10 +13,12 @@ const reasonLabels: Record<VehicleAccessReason, string> = {
   NO_GLOBAL_DAILY_LIMIT: 'На сегодня не задан общий лимит топлива.',
   NO_ACTIVE_RESERVATION: 'Нет активной записи в общей очереди.',
   OFFLINE_UNCONFIRMED: 'Offline-проверка требует серверного подтверждения.',
-  OUTSIDE_TODAY_LIMIT: 'Автомобиль не попадает в сегодняшний лимит своей очереди.',
+  OUTSIDE_TODAY_LIMIT:
+    'Автомобиль не попадает в сегодняшний лимит своей очереди.',
   PROFILE_NOT_FOUND: 'Профиль пользователя не найден.',
-  PREFERENTIAL_QUEUE_ACTIVE: 'Машина есть в активной льготной очереди мэра.',
-  REFUEL_COOLDOWN_ACTIVE: 'После последней заправки ещё не прошёл установленный интервал.',
+  PREFERENTIAL_QUEUE_ACTIVE: 'Льготная очередь.',
+  REFUEL_COOLDOWN_ACTIVE:
+    'После последней заправки ещё не прошёл установленный интервал.',
   RPC_ERROR: 'Не удалось выполнить серверную проверку.',
   STATION_ACCESS_DENIED: 'Нет доступа к выбранной АЗС.',
   VEHICLE_BLOCKED: 'Автомобиль заблокирован.',
@@ -64,12 +69,14 @@ function getResultTone(result: VehicleAccessResult) {
 
 type VehicleAccessResultViewProps = {
   result: VehicleAccessResult
+  canShowPreferentialQueueName?: boolean
   reasonLabelOverrides?: Partial<Record<VehicleAccessReason, string>>
   blockedReasonOverrides?: Partial<Record<VehicleAccessReason, string>>
 }
 
 export function VehicleAccessResultView({
   result,
+  canShowPreferentialQueueName = false,
   reasonLabelOverrides,
   blockedReasonOverrides,
 }: VehicleAccessResultViewProps) {
@@ -82,7 +89,15 @@ export function VehicleAccessResultView({
       }
     : getResultTone(result)
   const reason = result.offline_reason ?? result.reason
-  const isPreferentialQueueResult = result.reason === 'PREFERENTIAL_QUEUE_ACTIVE'
+  const isPreferentialQueueResult =
+    result.reason === 'PREFERENTIAL_QUEUE_ACTIVE'
+  const hasPreferentialQueue =
+    isPreferentialQueueResult ||
+    Boolean(result.preferential_queue_entry_id || result.preferential_queue_id)
+  const preferentialQueueLabel =
+    canShowPreferentialQueueName && result.preferential_queue_name
+      ? result.preferential_queue_name
+      : 'Льготная очередь'
   const getReasonLabel = (accessReason: VehicleAccessReason) =>
     reasonLabelOverrides?.[accessReason] ?? reasonLabels[accessReason]
   const fuelingInstruction =
@@ -102,9 +117,11 @@ export function VehicleAccessResultView({
           <div>
             <p className="font-medium">{title}</p>
             {!isPreferentialQueueResult && !blockedTitle ? (
-              <p className="text-sm opacity-80">{getReasonLabel(result.reason)}</p>
+              <p className="text-sm opacity-80">
+                {getReasonLabel(result.reason)}
+              </p>
             ) : null}
-            {result.offline_reason ? (
+            {result.offline_reason && reason !== 'PREFERENTIAL_QUEUE_ACTIVE' ? (
               <p className="mt-1 text-sm opacity-80">
                 Локальный вывод: {reasonLabels[reason]}
               </p>
@@ -117,7 +134,9 @@ export function VehicleAccessResultView({
             {!isPreferentialQueueResult ? (
               <div>
                 <dt className="opacity-70">Номер</dt>
-                <dd className="font-semibold tracking-wide">{result.normalized_plate_number}</dd>
+                <dd className="font-semibold tracking-wide">
+                  {result.normalized_plate_number}
+                </dd>
               </div>
             ) : null}
             {result.queue_number ? (
@@ -126,10 +145,10 @@ export function VehicleAccessResultView({
                 <dd className="font-semibold">№{result.queue_number}</dd>
               </div>
             ) : null}
-            {result.preferential_queue_name ? (
+            {hasPreferentialQueue ? (
               <div>
                 <dt className="opacity-70">Тип очереди</dt>
-                <dd className="font-semibold">Льготная очередь</dd>
+                <dd className="font-semibold">{preferentialQueueLabel}</dd>
               </div>
             ) : null}
             {result.category_position ? (
@@ -152,7 +171,8 @@ export function VehicleAccessResultView({
                 <dd className="font-semibold">{result.fuel_type}</dd>
               </div>
             ) : null}
-            {result.matched_fuel_type && result.matched_fuel_type !== result.fuel_type ? (
+            {result.matched_fuel_type &&
+            result.matched_fuel_type !== result.fuel_type ? (
               <div>
                 <dt className="opacity-70">Доступно к заправке</dt>
                 <dd className="font-semibold">{result.matched_fuel_type}</dd>
@@ -173,7 +193,9 @@ export function VehicleAccessResultView({
             {typeof result.days_since_last_fueling === 'number' ? (
               <div>
                 <dt className="opacity-70">Прошло дней</dt>
-                <dd className="font-semibold">{result.days_since_last_fueling}</dd>
+                <dd className="font-semibold">
+                  {result.days_since_last_fueling}
+                </dd>
               </div>
             ) : null}
             {result.next_allowed_date ? (
@@ -191,10 +213,13 @@ export function VehicleAccessResultView({
           </dl>
           {result.offline ? (
             <p className="text-sm opacity-80">
-              Данные сохранены локально и будут перепроверены сервером после синхронизации.
+              Данные сохранены локально и будут перепроверены сервером после
+              синхронизации.
             </p>
           ) : null}
-          {result.error ? <p className="text-sm opacity-80">{result.error}</p> : null}
+          {result.error ? (
+            <p className="text-sm opacity-80">{result.error}</p>
+          ) : null}
         </div>
       </div>
     </div>

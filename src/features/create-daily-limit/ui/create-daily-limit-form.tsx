@@ -1,16 +1,17 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CalendarDays, Save } from 'lucide-react'
-import { useForm } from 'react-hook-form'
+import { useState } from 'react'
+import { useForm, type FieldPath } from 'react-hook-form'
 
 import {
   type CreateDailyLimitFormInput,
   type CreateDailyLimitFormValues,
   createDailyLimitSchema,
+  saveDailyFuelTypeLimitSchema,
   useCreateDailyLimit,
 } from '@/features/create-daily-limit'
 import type { DailyLimitMode, QueueFuelType } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
-import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
@@ -39,8 +40,13 @@ const defaultFuelTypeLimits = [
   { fuelType: 'GAS' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
 ]
 
+type FuelTypeLimitField = 'fuelType' | 'limitMode' | 'vehicleLimit' | 'litersLimit'
+
 export function CreateDailyLimitForm() {
   const createDailyLimitMutation = useCreateDailyLimit()
+  const [savingFuelType, setSavingFuelType] = useState<QueueFuelType | null>(null)
+  const [savedFuelType, setSavedFuelType] = useState<QueueFuelType | null>(null)
+  const [failedFuelType, setFailedFuelType] = useState<QueueFuelType | null>(null)
   const form = useForm<CreateDailyLimitFormInput, unknown, CreateDailyLimitFormValues>({
     resolver: zodResolver(createDailyLimitSchema),
     defaultValues: {
@@ -50,12 +56,50 @@ export function CreateDailyLimitForm() {
   })
   const fuelTypeLimits = form.watch('fuelTypeLimits')
 
-  async function handleSubmit(values: CreateDailyLimitFormValues) {
-    await createDailyLimitMutation.mutateAsync({
-      targetDate: values.targetDate,
-      fuelTypeLimits: values.fuelTypeLimits,
-      clientMutationId: crypto.randomUUID(),
+  async function handleFuelTypeSubmit(index: number) {
+    const fuelTypeLimit = form.getValues(`fuelTypeLimits.${index}`)
+    const fuelType = fuelTypeLimit.fuelType as QueueFuelType
+
+    form.clearErrors()
+    setSavedFuelType(null)
+    setFailedFuelType(null)
+
+    const parsed = saveDailyFuelTypeLimitSchema.safeParse({
+      targetDate: form.getValues('targetDate'),
+      fuelTypeLimit,
     })
+
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        if (issue.path[0] === 'targetDate') {
+          form.setError('targetDate', { message: issue.message })
+        }
+
+        if (issue.path[0] === 'fuelTypeLimit' && typeof issue.path[1] === 'string') {
+          const field = issue.path[1] as FuelTypeLimitField
+          form.setError(`fuelTypeLimits.${index}.${field}` as FieldPath<CreateDailyLimitFormInput>, {
+            message: issue.message,
+          })
+        }
+      }
+
+      return
+    }
+
+    setSavingFuelType(fuelType)
+
+    try {
+      await createDailyLimitMutation.mutateAsync({
+        targetDate: parsed.data.targetDate,
+        fuelTypeLimits: [parsed.data.fuelTypeLimit],
+        clientMutationId: crypto.randomUUID(),
+      })
+      setSavedFuelType(fuelType)
+    } catch {
+      setFailedFuelType(fuelType)
+    } finally {
+      setSavingFuelType(null)
+    }
   }
 
   return (
@@ -71,7 +115,7 @@ export function CreateDailyLimitForm() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
+          <form className="space-y-5" onSubmit={(event) => event.preventDefault()}>
             <FormItem>
               <FormLabel htmlFor="targetDate">Дата</FormLabel>
               <Input id="targetDate" type="date" {...form.register('targetDate')} />
@@ -84,11 +128,14 @@ export function CreateDailyLimitForm() {
               {fuelTypeLimits.map((item, index) => {
                 const mode = item.limitMode as DailyLimitMode
                 const fuelType = item.fuelType as QueueFuelType
+                const isSaving = savingFuelType === fuelType
+                const isSaved = savedFuelType === fuelType
+                const isFailed = failedFuelType === fuelType
 
                 return (
                   <div
                     key={fuelType}
-                    className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-[1fr_160px_140px]"
+                    className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-[1fr_160px_140px_140px]"
                   >
                     <div>
                       <p className="text-sm font-medium text-slate-900">
@@ -155,36 +202,33 @@ export function CreateDailyLimitForm() {
                         ) : null}
                       </FormItem>
                     )}
+
+                    <div className="flex flex-col justify-end gap-2">
+                      <Button
+                        type="button"
+                        className="h-10 w-full gap-2"
+                        aria-label={`Сохранить ${fuelTypeLabels[fuelType]}`}
+                        disabled={createDailyLimitMutation.isPending}
+                        onClick={() => void handleFuelTypeSubmit(index)}
+                      >
+                        <Save className="size-4" aria-hidden="true" />
+                        {isSaving ? 'Сохраняем...' : 'Сохранить'}
+                      </Button>
+
+                      {isSaved && createDailyLimitMutation.data ? (
+                        <p className="text-xs font-medium text-emerald-700">Лимит сохранён</p>
+                      ) : null}
+
+                      {isFailed && createDailyLimitMutation.error ? (
+                        <p className="text-xs font-medium text-destructive">
+                          {createDailyLimitMutation.error.message}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 )
               })}
             </div>
-
-            <Button
-              type="submit"
-              className="h-11 w-full gap-2"
-              disabled={createDailyLimitMutation.isPending}
-            >
-              <Save className="size-4" aria-hidden="true" />
-              {createDailyLimitMutation.isPending ? 'Сохраняем...' : 'Сохранить лимит'}
-            </Button>
-
-            {createDailyLimitMutation.error ? (
-              <Alert variant="destructive">
-                <AlertTitle>Лимит не сохранён</AlertTitle>
-                <AlertDescription>{createDailyLimitMutation.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            {createDailyLimitMutation.data ? (
-              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
-                <AlertTitle>Лимит сохранён</AlertTitle>
-                <AlertDescription>
-                  Дата {createDailyLimitMutation.data.date}, категорий:{' '}
-                  {createDailyLimitMutation.data.fuel_type_limits?.length ?? 0}.
-                </AlertDescription>
-              </Alert>
-            ) : null}
           </form>
         </Form>
       </CardContent>

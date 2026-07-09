@@ -870,11 +870,13 @@ export function TodayQueuePanel() {
   )
   const fuelingScheduleRows = useMemo(
     () =>
-      queue.rows.map((row) => ({
-        id: row.id,
-        ticketNumber: row.ticket_number,
-        fuelCategory: getFuelQueueCategory(row.fuel_type),
-      })),
+      queue.rows
+        .filter(isRowCallable)
+        .map((row) => ({
+          id: row.id,
+          ticketNumber: row.ticket_number,
+          fuelCategory: getFuelQueueCategory(row.fuel_type),
+        })),
     [queue.rows],
   )
   const etaByReservationId = useMemo(
