@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import '@testing-library/jest-dom/vitest'
 
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   mutateCall: vi.fn(),
   mutateFuelPreference: vi.fn(),
   useTodayQueue: vi.fn(),
+  useTodayQueueAuthors: vi.fn(),
   useDailyLimitOverview: vi.fn(),
   useDailyFuelingSchedule: vi.fn(),
   useLogReservationCall: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock('@/entities/daily-limit', () => ({
 
 vi.mock('@/entities/reservation', () => ({
   useTodayQueue: mocks.useTodayQueue,
+  useTodayQueueAuthors: mocks.useTodayQueueAuthors,
 }))
 
 vi.mock('@/entities/profile', () => ({
@@ -186,6 +188,15 @@ describe('TodayQueuePanel', () => {
       isOnline: true,
       isLoading: false,
       isFetching: false,
+      isFetchingNextPage: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      error: null,
+    })
+    mocks.useTodayQueueAuthors.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isFetching: false,
       error: null,
     })
     mocks.useDailyLimitOverview.mockReturnValue({
@@ -301,8 +312,11 @@ describe('TodayQueuePanel', () => {
     await user.click(screen.getByRole('combobox', { name: CALL_FILTER_NAME }))
     await user.click(screen.getByRole('option', { name: new RegExp('^' + TODAY_ARRIVALS_LABEL + '1$') }))
 
-    expect(screen.getByText('А123ВС777')).toBeInTheDocument()
-    expect(screen.queryByText('В456ТС777')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(mocks.useTodayQueue).toHaveBeenLastCalledWith(
+        expect.objectContaining({ callFilter: 'call' }),
+      ),
+    )
   })
 
   it('shows call filter counters in the select options except all', async () => {
@@ -387,9 +401,15 @@ describe('TodayQueuePanel', () => {
     render(<TodayQueuePanel />)
 
     await user.type(screen.getByLabelText(PLATE_SEARCH_NAME), '123')
-    await user.click(screen.getByRole('combobox', { name: CALL_FILTER_NAME }))
 
-    expect(screen.getByRole('option', { name: new RegExp('^' + TODAY_ARRIVALS_LABEL + '1$') })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mocks.useTodayQueue).toHaveBeenLastCalledWith(
+        expect.objectContaining({ plateSearch: '123' }),
+      ),
+    )
+    expect(mocks.useTodayQueueAuthors).toHaveBeenLastCalledWith(
+      expect.objectContaining({ plateSearch: '123' }),
+    )
   })
 
   it('logs a contacted call from the quick action', async () => {
@@ -548,19 +568,21 @@ describe('TodayQueuePanel', () => {
     expect(screen.getByText(/Отметил: Смирнова О./)).toBeInTheDocument()
   })
 
-  it('shows only the first ten rows in a category before loading more', () => {
+  it('shows a server page of twenty five rows before loading more', () => {
     mocks.useTodayQueue.mockReturnValue({
-      rows: makeGasolineQueueRows(11),
+      rows: makeGasolineQueueRows(25),
       isOnline: true,
       isLoading: false,
       isFetching: false,
+      isFetchingNextPage: false,
+      hasNextPage: true,
+      fetchNextPage: vi.fn(),
       error: null,
     })
 
     render(<TodayQueuePanel />)
 
-    expect(screen.getByText('QUEUE-010')).toBeInTheDocument()
-    expect(screen.queryByText('QUEUE-011')).not.toBeInTheDocument()
+    expect(screen.getByText('QUEUE-025')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Показать еще' })).toBeInTheDocument()
   })
 
@@ -597,13 +619,17 @@ describe('TodayQueuePanel', () => {
 
     const secondRow = screen.getByText('B456TC777').closest('article')
 
-    expect(screen.queryByText('A123BC777')).not.toBeInTheDocument()
     expect(secondRow).not.toBeNull()
     expect(
       within(secondRow as HTMLElement).getByLabelText('Текущая позиция 71'),
     ).toBeInTheDocument()
 
     expect(within(secondRow as HTMLElement).getByText('B456TC777')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mocks.useTodayQueue).toHaveBeenLastCalledWith(
+        expect.objectContaining({ plateSearch: '456' }),
+      ),
+    )
   })
 
   it('shows today arrivals by callable server status', async () => {
@@ -647,9 +673,11 @@ describe('TodayQueuePanel', () => {
       }),
     )
 
-    expect(screen.getByText('CALLABLE-001')).toBeInTheDocument()
-    expect(screen.queryByText('OUTSIDE-002')).not.toBeInTheDocument()
-    expect(screen.queryByText('NOFUEL-003')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(mocks.useTodayQueue).toHaveBeenLastCalledWith(
+        expect.objectContaining({ callFilter: 'call' }),
+      ),
+    )
   })
 
   it('filters gasoline rows by matched fuel type with a fuel type fallback', async () => {
@@ -691,9 +719,11 @@ describe('TodayQueuePanel', () => {
     await user.click(screen.getByRole('combobox', { name: /^\u041c\u0430\u0440\u043a\u0430 \u0431\u0435\u043d\u0437\u0438\u043d\u0430$/ }))
     await user.click(screen.getByRole('option', { name: /95/ }))
 
-    expect(screen.getByText('MATCHED-095')).toBeInTheDocument()
-    expect(screen.getByText('FALLBACK-095')).toBeInTheDocument()
-    expect(screen.queryByText('AI100-003')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(mocks.useTodayQueue).toHaveBeenLastCalledWith(
+        expect.objectContaining({ gasolineFuelFilter: 'AI_95' }),
+      ),
+    )
   })
 
   it('updates fuel preference from a queue card without changing the reservation id', async () => {

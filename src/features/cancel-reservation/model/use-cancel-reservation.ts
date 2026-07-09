@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { todayQueueQueryKey, type TodayQueueRow } from '@/entities/reservation'
 import {
   cancelReservation,
   type CancelReservationParams,
@@ -48,17 +47,14 @@ export function useCancelReservation() {
       return result.data
     },
     onSuccess: async (data) => {
-      queryClient.setQueryData<TodayQueueRow[]>(todayQueueQueryKey(), (rows) =>
-        rows?.filter((row) => row.id !== data.id),
-      )
-
       await offlineDb.local_reservations.update(data.id, {
         status: data.status,
         sync_status: data.sync_status,
         updated_at: data.updated_at,
       })
 
-      void queryClient.invalidateQueries({ queryKey: todayQueueQueryKey() })
+      void queryClient.invalidateQueries({ queryKey: ['today-queue'] })
+      void queryClient.invalidateQueries({ queryKey: ['today-queue-authors'] })
       void queryClient.invalidateQueries({ queryKey: ['cancelled-reservations'] })
       void queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === 'daily-limit-overview',

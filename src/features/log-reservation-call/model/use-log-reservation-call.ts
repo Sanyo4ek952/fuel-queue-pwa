@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { useCurrentProfile } from '@/entities/profile'
-import { todayQueueQueryKey, type TodayQueueRow } from '@/entities/reservation'
+import { type TodayQueueRow } from '@/entities/reservation'
 import {
   buildCreateReservationCallLogPayload,
   createReservationCallLog,
@@ -237,7 +237,8 @@ export function useLogReservationCall() {
       return result.data
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: todayQueueQueryKey() })
+      void queryClient.invalidateQueries({ queryKey: ['today-queue'] })
+      void queryClient.invalidateQueries({ queryKey: ['today-queue-authors'] })
     },
   })
 }

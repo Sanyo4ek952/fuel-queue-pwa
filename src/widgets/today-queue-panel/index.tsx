@@ -16,7 +16,11 @@ import {
 
 import { useDailyLimitOverview } from '@/entities/daily-limit'
 import { useCurrentProfile } from '@/entities/profile'
-import { useTodayQueue, type TodayQueueRow } from '@/entities/reservation'
+import {
+  useTodayQueue,
+  useTodayQueueAuthors,
+  type TodayQueueRow,
+} from '@/entities/reservation'
 import {
   cancelReservationSchema,
   type CancelReservationFormValues,
@@ -108,25 +112,11 @@ const categoryLabels: Record<FuelQueueCategory, string> = {
 const categoryOrder: FuelQueueCategory[] = ['GASOLINE', 'DIESEL', 'GAS']
 const ALL_AUTHORS_FILTER = 'all'
 const ALL_GASOLINE_FILTER = 'all'
-const QUEUE_PAGE_SIZE = 10
 const CALL_FILTERS = ['all', 'call', 'contacted', 'no_answer', 'call_later'] as const
 const GASOLINE_FUEL_FILTERS = ['AI_92', 'AI_95', 'AI_100'] as const
 
 type CallFilter = (typeof CALL_FILTERS)[number]
 type GasolineFuelFilter = typeof ALL_GASOLINE_FILTER | (typeof GASOLINE_FUEL_FILTERS)[number]
-
-type QueueAuthorOption = {
-  value: string
-  label: string
-}
-
-function getInitialVisibleCountByCategory(): Record<FuelQueueCategory, number> {
-  return {
-    GASOLINE: QUEUE_PAGE_SIZE,
-    DIESEL: QUEUE_PAGE_SIZE,
-    GAS: QUEUE_PAGE_SIZE,
-  }
-}
 
 function SummaryTile({ label, value }: { label: string; value: number }) {
   return (
@@ -184,52 +174,6 @@ function formatCreatedBy(row: TodayQueueRow) {
   const name = row.created_by_signature_name || row.created_by_full_name
 
   return name ? `${roleLabel}: ${name}` : 'Автор не указан'
-}
-
-function getCreatedByRoleLabel(row: TodayQueueRow) {
-  return row.created_by_role && row.created_by_role in ROLE_LABELS
-    ? ROLE_LABELS[row.created_by_role as UserRole]
-    : 'Пользователь'
-}
-
-function getAuthorFilterValue(row: TodayQueueRow) {
-  if (row.created_by_profile_id) {
-    return row.created_by_profile_id
-  }
-
-  return [
-    row.created_by_signature_name,
-    row.created_by_full_name,
-    row.created_by_role,
-    'unknown-author',
-  ]
-    .filter(Boolean)
-    .join(':')
-}
-
-function getAuthorOptionLabel(row: TodayQueueRow) {
-  const name = row.created_by_signature_name || row.created_by_full_name
-
-  return name ? `${name} (${getCreatedByRoleLabel(row)})` : 'Автор не указан'
-}
-
-function buildAuthorOptions(rows: TodayQueueRow[]) {
-  const options = new Map<string, QueueAuthorOption>()
-
-  rows.forEach((row) => {
-    const value = getAuthorFilterValue(row)
-
-    if (!options.has(value)) {
-      options.set(value, {
-        value,
-        label: getAuthorOptionLabel(row),
-      })
-    }
-  })
-
-  return Array.from(options.values()).sort((left, right) =>
-    left.label.localeCompare(right.label),
-  )
 }
 
 function getPhoneHref(phone: string | null) {
@@ -317,14 +261,6 @@ function matchesCallFilter(row: TodayQueueRow, filter: CallFilter) {
   }
 
   return row.latest_call_status === 'CALL_LATER'
-}
-
-function getEffectiveFuelType(row: TodayQueueRow) {
-  return row.matched_fuel_type ?? row.fuel_type
-}
-
-function matchesGasolineFuelFilter(row: TodayQueueRow, filter: GasolineFuelFilter) {
-  return filter === ALL_GASOLINE_FILTER || getEffectiveFuelType(row) === filter
 }
 
 function hasActiveGasolineLimit(
@@ -896,11 +832,18 @@ export function TodayQueuePanel() {
   const [gasolineFuelFilter, setGasolineFuelFilter] =
     useState<GasolineFuelFilter>(ALL_GASOLINE_FILTER)
   const [callFilter, setCallFilter] = useState<CallFilter>('all')
-  const [visibleCountByCategory, setVisibleCountByCategory] = useState(
-    getInitialVisibleCountByCategory,
-  )
   const currentProfileQuery = useCurrentProfile()
-  const queue = useTodayQueue()
+  const queue = useTodayQueue({
+    plateSearch,
+    createdByProfileId: authorFilter === ALL_AUTHORS_FILTER ? null : authorFilter,
+    callFilter,
+    gasolineFuelFilter,
+  })
+  const authorsQuery = useTodayQueueAuthors({
+    plateSearch,
+    callFilter,
+    gasolineFuelFilter,
+  })
   const dailyLimitOverview = useDailyLimitOverview({ date: todayDate })
   const fuelingSchedule = useDailyFuelingSchedule(todayDate)
   const logReservationCall = useLogReservationCall()
@@ -912,7 +855,7 @@ export function TodayQueuePanel() {
     dailyLimitOverview.data?.category_overviews,
   )
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
-  const authorOptions = useMemo(() => buildAuthorOptions(queue.rows), [queue.rows])
+  const authorOptions = authorsQuery.data ?? []
   const scheduleConfigs = useMemo(
     () =>
       (fuelingSchedule.data ?? []).map(
@@ -942,28 +885,8 @@ export function TodayQueuePanel() {
     () => buildFuelingScheduleSummary(fuelingScheduleRows, scheduleConfigs, categoryOrder),
     [fuelingScheduleRows, scheduleConfigs],
   )
-  const rowsMatchingBaseFilters = useMemo(
-    () =>
-      queue.rows.filter((row) => {
-        const matchesPlate =
-          normalizedPlateSearch.length === 0 ||
-          row.normalized_plate_number.includes(normalizedPlateSearch)
-        const matchesAuthor =
-          authorFilter === ALL_AUTHORS_FILTER || getAuthorFilterValue(row) === authorFilter
-
-        return matchesPlate && matchesAuthor
-      }),
-    [authorFilter, normalizedPlateSearch, queue.rows],
-  )
-  const filteredRows = useMemo(
-    () =>
-      rowsMatchingBaseFilters.filter((row) => {
-        const matchesCall = matchesCallFilter(row, callFilter)
-
-        return matchesCall
-      }),
-    [callFilter, rowsMatchingBaseFilters],
-  )
+  const rowsMatchingBaseFilters = queue.rows
+  const filteredRows = queue.rows
   const callRowsCount = rowsMatchingBaseFilters.filter((row) => matchesCallFilter(row, 'call')).length
   const contactedRowsCount = rowsMatchingBaseFilters.filter(
     (row) => row.latest_call_status === 'CONTACTED',
@@ -973,22 +896,14 @@ export function TodayQueuePanel() {
       Object.fromEntries(
         callFiltersWithCounters.map((filter) => [
           filter,
-          rowsMatchingBaseFilters.filter((row) => matchesCallFilter(row, filter)).length,
+      rowsMatchingBaseFilters.filter((row) => matchesCallFilter(row, filter)).length,
         ]),
       ) as Record<(typeof callFiltersWithCounters)[number], number>,
     [rowsMatchingBaseFilters],
   )
   const rowsByCategory = categoryOrder.map((fuelCategory) => ({
     fuelCategory,
-    rows: filteredRows.filter((row) => {
-      const matchesCategory = getFuelQueueCategory(row.fuel_type) === fuelCategory
-
-      if (fuelCategory !== 'GASOLINE') {
-        return matchesCategory
-      }
-
-      return matchesCategory && matchesGasolineFuelFilter(row, gasolineFuelFilter)
-    }),
+    rows: filteredRows.filter((row) => getFuelQueueCategory(row.fuel_type) === fuelCategory),
   }))
   const visibleRowsCount = rowsByCategory.reduce((count, category) => count + category.rows.length, 0)
   const hasActiveFilters =
@@ -998,15 +913,14 @@ export function TodayQueuePanel() {
     callFilter !== 'all'
 
   useEffect(() => {
-    setVisibleCountByCategory(getInitialVisibleCountByCategory())
-  }, [authorFilter, callFilter, gasolineFuelFilter, normalizedPlateSearch])
-
-  function showMoreRows(fuelCategory: FuelQueueCategory) {
-    setVisibleCountByCategory((current) => ({
-      ...current,
-      [fuelCategory]: current[fuelCategory] + QUEUE_PAGE_SIZE,
-    }))
-  }
+    if (
+      authorFilter !== ALL_AUTHORS_FILTER &&
+      authorsQuery.data &&
+      !authorsQuery.data.some((author) => author.userId === authorFilter)
+    ) {
+      setAuthorFilter(ALL_AUTHORS_FILTER)
+    }
+  }, [authorFilter, authorsQuery.data])
 
   function handleLogCall(row: TodayQueueRow, status: ReservationCallStatus) {
     logReservationCall.mutate({ reservation: row, status })
@@ -1159,8 +1073,8 @@ export function TodayQueuePanel() {
                 <SelectContent>
                   <SelectItem value={ALL_AUTHORS_FILTER}>Все авторы</SelectItem>
                   {authorOptions.map((author) => (
-                    <SelectItem key={author.value} value={author.value}>
-                      {author.label}
+                    <SelectItem key={author.userId} value={author.userId}>
+                      {author.displayName}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1174,6 +1088,13 @@ export function TodayQueuePanel() {
         <Alert variant="destructive">
           <AlertTitle>Очередь не загружена</AlertTitle>
           <AlertDescription>{queue.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {authorsQuery.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Авторы очереди не загружены</AlertTitle>
+          <AlertDescription>{authorsQuery.error.message}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -1229,15 +1150,11 @@ export function TodayQueuePanel() {
             ))}
           </TabsList>
           {rowsByCategory.map(({ fuelCategory, rows }) => {
-            const visibleCount = visibleCountByCategory[fuelCategory]
-            const visibleRows = rows.slice(0, visibleCount)
-            const hasMoreRows = rows.length > visibleCount
-
             return (
               <TabsContent key={fuelCategory} value={fuelCategory} className="space-y-3">
                 {rows.length > 0 ? (
                   <>
-                    {visibleRows.map((row) => (
+                    {rows.map((row) => (
                       <QueueRowCard
                         key={row.id}
                         row={row}
@@ -1263,16 +1180,6 @@ export function TodayQueuePanel() {
                         onCancel={handleCancelReservation}
                       />
                     ))}
-                    {hasMoreRows ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => showMoreRows(fuelCategory)}
-                      >
-                        Показать еще
-                      </Button>
-                    ) : null}
                   </>
                 ) : (
                   <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
@@ -1283,6 +1190,18 @@ export function TodayQueuePanel() {
             )
           })}
         </Tabs>
+      ) : null}
+
+      {visibleRowsCount > 0 && queue.hasNextPage ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={queue.isFetchingNextPage}
+          onClick={() => void queue.fetchNextPage()}
+        >
+          {queue.isFetchingNextPage ? 'Загружаем...' : 'Показать еще'}
+        </Button>
       ) : null}
     </div>
   )

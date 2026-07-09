@@ -11,10 +11,6 @@ const mocks = vi.hoisted(() => ({
   useOnlineStatus: vi.fn(() => true),
 }))
 
-vi.mock('@/entities/reservation', () => ({
-  todayQueueQueryKey: () => ['today-queue'],
-}))
-
 vi.mock('@/shared/api/rpc', () => ({
   createFuelingRecord: mocks.createFuelingRecord,
 }))
@@ -33,11 +29,6 @@ vi.mock('@/shared/lib/sync', () => ({
 }))
 
 import { useCreateFuelingRecord } from './use-create-fueling-record'
-
-type QueueRow = {
-  id: string
-  queue_number: number
-}
 
 const mutationParams = {
   stationId: 'station-id',
@@ -67,10 +58,6 @@ describe('useCreateFuelingRecord', () => {
     })
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
-    queryClient.setQueryData<QueueRow[]>(['today-queue'], [
-      { id: 'reservation-id', queue_number: 1 },
-      { id: 'next-reservation-id', queue_number: 3 },
-    ])
     mocks.createFuelingRecord.mockResolvedValue({
       data: {
         id: 'fueling-id',
@@ -100,9 +87,6 @@ describe('useCreateFuelingRecord', () => {
       await result.current.mutateAsync(mutationParams)
     })
 
-    expect(queryClient.getQueryData<QueueRow[]>(['today-queue'])).toEqual([
-      { id: 'next-reservation-id', queue_number: 3 },
-    ])
     expect(mocks.localReservationUpdate).toHaveBeenCalledWith(
       'reservation-id',
       expect.objectContaining({ status: 'FUELED' }),
@@ -112,15 +96,12 @@ describe('useCreateFuelingRecord', () => {
     })
   })
 
-  it('invalidates preferential queues after preferential fueling without touching today queue cache', async () => {
+  it('invalidates preferential queues after preferential fueling without touching local reservations', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
-    queryClient.setQueryData<QueueRow[]>(['today-queue'], [
-      { id: 'reservation-id', queue_number: 1 },
-    ])
     mocks.createFuelingRecord.mockResolvedValue({
       data: {
         id: 'fueling-id',
@@ -150,9 +131,6 @@ describe('useCreateFuelingRecord', () => {
       await result.current.mutateAsync({ ...mutationParams, liters: 20 })
     })
 
-    expect(queryClient.getQueryData<QueueRow[]>(['today-queue'])).toEqual([
-      { id: 'reservation-id', queue_number: 1 },
-    ])
     expect(mocks.localReservationUpdate).not.toHaveBeenCalled()
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['preferential-queues'] })
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({

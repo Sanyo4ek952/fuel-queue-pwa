@@ -1,17 +1,34 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 
 import {
-  listCancelledReservations,
+  listCancelledReservationsPage,
   type CancelledReservation,
+  type CancelledReservationsCursor,
 } from '@/shared/api/reservation'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
-export const cancelledReservationsQueryKey = (dateFrom: string, dateTo: string) =>
-  ['cancelled-reservations', dateFrom, dateTo] as const
+const CANCELLED_RESERVATIONS_PAGE_SIZE = 25
 
-export function useCancelledReservations(params: { dateFrom: string; dateTo: string }) {
-  return useQuery({
-    queryKey: cancelledReservationsQueryKey(params.dateFrom, params.dateTo),
-    queryFn: () => listCancelledReservations(params),
+export const cancelledReservationsQueryKey = (plateSearch: string) =>
+  ['cancelled-reservations', normalizePlateNumber(plateSearch)] as const
+
+export function useCancelledReservations(params: { plateSearch?: string } = {}) {
+  const plateSearch = params.plateSearch ?? ''
+
+  return useInfiniteQuery({
+    queryKey: cancelledReservationsQueryKey(plateSearch),
+    initialPageParam: null as CancelledReservationsCursor | null,
+    queryFn: ({ pageParam }) =>
+      listCancelledReservationsPage({
+        pageSize: CANCELLED_RESERVATIONS_PAGE_SIZE,
+        cursor: pageParam,
+        plateSearch,
+      }),
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    select: (data) => ({
+      ...data,
+      rows: data.pages.flatMap((page) => page.rows),
+    }),
   })
 }
 

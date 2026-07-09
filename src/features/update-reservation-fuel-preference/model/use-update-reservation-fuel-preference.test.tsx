@@ -10,10 +10,6 @@ const mocks = vi.hoisted(() => ({
   useOnlineStatus: vi.fn(() => true),
 }))
 
-vi.mock('@/entities/reservation', () => ({
-  todayQueueQueryKey: () => ['today-queue'],
-}))
-
 vi.mock('@/shared/api/rpc', () => ({
   updateReservationFuelPreference: mocks.updateReservationFuelPreference,
 }))
@@ -32,13 +28,6 @@ vi.mock('@/shared/lib/sync', () => ({
 
 import { useUpdateReservationFuelPreference } from './use-update-reservation-fuel-preference'
 
-type QueueRow = {
-  id: string
-  queue_number: number
-  fuel_type: string
-  fuel_preference_mode: string
-}
-
 function makeWrapper(queryClient: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -51,20 +40,12 @@ describe('useUpdateReservationFuelPreference', () => {
     mocks.useOnlineStatus.mockReturnValue(true)
   })
 
-  it('updates queue cache and local reservation without changing queue number', async () => {
+  it('updates local reservation and invalidates queue data without changing queue number', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
-    queryClient.setQueryData<QueueRow[]>(['today-queue'], [
-      {
-        id: 'reservation-id',
-        queue_number: 7,
-        fuel_type: 'AI_95',
-        fuel_preference_mode: 'EXACT',
-      },
-    ])
     mocks.updateReservationFuelPreference.mockResolvedValue({
       data: {
         id: 'reservation-id',
@@ -95,14 +76,6 @@ describe('useUpdateReservationFuelPreference', () => {
       })
     })
 
-    expect(queryClient.getQueryData<QueueRow[]>(['today-queue'])).toEqual([
-      expect.objectContaining({
-        id: 'reservation-id',
-        queue_number: 7,
-        fuel_type: 'AI_92',
-        fuel_preference_mode: 'ANY_GASOLINE',
-      }),
-    ])
     expect(mocks.localReservationUpdate).toHaveBeenCalledWith(
       'reservation-id',
       expect.objectContaining({
@@ -111,7 +84,8 @@ describe('useUpdateReservationFuelPreference', () => {
         fuel_preference_mode: 'ANY_GASOLINE',
       }),
     )
-    expect(invalidateQueriesSpy).toHaveBeenCalled()
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['today-queue'] })
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['today-queue-authors'] })
   })
 
   it('blocks updates while offline', async () => {

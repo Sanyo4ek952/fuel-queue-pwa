@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useCancelledReservations, type CancelledReservation } from '@/entities/reservation'
 import { ROLE_LABELS, type UserRole } from '@/shared/config/roles'
 import { type FuelType } from '@/shared/constants'
-import { getTodayDateInputValue } from '@/shared/lib/date'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -128,11 +127,9 @@ function DeletedReservationCard({ row }: { row: CancelledReservation }) {
 }
 
 export function DeletedReservationsHistoryPanel() {
-  const today = getTodayDateInputValue()
-  const [dateFrom, setDateFrom] = useState(today)
-  const [dateTo, setDateTo] = useState(today)
-  const historyQuery = useCancelledReservations({ dateFrom, dateTo })
-  const rows = historyQuery.data ?? []
+  const [plateSearch, setPlateSearch] = useState('')
+  const historyQuery = useCancelledReservations({ plateSearch })
+  const rows = historyQuery.data?.rows ?? []
 
   return (
     <div className="space-y-4">
@@ -147,27 +144,17 @@ export function DeletedReservationsHistoryPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
             <div className="space-y-1.5">
-              <label htmlFor="deletedDateFrom" className="text-sm font-medium text-slate-700">
-                С даты
+              <label htmlFor="deletedPlateSearch" className="text-sm font-medium text-slate-700">
+                Поиск по госномеру
               </label>
               <Input
-                id="deletedDateFrom"
-                type="date"
-                value={dateFrom}
-                onChange={(event) => setDateFrom(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="deletedDateTo" className="text-sm font-medium text-slate-700">
-                По дату
-              </label>
-              <Input
-                id="deletedDateTo"
-                type="date"
-                value={dateTo}
-                onChange={(event) => setDateTo(event.target.value)}
+                id="deletedPlateSearch"
+                value={plateSearch}
+                onChange={(event) => setPlateSearch(event.target.value)}
+                placeholder="А123ВС777"
+                autoComplete="off"
               />
             </div>
             <Button
@@ -199,7 +186,7 @@ export function DeletedReservationsHistoryPanel() {
 
       {!historyQuery.isLoading && rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-          За выбранный период удалённых записей нет.
+          Удалённых записей не найдено.
         </div>
       ) : null}
 
@@ -208,6 +195,17 @@ export function DeletedReservationsHistoryPanel() {
           {rows.map((row) => (
             <DeletedReservationCard key={row.id} row={row} />
           ))}
+          {historyQuery.hasNextPage ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={historyQuery.isFetchingNextPage}
+              onClick={() => void historyQuery.fetchNextPage()}
+            >
+              {historyQuery.isFetchingNextPage ? 'Загружаем...' : 'Показать еще'}
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </div>

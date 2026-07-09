@@ -10,6 +10,7 @@ import type {
 import { supabase } from '@/shared/api/supabase'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { offlineDb, type LocalReservation } from '@/shared/lib/offline-db'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 type RelatedVehicle = {
   normalized_plate_number?: string | null
@@ -139,6 +140,53 @@ type CancelledReservationRow = {
   cancelled_by_full_name?: string | null
   cancelled_by_role?: string | null
   cancelled_by_signature_name?: string | null
+}
+
+export type QueueCallFilter = 'all' | 'call' | 'contacted' | 'no_answer' | 'call_later'
+export type QueueGasolineFuelFilter = 'all' | 'AI_92' | 'AI_95' | 'AI_100'
+
+export type TodayQueueCursor = {
+  queue_number: number
+  id: string
+}
+
+export type CancelledReservationsCursor = {
+  cancelled_at: string
+  id: string
+}
+
+export type TodayQueuePage = {
+  rows: TodayQueueRow[]
+  nextCursor: TodayQueueCursor | null
+}
+
+export type CancelledReservationsPage = {
+  rows: CancelledReservation[]
+  nextCursor: CancelledReservationsCursor | null
+}
+
+type TodayQueuePageResponse = {
+  rows?: ReservationRow[] | null
+  next_cursor?: TodayQueueCursor | null
+}
+
+type CancelledReservationsPageResponse = {
+  rows?: CancelledReservationRow[] | null
+  next_cursor?: CancelledReservationsCursor | null
+}
+
+type QueueAuthorRow = {
+  user_id?: string | null
+  display_name?: string | null
+  role?: string | null
+  signature_name?: string | null
+}
+
+export type QueueAuthorOption = {
+  userId: string
+  displayName: string
+  role: UserRole | string | null
+  signatureName: string | null
 }
 
 export type CancelledReservation = {
@@ -334,7 +382,47 @@ function toCancelledReservation(row: CancelledReservationRow): CancelledReservat
   }
 }
 
-export async function listTodayQueueRows() {
+function parseTodayQueuePage(data: unknown): TodayQueuePage {
+  const page = data && typeof data === 'object' ? (data as TodayQueuePageResponse) : null
+  const rows = Array.isArray(page?.rows) ? page.rows.map(toTodayQueueRow) : []
+
+  return {
+    rows,
+    nextCursor: page?.next_cursor ?? null,
+  }
+}
+
+function parseCancelledReservationsPage(data: unknown): CancelledReservationsPage {
+  const page = data && typeof data === 'object' ? (data as CancelledReservationsPageResponse) : null
+  const rows = Array.isArray(page?.rows) ? page.rows.map(toCancelledReservation) : []
+
+  return {
+    rows,
+    nextCursor: page?.next_cursor ?? null,
+  }
+}
+
+function toQueueAuthorOption(row: QueueAuthorRow): QueueAuthorOption | null {
+  if (!row.user_id) {
+    return null
+  }
+
+  return {
+    userId: row.user_id,
+    displayName: row.display_name ?? 'Автор не указан',
+    role: row.role ?? null,
+    signatureName: row.signature_name ?? null,
+  }
+}
+
+export async function listTodayQueueRowsPage(params: {
+  pageSize?: number
+  cursor?: TodayQueueCursor | null
+  plateSearch?: string
+  createdByProfileId?: string | null
+  callFilter?: QueueCallFilter
+  gasolineFuelFilter?: QueueGasolineFuelFilter
+} = {}): Promise<TodayQueuePage> {
   if (!isSupabaseConfigured) {
     throw new Error('Supabase is not configured.')
   }
@@ -347,37 +435,86 @@ export async function listTodayQueueRows() {
 
   const { data, error } = await supabase.rpc('get_today_call_list', {
     target_date: getTodayDateInputValue(),
+    page_size: params.pageSize ?? 25,
+    cursor_queue_number: params.cursor?.queue_number ?? null,
+    cursor_id: params.cursor?.id ?? null,
+    plate_search: normalizePlateNumber(params.plateSearch ?? ''),
+    created_by_profile_id: params.createdByProfileId ?? null,
+    call_filter: params.callFilter ?? 'all',
+    gasoline_fuel_filter: params.gasolineFuelFilter ?? 'all',
   })
 
   if (error) {
     throw new Error(error.message)
   }
 
-  return withCurrentQueuePositions(
-    (Array.isArray(data) ? (data as ReservationRow[]) : []).map(toTodayQueueRow),
-  )
+  return parseTodayQueuePage(data)
 }
 
-export async function listCancelledReservations(params: {
-  dateFrom: string
-  dateTo: string
-}): Promise<CancelledReservation[]> {
+export async function listTodayQueueRows() {
+  const page = await listTodayQueueRowsPage()
+
+  return withCurrentQueuePositions(page.rows)
+}
+
+export async function listTodayQueueAuthors(params: {
+  plateSearch?: string
+  callFilter?: QueueCallFilter
+  gasolineFuelFilter?: QueueGasolineFuelFilter
+} = {}): Promise<QueueAuthorOption[]> {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const { data, error } = await supabase.rpc('get_today_queue_authors', {
+    target_date: getTodayDateInputValue(),
+    plate_search: normalizePlateNumber(params.plateSearch ?? ''),
+    call_filter: params.callFilter ?? 'all',
+    gasoline_fuel_filter: params.gasolineFuelFilter ?? 'all',
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (Array.isArray(data) ? (data as QueueAuthorRow[]) : [])
+    .map(toQueueAuthorOption)
+    .filter((option): option is QueueAuthorOption => option !== null)
+}
+
+export async function listCancelledReservationsPage(params: {
+  pageSize?: number
+  cursor?: CancelledReservationsCursor | null
+  plateSearch?: string
+  dateFrom?: string | null
+  dateTo?: string | null
+} = {}): Promise<CancelledReservationsPage> {
   if (!isSupabaseConfigured) {
     throw new Error('Supabase is not configured.')
   }
 
   const { data, error } = await supabase.rpc('get_cancelled_reservations', {
-    date_from: params.dateFrom,
-    date_to: params.dateTo,
+    page_size: params.pageSize ?? 25,
+    cursor_cancelled_at: params.cursor?.cancelled_at ?? null,
+    cursor_id: params.cursor?.id ?? null,
+    plate_search: normalizePlateNumber(params.plateSearch ?? ''),
+    date_from: params.dateFrom ?? null,
+    date_to: params.dateTo ?? null,
   })
 
   if (error) {
     throw new Error(error.message)
   }
 
-  return (Array.isArray(data) ? (data as CancelledReservationRow[]) : []).map(
-    toCancelledReservation,
-  )
+  return parseCancelledReservationsPage(data)
+}
+
+export async function listCancelledReservations(params: {
+  plateSearch?: string
+} = {}): Promise<CancelledReservation[]> {
+  const page = await listCancelledReservationsPage(params)
+
+  return page.rows
 }
 
 export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
