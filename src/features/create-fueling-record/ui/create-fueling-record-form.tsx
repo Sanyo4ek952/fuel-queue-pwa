@@ -184,6 +184,15 @@ export function CreateFuelingRecordForm() {
   const isManualOverrideWithoutReservation =
     accessResult?.reason === 'MANUAL_OVERRIDE_ACTIVE' && !accessResult.reservation_id
   const canSubmitFuelingRecord = canCreateFuelingRecord(accessResult, normalizedPlateNumber)
+  const accessFuelType = accessResult?.matched_fuel_type ?? accessResult?.fuel_type
+  const fuelSelectOptions = isManualOverrideWithoutReservation
+    ? FUEL_TYPES
+    : accessFuelType && FUEL_TYPES.includes(accessFuelType as FuelType)
+      ? [accessFuelType as FuelType]
+      : []
+  const isFuelSelectVisible =
+    isManualOverrideWithoutReservation || (canSubmitFuelingRecord && fuelSelectOptions.length > 0)
+  const isFuelSelectDisabled = !isManualOverrideWithoutReservation
 
   async function handleCheckVehicle() {
     if (!selectedStationId) {
@@ -313,10 +322,11 @@ export function CreateFuelingRecordForm() {
                 ) : null}
               </FormItem>
 
-              {isManualOverrideWithoutReservation ? (
+              {isFuelSelectVisible ? (
                 <FormItem>
                   <FormLabel htmlFor="fuelType">Топливо</FormLabel>
                   <Select
+                    disabled={isFuelSelectDisabled}
                     value={form.watch('fuelType')}
                     onValueChange={(value) =>
                       form.setValue('fuelType', value as FuelType, { shouldValidate: true })
@@ -326,7 +336,7 @@ export function CreateFuelingRecordForm() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent position="popper" align="start">
-                      {FUEL_TYPES.map((fuelType) => (
+                      {fuelSelectOptions.map((fuelType) => (
                         <SelectItem key={fuelType} value={fuelType}>
                           {fuelTypeLabels[fuelType]}
                         </SelectItem>
