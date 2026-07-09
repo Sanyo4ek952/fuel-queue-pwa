@@ -1,8 +1,77 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'node:path'
+
+import currentProfileHandler from './api/current-profile.js'
+
+type LocalApiResponse = {
+  statusCode: number
+  status: (statusCode: number) => LocalApiResponse
+  setHeader: (key: string, value: string) => LocalApiResponse
+  end: (body: string) => void
+}
+
+function applyServerEnv(mode: string) {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  for (const [key, value] of Object.entries(env)) {
+    process.env[key] ??= value
+  }
+}
+
+function createLocalApiResponse(end: (statusCode: number, body: string) => void): LocalApiResponse {
+  const response: LocalApiResponse = {
+    statusCode: 200,
+    status(statusCode) {
+      response.statusCode = statusCode
+      return response
+    },
+    setHeader() {
+      return response
+    },
+    end(body) {
+      end(response.statusCode, body)
+    },
+  }
+
+  return response
+}
+
+function localApiPlugin(mode: string): Plugin {
+  return {
+    name: 'local-api',
+    configureServer(server) {
+      applyServerEnv(mode)
+
+      server.middlewares.use('/api/current-profile', async (request, response) => {
+        try {
+          await currentProfileHandler(
+            {
+              method: request.method,
+              headers: request.headers,
+            },
+            createLocalApiResponse((statusCode, body) => {
+              response.statusCode = statusCode
+              response.setHeader('content-type', 'application/json')
+              response.setHeader('cache-control', 'no-store')
+              response.end(body)
+            }),
+          )
+        } catch (error) {
+          response.statusCode = 500
+          response.setHeader('content-type', 'application/json')
+          response.end(
+            JSON.stringify({
+              error: error instanceof Error ? error.message : 'Local current profile request failed.',
+            }),
+          )
+        }
+      })
+    },
+  }
+}
 
 function getManualChunk(id: string) {
   const normalizedId = id.replaceAll('\\', '/')
@@ -44,8 +113,9 @@ function getManualChunk(id: string) {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
+    localApiPlugin(mode),
     react(),
     tailwindcss(),
     VitePWA({
@@ -77,4 +147,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

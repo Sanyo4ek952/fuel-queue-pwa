@@ -36,8 +36,10 @@ vi.mock('./db', () => ({
 }))
 
 import {
+  cacheDailyFuelingSchedule,
   cacheNoShowGraceSetting,
   clearCachedCurrentProfile,
+  getCachedDailyFuelingSchedule,
   getCachedCurrentProfile,
   getCachedNoShowGraceDays,
   saveCachedCurrentProfile,
@@ -102,5 +104,27 @@ describe('no-show grace app setting cache', () => {
     await clearCachedCurrentProfile()
 
     await expect(getCachedCurrentProfile()).resolves.toBeNull()
+  })
+
+  it('stores and reads the daily fueling schedule cache', async () => {
+    await cacheDailyFuelingSchedule('2026-07-09', [
+      {
+        date: '2026-07-09',
+        fuel_category: 'GASOLINE',
+        start_time: '13:00',
+        interval_minutes: 5,
+        vehicles_per_interval: 5,
+      },
+    ])
+
+    await expect(getCachedDailyFuelingSchedule('2026-07-09')).resolves.toEqual([
+      {
+        date: '2026-07-09',
+        fuel_category: 'GASOLINE',
+        start_time: '13:00',
+        interval_minutes: 5,
+        vehicles_per_interval: 5,
+      },
+    ])
   })
 })

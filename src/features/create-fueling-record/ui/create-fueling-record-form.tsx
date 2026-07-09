@@ -114,7 +114,6 @@ function AccessResultCard({ result }: { result: VehicleAccessResult }) {
             {result.preferential_queue_name ? (
               <div>
                 <dt className="opacity-70">Льготная очередь</dt>
-                <dd className="font-semibold">{result.preferential_queue_name}</dd>
               </div>
             ) : null}
             {result.fuel_type ? (

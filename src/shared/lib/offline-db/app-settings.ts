@@ -1,9 +1,11 @@
 import { offlineDb } from './db'
 import type { CurrentProfile } from '@/shared/api/profile'
+import type { DailyFuelingScheduleRow } from '@/shared/api/rpc/daily-fueling-schedule'
 
 const REFUEL_COOLDOWN_KEY = 'reservation_refuel_cooldown_days'
 const NO_SHOW_GRACE_KEY = 'reservation_no_show_grace_days'
 const CURRENT_PROFILE_KEY = 'current_profile'
+const DAILY_FUELING_SCHEDULE_KEY_PREFIX = 'daily_fueling_schedule:'
 
 function parseDays(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -46,6 +48,54 @@ export async function cacheNoShowGraceSetting(days: number) {
 export async function getCachedNoShowGraceDays() {
   const setting = await offlineDb.local_app_settings.get(NO_SHOW_GRACE_KEY)
   return parseDays(setting?.value)
+}
+
+function isDailyFuelingScheduleRow(value: unknown): value is DailyFuelingScheduleRow {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const row = value as Partial<DailyFuelingScheduleRow>
+
+  return (
+    typeof row.date === 'string' &&
+    (row.fuel_category === 'GASOLINE' ||
+      row.fuel_category === 'DIESEL' ||
+      row.fuel_category === 'GAS') &&
+    typeof row.start_time === 'string' &&
+    typeof row.interval_minutes === 'number' &&
+    typeof row.vehicles_per_interval === 'number'
+  )
+}
+
+export async function cacheDailyFuelingSchedule(
+  targetDate: string,
+  rows: DailyFuelingScheduleRow[],
+) {
+  const now = new Date().toISOString()
+
+  await offlineDb.local_app_settings.put({
+    key: `${DAILY_FUELING_SCHEDULE_KEY_PREFIX}${targetDate}`,
+    value: { rows },
+    updated_at: now,
+    cached_at: now,
+  })
+}
+
+export async function getCachedDailyFuelingSchedule(targetDate: string) {
+  const setting = await offlineDb.local_app_settings.get(
+    `${DAILY_FUELING_SCHEDULE_KEY_PREFIX}${targetDate}`,
+  )
+
+  if (!setting?.value || typeof setting.value !== 'object' || Array.isArray(setting.value)) {
+    return []
+  }
+
+  const rows = (setting.value as { rows?: unknown }).rows
+
+  return Array.isArray(rows) && rows.every(isDailyFuelingScheduleRow)
+    ? rows
+    : []
 }
 
 function isProfileStation(value: unknown) {

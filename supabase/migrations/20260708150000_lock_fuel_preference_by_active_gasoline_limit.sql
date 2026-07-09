@@ -1,6 +1,8 @@
 set check_function_bodies = off;
 set search_path = public;
 
+drop function if exists public.update_reservation_fuel_preference(uuid, text, text, text, uuid);
+
 create or replace function public.update_reservation_fuel_preference(
   reservation_id uuid,
   fuel_type text,

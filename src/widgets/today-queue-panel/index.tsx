@@ -16,6 +16,7 @@ import {
 import { useDailyLimitOverview } from '@/entities/daily-limit'
 import { useTodayQueue, type TodayQueueRow } from '@/entities/reservation'
 import { useLogReservationCall } from '@/features/log-reservation-call'
+import { useDailyFuelingSchedule } from '@/features/manage-fueling-schedule'
 import {
   type UpdateReservationFuelPreferenceFormValues,
   updateReservationFuelPreferenceSchema,
@@ -33,6 +34,12 @@ import {
   type ReservationCallStatus,
 } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
+import {
+  buildFuelingScheduleEta,
+  buildFuelingScheduleSummary,
+  type FuelingScheduleConfig,
+  type FuelingScheduleSummary,
+} from '@/shared/lib/fueling-schedule'
 import { cn } from '@/shared/lib/utils'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import {
@@ -118,6 +125,45 @@ function SummaryTile({ label, value }: { label: string; value: number }) {
     <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
       <p className="text-xs text-slate-500">{label}</p>
       <p className="mt-1 text-xl font-semibold text-slate-950">{value}</p>
+    </div>
+  )
+}
+
+function FuelingScheduleSummaryPanel({ summaries }: { summaries: FuelingScheduleSummary[] }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-3">
+      {summaries.map((summary) => (
+        <div
+          key={summary.fuelCategory}
+          className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+        >
+          <p className="text-xs font-medium text-slate-700">
+            {categoryLabels[summary.fuelCategory]}
+          </p>
+          {summary.startTime ? (
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+              <div>
+                <dt className="text-slate-500">Начало</dt>
+                <dd className="font-medium text-slate-950">{summary.startTime}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Окончание</dt>
+                <dd className="font-medium text-slate-950">{summary.endTime ?? '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Интервал</dt>
+                <dd className="font-medium text-slate-950">{summary.intervalMinutes} мин.</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Авто</dt>
+                <dd className="font-medium text-slate-950">{summary.vehiclesPerInterval}</dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="mt-2 text-xs text-slate-500">Расписание не задано</p>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
@@ -299,6 +345,7 @@ function formatCallTime(value: string | null) {
 
 function QueueRowCard({
   row,
+  estimatedArrivalTime,
   isLoggingCall,
   isUpdatingFuelPreference,
   isFuelPreferenceUpdateUnavailable,
@@ -307,6 +354,7 @@ function QueueRowCard({
   onUpdateFuelPreference,
 }: {
   row: TodayQueueRow
+  estimatedArrivalTime: string | null
   isLoggingCall: boolean
   isUpdatingFuelPreference: boolean
   isFuelPreferenceUpdateUnavailable: boolean
@@ -398,6 +446,11 @@ function QueueRowCard({
                   <p className="truncate text-xs text-slate-500">
                     {row.driver_full_name || 'Водитель не указан'}
                   </p>
+                  {estimatedArrivalTime ? (
+                    <p className="mt-0.5 truncate text-xs font-medium text-slate-700">
+                      Предполагаемое время прибытия: {estimatedArrivalTime}
+                    </p>
+                  ) : null}
                   <div className="mt-1 flex max-w-full flex-nowrap gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {callableNow ? (
                       <Badge className="h-4 shrink-0 rounded-md bg-emerald-600 px-1.5 text-[11px]">
@@ -506,6 +559,12 @@ function QueueRowCard({
                 <dt className="text-slate-500">Перед вами</dt>
                 <dd className="font-medium text-slate-950">{row.people_ahead}</dd>
               </div>
+              {estimatedArrivalTime ? (
+                <div>
+                  <dt className="text-slate-500">Предполагаемое время прибытия</dt>
+                  <dd className="font-medium text-slate-950">{estimatedArrivalTime}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-slate-500">Топливо</dt>
                 <dd className="flex items-center gap-2 font-medium text-slate-950">
@@ -723,6 +782,7 @@ export function TodayQueuePanel() {
   )
   const queue = useTodayQueue()
   const dailyLimitOverview = useDailyLimitOverview({ date: todayDate })
+  const fuelingSchedule = useDailyFuelingSchedule(todayDate)
   const logReservationCall = useLogReservationCall()
   const updateReservationFuelPreference = useUpdateReservationFuelPreference()
   const isFuelPreferenceLockedByGasolineLimit = hasActiveGasolineLimit(
@@ -730,6 +790,35 @@ export function TodayQueuePanel() {
   )
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
   const authorOptions = useMemo(() => buildAuthorOptions(queue.rows), [queue.rows])
+  const scheduleConfigs = useMemo(
+    () =>
+      (fuelingSchedule.data ?? []).map(
+        (row): FuelingScheduleConfig => ({
+          fuelCategory: row.fuel_category,
+          startTime: row.start_time,
+          intervalMinutes: row.interval_minutes,
+          vehiclesPerInterval: row.vehicles_per_interval,
+        }),
+      ),
+    [fuelingSchedule.data],
+  )
+  const fuelingScheduleRows = useMemo(
+    () =>
+      queue.rows.map((row) => ({
+        id: row.id,
+        ticketNumber: row.ticket_number,
+        fuelCategory: getFuelQueueCategory(row.fuel_type),
+      })),
+    [queue.rows],
+  )
+  const etaByReservationId = useMemo(
+    () => buildFuelingScheduleEta(fuelingScheduleRows, scheduleConfigs),
+    [fuelingScheduleRows, scheduleConfigs],
+  )
+  const fuelingScheduleSummaries = useMemo(
+    () => buildFuelingScheduleSummary(fuelingScheduleRows, scheduleConfigs, categoryOrder),
+    [fuelingScheduleRows, scheduleConfigs],
+  )
   const rowsMatchingBaseFilters = useMemo(
     () =>
       queue.rows.filter((row) => {
@@ -841,6 +930,15 @@ export function TodayQueuePanel() {
             <SummaryTile label="Обзвон" value={callRowsCount} />
             <SummaryTile label="Позвонили" value={contactedRowsCount} />
           </div>
+
+          <FuelingScheduleSummaryPanel summaries={fuelingScheduleSummaries} />
+
+          {fuelingSchedule.error ? (
+            <Alert variant="destructive">
+              <AlertTitle>Расписание розлива не загружено</AlertTitle>
+              <AlertDescription>{fuelingSchedule.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -1004,6 +1102,9 @@ export function TodayQueuePanel() {
                       <QueueRowCard
                         key={row.id}
                         row={row}
+                        estimatedArrivalTime={
+                          etaByReservationId.get(row.id)?.arrivalTime ?? null
+                        }
                         isLoggingCall={logReservationCall.isPending}
                         isUpdatingFuelPreference={
                           updateReservationFuelPreference.isPending &&

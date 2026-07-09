@@ -1,5 +1,6 @@
 import { useCurrentProfile } from '@/entities/profile'
 import { QueueBackupExportCard } from '@/features/export-queue-backup'
+import { FuelingScheduleSettingsCard } from '@/features/manage-fueling-schedule'
 import { RefuelCooldownSettingsCard } from '@/features/manage-refuel-cooldown'
 
 export function SettingsPage() {
@@ -14,6 +15,7 @@ export function SettingsPage() {
         <p className="mt-1 text-sm text-slate-500">Параметры приложения для общей очереди.</p>
       </div>
       {canExportQueueBackup ? <QueueBackupExportCard /> : null}
+      <FuelingScheduleSettingsCard canEdit={canEditCooldown} />
       <RefuelCooldownSettingsCard canEdit={canEditCooldown} />
     </div>
   )

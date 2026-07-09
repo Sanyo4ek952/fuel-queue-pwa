@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   mutateFuelPreference: vi.fn(),
   useTodayQueue: vi.fn(),
   useDailyLimitOverview: vi.fn(),
+  useDailyFuelingSchedule: vi.fn(),
   useLogReservationCall: vi.fn(),
   useUpdateReservationFuelPreference: vi.fn(),
 }))
@@ -22,6 +23,10 @@ vi.mock('@/entities/daily-limit', () => ({
 
 vi.mock('@/entities/reservation', () => ({
   useTodayQueue: mocks.useTodayQueue,
+}))
+
+vi.mock('@/features/manage-fueling-schedule', () => ({
+  useDailyFuelingSchedule: mocks.useDailyFuelingSchedule,
 }))
 
 vi.mock('@/features/log-reservation-call', () => ({
@@ -180,6 +185,12 @@ describe('TodayQueuePanel', () => {
         unsynced_reservation_count: 0,
       },
       isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useDailyFuelingSchedule.mockReturnValue({
+      data: [],
       isLoading: false,
       isFetching: false,
       error: null,
@@ -865,5 +876,36 @@ describe('TodayQueuePanel', () => {
     await userEvent.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
 
     expect(within(article).getByRole('button', { name: /Изменить марку топлива/ })).toBeDisabled()
+  })
+
+  it('shows fueling schedule summary and estimated arrival time', () => {
+    mocks.useTodayQueue.mockReturnValue({
+      rows: makeGasolineQueueRows(6),
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useDailyFuelingSchedule.mockReturnValue({
+      data: [
+        {
+          date: '2026-07-09',
+          fuel_category: 'GASOLINE',
+          start_time: '13:00',
+          interval_minutes: 5,
+          vehicles_per_interval: 5,
+        },
+      ],
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    expect(screen.getByText('Начало')).toBeInTheDocument()
+    expect(screen.getByText('Окончание')).toBeInTheDocument()
+    expect(screen.getAllByText('Предполагаемое время прибытия: 13:00')).toHaveLength(5)
+    expect(screen.getByText('Предполагаемое время прибытия: 13:05')).toBeInTheDocument()
   })
 })
