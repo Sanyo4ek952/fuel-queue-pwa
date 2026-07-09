@@ -7,9 +7,8 @@ import { useCurrentProfile } from '@/entities/profile'
 import { PlateNumberInput } from '@/entities/vehicle'
 import {
   type VehicleAccessResult,
-  buildVehicleFuelingHistoryViewResult,
   useCheckVehicleAccess,
-  useVehicleFuelingHistory,
+  useVehicleFuelingHistoryPreview,
   VehicleAccessResultView,
   VehicleFuelingHistoryAccordion,
 } from '@/features/check-vehicle'
@@ -43,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/ui/select'
+import { ROUTES } from '@/shared/config/routes'
 
 const fuelTypeLabels: Record<FuelType, string> = {
   AI_92: 'АИ-92',
@@ -69,7 +69,6 @@ const createReservationFormDefaultValues = {
 } satisfies CreateReservationFormInput
 
 const HISTORY_ACCORDION_VALUE = 'fueling-history'
-const RESERVATION_HISTORY_PAGE_SIZE = 5
 const reservationCheckReasonLabelOverrides = {
   ACTIVE_RESERVATION: 'Автомобиль уже есть в очереди. Повторная запись запрещена.',
   NO_ACTIVE_RESERVATION: 'Автомобиля нет в очереди. Можно создать запись.',
@@ -111,10 +110,9 @@ export function CreateReservationForm() {
   const [historyPlateNumber, setHistoryPlateNumber] = useState('')
   const [historyAccordionValue, setHistoryAccordionValue] = useState('')
   const isHistoryOpen = historyAccordionValue === HISTORY_ACCORDION_VALUE
-  const vehicleFuelingHistoryQuery = useVehicleFuelingHistory({
+  const vehicleFuelingHistoryQuery = useVehicleFuelingHistoryPreview({
     plateNumber: historyPlateNumber,
     enabled: Boolean(historyPlateNumber) && isHistoryOpen,
-    pageSize: RESERVATION_HISTORY_PAGE_SIZE,
   })
   const form = useForm<CreateReservationFormInput, unknown, CreateReservationFormValues>({
     resolver: zodResolver(createReservationSchema),
@@ -198,9 +196,7 @@ export function CreateReservationForm() {
     accessResult?.reason === 'NO_ACTIVE_RESERVATION'
       ? ({ ...accessResult, status: 'ALLOWED' } as const)
       : accessResult
-  const fuelingHistoryViewResult = buildVehicleFuelingHistoryViewResult(
-    vehicleFuelingHistoryQuery.data,
-  )
+  const fuelingHistoryViewResult = vehicleFuelingHistoryQuery.data
 
   return (
     <Card className="rounded-lg border-slate-200 bg-white shadow-sm">
@@ -273,11 +269,7 @@ export function CreateReservationForm() {
                 result={fuelingHistoryViewResult}
                 isLoading={vehicleFuelingHistoryQuery.isLoading}
                 isError={vehicleFuelingHistoryQuery.isError}
-                isFetchingNextPage={vehicleFuelingHistoryQuery.isFetchingNextPage}
-                hasNextPage={vehicleFuelingHistoryQuery.hasNextPage}
-                onLoadMore={() => {
-                  void vehicleFuelingHistoryQuery.fetchNextPage()
-                }}
+                fullHistoryTo={`${ROUTES.history}?plate=${encodeURIComponent(historyPlateNumber)}`}
               />
             ) : null}
 

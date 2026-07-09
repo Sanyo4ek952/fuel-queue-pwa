@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { STATIONS } from '@/shared/config/stations'
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   checkVehicleAccess: vi.fn(),
   refreshVehicleAccessCache: vi.fn(),
   getVehicleFuelingHistory: vi.fn(),
+  getVehicleRecentFuelingHistory: vi.fn(),
   createOfflineReservation: vi.fn(),
   checkVehicleAccessOffline: vi.fn(),
   getVehicleFuelingHistoryOffline: vi.fn(),
@@ -51,6 +53,7 @@ vi.mock('@/shared/api/rpc', () => ({
   checkVehicleAccess: mocks.checkVehicleAccess,
   refreshVehicleAccessCache: mocks.refreshVehicleAccessCache,
   getVehicleFuelingHistory: mocks.getVehicleFuelingHistory,
+  getVehicleRecentFuelingHistory: mocks.getVehicleRecentFuelingHistory,
 }))
 
 vi.mock('@/shared/lib/sync', () => ({
@@ -83,7 +86,11 @@ function renderWithQueryClient(children: ReactNode) {
     },
   })
 
-  return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>)
+  return render(
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </MemoryRouter>,
+  )
 }
 
 function mockVehicleCheckResult(data: Record<string, unknown>) {
@@ -124,6 +131,7 @@ describe('CreateReservationForm', () => {
     mocks.checkVehicleAccess.mockReset()
     mocks.refreshVehicleAccessCache.mockReset()
     mocks.getVehicleFuelingHistory.mockReset()
+    mocks.getVehicleRecentFuelingHistory.mockReset()
     mocks.createOfflineReservation.mockReset()
     mocks.checkVehicleAccessOffline.mockReset()
     mocks.getVehicleFuelingHistoryOffline.mockReset()
@@ -205,7 +213,7 @@ describe('CreateReservationForm', () => {
       reason: 'MANUAL_OVERRIDE_ACTIVE',
       normalized_plate_number: 'А123ВС777',
     })
-    mocks.getVehicleFuelingHistory.mockResolvedValue({
+    mocks.getVehicleRecentFuelingHistory.mockResolvedValue({
       data: {
         normalized_plate_number: 'А123ВС777',
         vehicle_id: 'vehicle-id',
@@ -384,7 +392,7 @@ describe('CreateReservationForm', () => {
       },
       error: null,
     })
-    mocks.getVehicleFuelingHistory.mockResolvedValue({
+    mocks.getVehicleRecentFuelingHistory.mockResolvedValue({
       data: {
         normalized_plate_number: 'А123ВС777',
         vehicle_id: 'vehicle-id',
@@ -440,14 +448,12 @@ describe('CreateReservationForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /История заправок/i }))
 
     expect(await screen.findByText('Заправки')).toBeInTheDocument()
-    expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({
+    expect(mocks.getVehicleRecentFuelingHistory).toHaveBeenCalledWith({
       plateNumber: 'А123ВС777',
-      pageLimit: 5,
-      pageOffset: 0,
     })
   })
 
-  it('loads fueling history in batches of five from the accordion', async () => {
+  it('loads only recent fueling history from the accordion and links to full history', async () => {
     mocks.currentProfile.stations = [STATIONS[0]]
     mocks.refreshVehicleAccessCache.mockResolvedValue(undefined)
     mocks.checkVehicleAccess.mockResolvedValue({
@@ -458,7 +464,7 @@ describe('CreateReservationForm', () => {
       },
       error: null,
     })
-    mocks.getVehicleFuelingHistory
+    mocks.getVehicleRecentFuelingHistory
       .mockResolvedValueOnce({
         data: {
           normalized_plate_number: 'А123ВС777',
@@ -530,23 +536,16 @@ describe('CreateReservationForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /История заправок/i }))
 
     await waitFor(() => {
-      expect(mocks.getVehicleFuelingHistory).toHaveBeenCalledWith({
+      expect(mocks.getVehicleRecentFuelingHistory).toHaveBeenCalledWith({
         plateNumber: 'А123ВС777',
-        pageLimit: 5,
-        pageOffset: 0,
       })
     })
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Загрузить ещё' }))
-
-    await waitFor(() => {
-      expect(mocks.getVehicleFuelingHistory).toHaveBeenLastCalledWith({
-        plateNumber: 'А123ВС777',
-        pageLimit: 5,
-        pageOffset: 5,
-      })
-    })
-    expect(await screen.findByText('35 л')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Загрузить ещё' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'href',
+      '/history?plate=%D0%90123%D0%92%D0%A1777',
+    )
   })
 
   it('clears stale check result and history when plate or station changes', async () => {
@@ -560,7 +559,7 @@ describe('CreateReservationForm', () => {
       },
       error: null,
     })
-    mocks.getVehicleFuelingHistory.mockResolvedValue({
+    mocks.getVehicleRecentFuelingHistory.mockResolvedValue({
       data: {
         normalized_plate_number: 'А123ВС777',
         vehicle_id: 'vehicle-id',

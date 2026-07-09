@@ -24,6 +24,18 @@ function createResponse() {
   return response
 }
 
+function stubSupabaseEnv() {
+  vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co')
+  vi.stubEnv('SUPABASE_ANON_KEY', 'anon-key')
+}
+
+function createJsonResponse(value: unknown, status = 200) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
 describe('/api/current-profile', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -31,8 +43,7 @@ describe('/api/current-profile', () => {
   })
 
   it('requires an authorization token', async () => {
-    vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co')
-    vi.stubEnv('SUPABASE_ANON_KEY', 'anon-key')
+    stubSupabaseEnv()
     const response = createResponse()
 
     await handler({ method: 'GET', headers: {} }, response)
@@ -42,52 +53,34 @@ describe('/api/current-profile', () => {
   })
 
   it('returns the current profile with assigned stations', async () => {
-    vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co')
-    vi.stubEnv('SUPABASE_ANON_KEY', 'anon-key')
+    stubSupabaseEnv()
     vi.stubGlobal(
       'fetch',
       vi
         .fn()
+        .mockResolvedValueOnce(createJsonResponse({ id: 'auth-user-id' }))
         .mockResolvedValueOnce(
-          new Response(JSON.stringify({ id: 'auth-user-id' }), {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          }),
+          createJsonResponse([
+            {
+              id: 'profile-id',
+              auth_user_id: 'auth-user-id',
+              full_name: 'Test User',
+              role: 'cashier',
+              is_active: true,
+              approval_status: 'approved',
+            },
+          ]),
         )
         .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify([
-              {
-                id: 'profile-id',
-                auth_user_id: 'auth-user-id',
-                full_name: 'Test User',
-                role: 'cashier',
-                is_active: true,
-                approval_status: 'approved',
-              },
-            ]),
+          createJsonResponse([
             {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            },
-          ),
-        )
-        .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify([
-              {
-                stations: {
-                  id: 'station-id',
-                  name: 'AZS #1',
-                  address: null,
-                },
+              stations: {
+                id: 'station-id',
+                name: 'AZS #1',
+                address: null,
               },
-            ]),
-            {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
             },
-          ),
+          ]),
         ),
     )
     const response = createResponse()
@@ -107,5 +100,85 @@ describe('/api/current-profile', () => {
       id: 'profile-id',
       stations: [{ id: 'station-id', name: 'AZS #1', address: null }],
     })
+  })
+
+  it('returns a diagnostic error when the auth user has no profile', async () => {
+    stubSupabaseEnv()
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(createJsonResponse({ id: 'auth-user-id' }))
+        .mockResolvedValueOnce(createJsonResponse([])),
+    )
+    const response = createResponse()
+
+    await handler(
+      {
+        method: 'GET',
+        headers: {
+          authorization: 'Bearer access-token',
+        },
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(404)
+    expect(JSON.parse(response.body)).toEqual({ error: 'PROFILE_NOT_FOUND' })
+  })
+
+  it('returns a diagnostic error for an unsupported profile role', async () => {
+    stubSupabaseEnv()
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(createJsonResponse({ id: 'auth-user-id' }))
+        .mockResolvedValueOnce(
+          createJsonResponse([
+            {
+              id: 'profile-id',
+              role: 'legacy_role',
+              approval_status: 'approved',
+            },
+          ]),
+        ),
+    )
+    const response = createResponse()
+
+    await handler(
+      {
+        method: 'GET',
+        headers: {
+          authorization: 'Bearer access-token',
+        },
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(500)
+    expect(JSON.parse(response.body)).toEqual({ error: 'INVALID_PROFILE_ROLE' })
+  })
+
+  it('returns a timeout diagnostic when Supabase does not respond', async () => {
+    stubSupabaseEnv()
+    const timeoutError = new Error('The operation was aborted.')
+
+    timeoutError.name = 'AbortError'
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(timeoutError))
+    const response = createResponse()
+
+    await handler(
+      {
+        method: 'GET',
+        headers: {
+          authorization: 'Bearer access-token',
+        },
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(504)
+    expect(JSON.parse(response.body)).toEqual({ error: 'Supabase request timed out.' })
   })
 })

@@ -175,3 +175,41 @@ export async function getVehicleFuelingHistory({
     error: null,
   }
 }
+
+export async function getVehicleRecentFuelingHistory({
+  plateNumber,
+}: Pick<GetVehicleFuelingHistoryParams, 'plateNumber'>): Promise<
+  RpcResult<VehicleFuelingHistoryResult>
+> {
+  if (!isSupabaseConfigured) {
+    return {
+      data: null,
+      error: 'Supabase is not configured.',
+    }
+  }
+
+  const { data, error } = await supabase.rpc('get_vehicle_recent_fueling_history', {
+    plate_number: normalizePlateNumber(plateNumber),
+  })
+
+  if (error) {
+    return {
+      data: null,
+      error: error.message,
+    }
+  }
+
+  const parsed = parseVehicleFuelingHistory(data)
+
+  if (!parsed) {
+    return {
+      data: null,
+      error: 'Unexpected get_vehicle_recent_fueling_history response.',
+    }
+  }
+
+  return {
+    data: parsed,
+    error: null,
+  }
+}

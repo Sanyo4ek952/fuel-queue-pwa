@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 import {
   Accordion,
   AccordionContent,
@@ -120,9 +122,10 @@ type VehicleFuelingHistoryRecordsViewProps = {
   result: VehicleFuelingHistoryResult | undefined
   isLoading: boolean
   isError: boolean
-  isFetchingNextPage: boolean
-  hasNextPage: boolean
-  onLoadMore: () => void
+  isFetchingNextPage?: boolean
+  hasNextPage?: boolean
+  onLoadMore?: () => void
+  fullHistoryTo?: string
 }
 
 function VehicleFuelingHistoryRecordsView({
@@ -132,6 +135,7 @@ function VehicleFuelingHistoryRecordsView({
   isFetchingNextPage,
   hasNextPage,
   onLoadMore,
+  fullHistoryTo,
 }: VehicleFuelingHistoryRecordsViewProps) {
   const records = result?.records ?? []
 
@@ -199,7 +203,12 @@ function VehicleFuelingHistoryRecordsView({
             </div>
           </div>
         ) : null}
-        {hasNextPage ? (
+        {fullHistoryTo ? (
+          <Button asChild type="button" variant="outline" className="w-full">
+            <Link to={fullHistoryTo}>РџРѕСЃРјРѕС‚СЂРµС‚СЊ РІСЃСЋ РёСЃС‚РѕСЂРёСЋ</Link>
+          </Button>
+        ) : null}
+        {hasNextPage && onLoadMore ? (
           <Button
             type="button"
             variant="outline"

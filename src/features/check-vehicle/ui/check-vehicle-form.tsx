@@ -8,13 +8,13 @@ import { PlateNumberInput } from '@/entities/vehicle'
 import {
   type CheckVehicleFormInput,
   type CheckVehicleFormValues,
-  buildVehicleFuelingHistoryViewResult,
   checkVehicleSchema,
   useCheckVehicleAccess,
-  useVehicleFuelingHistory,
+  useVehicleFuelingHistoryPreview,
   VehicleAccessResultView,
   VehicleFuelingHistoryAccordion,
 } from '@/features/check-vehicle'
+import { ROUTES } from '@/shared/config/routes'
 import { CreateManualOverrideForm } from '@/features/create-manual-override'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { canCreateManualOverride } from '@/shared/lib/permissions'
@@ -38,7 +38,7 @@ export function CheckVehicleForm() {
   >()
   const checkVehicleAccessMutation = useCheckVehicleAccess()
   const isHistoryOpen = historyAccordionValue === HISTORY_ACCORDION_VALUE
-  const vehicleFuelingHistoryQuery = useVehicleFuelingHistory({
+  const vehicleFuelingHistoryQuery = useVehicleFuelingHistoryPreview({
     plateNumber: historyPlateNumber,
     enabled: isHistoryOpen,
   })
@@ -67,9 +67,7 @@ export function CheckVehicleForm() {
   }
 
   const accessResult = checkVehicleAccessMutation.data
-  const fuelingHistoryViewResult = buildVehicleFuelingHistoryViewResult(
-    vehicleFuelingHistoryQuery.data,
-  )
+  const fuelingHistoryViewResult = vehicleFuelingHistoryQuery.data
   const canShowManualOverride =
     Boolean(
       selectedStationId &&
@@ -136,11 +134,7 @@ export function CheckVehicleForm() {
             result={fuelingHistoryViewResult}
             isLoading={vehicleFuelingHistoryQuery.isLoading}
             isError={vehicleFuelingHistoryQuery.isError}
-            isFetchingNextPage={vehicleFuelingHistoryQuery.isFetchingNextPage}
-            hasNextPage={vehicleFuelingHistoryQuery.hasNextPage}
-            onLoadMore={() => {
-              void vehicleFuelingHistoryQuery.fetchNextPage()
-            }}
+            fullHistoryTo={`${ROUTES.history}?plate=${encodeURIComponent(historyPlateNumber)}`}
           />
         ) : null}
         {canShowManualOverride && accessResult ? (

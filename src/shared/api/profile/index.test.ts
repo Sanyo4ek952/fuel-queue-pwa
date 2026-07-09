@@ -105,6 +105,42 @@ describe('getCurrentProfile', () => {
     })
   })
 
+  it('uses the cached profile when the profile API cannot be reached', async () => {
+    mocks.fetchWithTimeout.mockRejectedValue(new TypeError('Failed to fetch'))
+    mocks.getCachedCurrentProfile.mockResolvedValue(profile)
+
+    await expect(getCurrentProfile()).resolves.toMatchObject({
+      id: 'profile-id',
+      is_from_cache: true,
+    })
+  })
+
+  it('treats a missing profile response as a profile error', async () => {
+    mocks.fetchWithTimeout.mockResolvedValue(
+      new Response(JSON.stringify(null), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    mocks.getCachedCurrentProfile.mockResolvedValue(profile)
+
+    await expect(getCurrentProfile()).rejects.toThrow('PROFILE_NOT_FOUND')
+    expect(mocks.getCachedCurrentProfile).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed profile roles instead of returning a missing profile', async () => {
+    mocks.fetchWithTimeout.mockResolvedValue(
+      new Response(JSON.stringify({ ...profile, role: 'legacy_role' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    mocks.getCachedCurrentProfile.mockResolvedValue(profile)
+
+    await expect(getCurrentProfile()).rejects.toThrow('INVALID_CURRENT_PROFILE')
+    expect(mocks.getCachedCurrentProfile).not.toHaveBeenCalled()
+  })
+
   it('does not use the cached profile for authorization errors', async () => {
     mocks.fetchWithTimeout.mockResolvedValue(
       new Response(JSON.stringify({ error: 'Authorization token is invalid.' }), {

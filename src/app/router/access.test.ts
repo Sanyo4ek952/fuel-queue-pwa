@@ -54,6 +54,18 @@ describe('getProtectedRouteState', () => {
     ).toBe('redirect-login')
   })
 
+  it('blocks authenticated users when no profile data is available', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: null,
+        route: ROUTES.dashboard,
+      }),
+    ).toBe('profile-missing')
+  })
+
   it('blocks inactive profiles', () => {
     expect(
       getProtectedRouteState({

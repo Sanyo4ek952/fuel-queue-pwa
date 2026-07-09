@@ -273,7 +273,7 @@ async function getCurrentProfileViaApi(accessToken: string): Promise<CurrentProf
   const value = await readCurrentProfileApiResponse(response)
 
   if (value === null) {
-    return null
+    throw new CurrentProfileApiError('PROFILE_NOT_FOUND', 404)
   }
 
   if (!value || typeof value !== 'object') {
@@ -286,7 +286,13 @@ async function getCurrentProfileViaApi(accessToken: string): Promise<CurrentProf
     throw new CurrentProfileApiError('Unexpected current profile stations response.')
   }
 
-  return toProfile(profile, profile.stations)
+  const currentProfile = toProfile(profile, profile.stations)
+
+  if (!currentProfile) {
+    throw new CurrentProfileApiError('INVALID_CURRENT_PROFILE')
+  }
+
+  return currentProfile
 }
 
 export async function listManagedProfiles(): Promise<ManagedProfile[]> {

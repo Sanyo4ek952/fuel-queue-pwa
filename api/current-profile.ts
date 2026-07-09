@@ -61,6 +61,7 @@ type UserStationRow = {
 type ProfileRow = {
   id: string
   role?: string
+  approval_status?: string
 }
 
 type SupabaseUser = {
@@ -119,6 +120,17 @@ function getErrorStatusCode(error: unknown) {
   const statusCode = (error as { statusCode?: unknown }).statusCode
 
   return Number.isInteger(statusCode) ? Number(statusCode) : 500
+}
+
+const userRoles = new Set(['mayor', 'station_manager', 'cashier', 'mayor_assistant'])
+const profileApprovalStatuses = new Set(['pending', 'approved', 'rejected'])
+
+function createSupabaseError(message: string, statusCode: number) {
+  const error: SupabaseError = new Error(message)
+
+  error.statusCode = statusCode
+
+  return error
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit) {
@@ -213,8 +225,15 @@ export default async function handler(request: VercelRequestLike, response: Verc
     const profile = Array.isArray(profiles) ? (profiles[0] as ProfileRow | undefined) : null
 
     if (!profile) {
-      sendJson(response, 200, null)
-      return
+      throw createSupabaseError('PROFILE_NOT_FOUND', 404)
+    }
+
+    if (!profile.role || !userRoles.has(profile.role)) {
+      throw createSupabaseError('INVALID_PROFILE_ROLE', 500)
+    }
+
+    if (!profile.approval_status || !profileApprovalStatuses.has(profile.approval_status)) {
+      throw createSupabaseError('INVALID_PROFILE_APPROVAL_STATUS', 500)
     }
 
     if (canViewAllStations(profile.role)) {

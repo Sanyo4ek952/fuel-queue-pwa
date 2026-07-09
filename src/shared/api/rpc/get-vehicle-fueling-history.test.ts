@@ -6,7 +6,16 @@ vi.mock('@/shared/api/supabase', () => ({
   },
 }))
 
-import { parseVehicleFuelingHistory } from './get-vehicle-fueling-history'
+vi.mock('@/shared/config/env', () => ({
+  isSupabaseConfigured: true,
+}))
+
+import { supabase } from '@/shared/api/supabase'
+
+import {
+  getVehicleRecentFuelingHistory,
+  parseVehicleFuelingHistory,
+} from './get-vehicle-fueling-history'
 
 describe('parseVehicleFuelingHistory', () => {
   it('parses a vehicle fueling history response', () => {
@@ -125,5 +134,41 @@ describe('parseVehicleFuelingHistory', () => {
 
   it('returns null for an unexpected response', () => {
     expect(parseVehicleFuelingHistory({ total_fueling_count: 1 })).toBeNull()
+  })
+
+  it('loads recent fueling history through the preview RPC without pagination params', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: {
+        normalized_plate_number: 'А123ВС777',
+        vehicle_id: 'vehicle-id',
+        vehicle_found: true,
+        total_fueling_count: 4,
+        regular_fueling_count: 4,
+        manual_override_fueling_count: 0,
+        total_liters: '160',
+        first_fueled_at: '2026-07-01T10:00:00.000Z',
+        last_fueled_at: '2026-07-04T10:00:00.000Z',
+        station_summaries: [],
+        fuel_type_summaries: [],
+        records: [],
+        has_more: true,
+      },
+      error: null,
+      success: true,
+      count: null,
+      status: 200,
+      statusText: 'OK',
+    })
+
+    await expect(getVehicleRecentFuelingHistory({ plateNumber: 'а123вс777' })).resolves.toMatchObject({
+      data: {
+        normalized_plate_number: 'А123ВС777',
+        has_more: true,
+      },
+      error: null,
+    })
+    expect(supabase.rpc).toHaveBeenCalledWith('get_vehicle_recent_fueling_history', {
+      plate_number: 'А123ВС777',
+    })
   })
 })
