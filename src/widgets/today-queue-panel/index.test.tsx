@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   useDailyFuelingSchedule: vi.fn(),
   useLogReservationCall: vi.fn(),
   useUpdateReservationFuelPreference: vi.fn(),
+  useCurrentProfile: vi.fn(),
+  useCancelReservation: vi.fn(),
 }))
 
 vi.mock('@/entities/daily-limit', () => ({
@@ -24,6 +26,21 @@ vi.mock('@/entities/daily-limit', () => ({
 vi.mock('@/entities/reservation', () => ({
   useTodayQueue: mocks.useTodayQueue,
 }))
+
+vi.mock('@/entities/profile', () => ({
+  useCurrentProfile: mocks.useCurrentProfile,
+}))
+
+vi.mock('@/features/cancel-reservation', async () => {
+  const actual = await vi.importActual<typeof import('@/features/cancel-reservation')>(
+    '@/features/cancel-reservation',
+  )
+
+  return {
+    ...actual,
+    useCancelReservation: mocks.useCancelReservation,
+  }
+})
 
 vi.mock('@/features/manage-fueling-schedule', () => ({
   useDailyFuelingSchedule: mocks.useDailyFuelingSchedule,
@@ -199,6 +216,17 @@ describe('TodayQueuePanel', () => {
       mutate: mocks.mutateCall,
       isPending: false,
       error: null,
+    })
+    mocks.useCurrentProfile.mockReturnValue({
+      data: {
+        role: 'cashier',
+      },
+    })
+    mocks.useCancelReservation.mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      error: null,
+      variables: undefined,
     })
     mocks.useUpdateReservationFuelPreference.mockReturnValue({
       mutate: mocks.mutateFuelPreference,
@@ -536,7 +564,7 @@ describe('TodayQueuePanel', () => {
     expect(screen.getByRole('button', { name: 'Показать еще' })).toBeInTheDocument()
   })
 
-  it('renders the current position while keeping the stable ticket number in details', async () => {
+  it('renders the current position after filtering the queue', async () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [
         makeQueueRow({
@@ -575,12 +603,7 @@ describe('TodayQueuePanel', () => {
       within(secondRow as HTMLElement).getByLabelText('Текущая позиция 71'),
     ).toBeInTheDocument()
 
-    await userEvent.click(
-      within(secondRow as HTMLElement).getByRole('button', { name: DETAILS_BUTTON_NAME }),
-    )
-
-    expect(within(secondRow as HTMLElement).getByText('2847')).toBeInTheDocument()
-    expect(within(secondRow as HTMLElement).getByText('70')).toBeInTheDocument()
+    expect(within(secondRow as HTMLElement).getByText('B456TC777')).toBeInTheDocument()
   })
 
   it('shows today arrivals by callable server status', async () => {
@@ -712,7 +735,6 @@ describe('TodayQueuePanel', () => {
       fuelPreferenceMode: 'ANY_GASOLINE',
       clientMutationId: expect.any(String),
     })
-    expect(within(article).getByText('7')).toBeInTheDocument()
   })
 
   it('disables fuel preference editing while gasoline vehicle limit is greater than zero', async () => {

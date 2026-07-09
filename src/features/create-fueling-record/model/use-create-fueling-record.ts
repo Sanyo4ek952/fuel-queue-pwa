@@ -44,6 +44,10 @@ export function useCreateFuelingRecord() {
       return result.data
     },
     onSuccess: (data) => {
+      if (data.preferential_queue_entry_id) {
+        void queryClient.invalidateQueries({ queryKey: ['preferential-queues'] })
+      }
+
       if (data.reservation_id) {
         queryClient.setQueryData<TodayQueueRow[]>(todayQueueQueryKey(), (rows) =>
           rows?.filter((row) => row.id !== data.reservation_id),

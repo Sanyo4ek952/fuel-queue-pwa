@@ -186,6 +186,7 @@ create table fueling_records (
   driver_id uuid references drivers(id),
   reservation_id uuid references fuel_reservations(id),
   queue_entry_id uuid references queue_entries(id),
+  preferential_queue_entry_id uuid references preferential_queue_entries(id),
   fuel_type text not null,
   liters numeric(10,2) not null,
   cashier_id uuid not null references profiles(id),
@@ -205,8 +206,31 @@ create table fueling_records (
 ```sql
 create unique index unique_regular_fueling_per_vehicle_day
 on fueling_records(date, vehicle_id)
-where is_manual_override = false;
+where is_manual_override = false
+  and preferential_queue_entry_id is null;
 ```
+
+### preferential_queue_entries
+
+```sql
+create table preferential_queue_entries (
+  id uuid primary key default gen_random_uuid(),
+  queue_id uuid not null references preferential_queues(id),
+  vehicle_id uuid not null references vehicles(id),
+  driver_id uuid references drivers(id),
+  fuel_type text not null,
+  requested_liters numeric(10,2) not null,
+  status text not null default 'ACTIVE',
+  comment text,
+  client_mutation_id uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+```
+
+Для активной льготной записи `requested_liters` хранит остаток разрешённых литров.
+При частичной заправке остаток уменьшается, при нулевом остатке запись становится
+`FUELED`.
 
 ### refusal_records
 

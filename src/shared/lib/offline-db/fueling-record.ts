@@ -22,6 +22,7 @@ export type OfflineFuelingRecordResult = {
   station_id: string
   vehicle_id: string
   reservation_id: string | null
+  preferential_queue_entry_id: null
   fuel_type: FuelType
   liters: number
   is_manual_override: boolean
@@ -188,6 +189,7 @@ export async function createOfflineFuelingRecord({
     station_id: stationId,
     vehicle_id: vehicleId,
     reservation_id: accessResult.reservation_id ?? null,
+    preferential_queue_entry_id: null,
     fuel_type: effectiveFuelType,
     liters,
     is_manual_override: isManualOverride,

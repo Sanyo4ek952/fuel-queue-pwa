@@ -80,6 +80,7 @@ describe('useCreateFuelingRecord', () => {
         driver_id: null,
         reservation_id: 'reservation-id',
         queue_entry_id: null,
+        preferential_queue_entry_id: null,
         fuel_type: 'AI_95',
         liters: 40,
         is_manual_override: false,
@@ -106,6 +107,54 @@ describe('useCreateFuelingRecord', () => {
       'reservation-id',
       expect.objectContaining({ status: 'FUELED' }),
     )
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      predicate: expect.any(Function),
+    })
+  })
+
+  it('invalidates preferential queues after preferential fueling without touching today queue cache', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries')
+
+    queryClient.setQueryData<QueueRow[]>(['today-queue'], [
+      { id: 'reservation-id', queue_number: 1 },
+    ])
+    mocks.createFuelingRecord.mockResolvedValue({
+      data: {
+        id: 'fueling-id',
+        date: '2026-07-05',
+        station_id: 'station-id',
+        vehicle_id: 'vehicle-id',
+        driver_id: null,
+        reservation_id: null,
+        queue_entry_id: null,
+        preferential_queue_entry_id: 'preferential-entry-id',
+        fuel_type: 'AI_95',
+        liters: 20,
+        is_manual_override: false,
+        override_id: null,
+        client_mutation_id: 'mutation-id',
+        sync_status: 'SYNCED',
+        fueled_at: '2026-07-05T10:00:00.000Z',
+      },
+      error: null,
+    })
+
+    const { result } = renderHook(() => useCreateFuelingRecord(), {
+      wrapper: makeWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await result.current.mutateAsync({ ...mutationParams, liters: 20 })
+    })
+
+    expect(queryClient.getQueryData<QueueRow[]>(['today-queue'])).toEqual([
+      { id: 'reservation-id', queue_number: 1 },
+    ])
+    expect(mocks.localReservationUpdate).not.toHaveBeenCalled()
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['preferential-queues'] })
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       predicate: expect.any(Function),
     })

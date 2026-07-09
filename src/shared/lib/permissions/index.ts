@@ -5,6 +5,7 @@ const allRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier', 'mayo
 const createReservationRoles = new Set<UserRole>(['mayor', 'station_manager', 'mayor_assistant'])
 const checkVehicleRoles = allRoles
 const queueViewerRoles = allRoles
+const cancelReservationRoles = new Set<UserRole>(['mayor', 'station_manager', 'mayor_assistant'])
 
 const createFuelingRecordRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier'])
 const stationManagerRoles = new Set<UserRole>(['mayor', 'station_manager'])
@@ -23,6 +24,7 @@ const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
   [ROUTES.fueling]: createFuelingRecordRoles,
   [ROUTES.limits]: limitRouteRoles,
   [ROUTES.history]: allRoles,
+  [ROUTES.deletedReservations]: cancelReservationRoles,
   [ROUTES.reports]: mayorOnlyRoles,
   [ROUTES.users]: userManagerRoles,
   [ROUTES.sync]: stationManagerRoles,
@@ -50,6 +52,10 @@ export function canCreatePersonalVehicleLiterLimit(role: UserRole) {
 
 export function canCreateManualOverride(role: UserRole) {
   return stationManagerRoles.has(role)
+}
+
+export function canCancelReservation(role: UserRole) {
+  return cancelReservationRoles.has(role)
 }
 
 export function canViewAllStations(role: UserRole) {

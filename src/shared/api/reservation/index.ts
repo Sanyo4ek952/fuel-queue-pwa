@@ -113,6 +113,62 @@ export type TodayQueueRow = {
   updated_at?: string
 }
 
+type CancelledReservationRow = {
+  id: string
+  date?: string | null
+  station_id?: string | null
+  vehicle_id: string
+  driver_id?: string | null
+  fuel_type: string
+  requested_liters: number | string
+  queue_number: number
+  status: string
+  comment?: string | null
+  cancelled_by?: string | null
+  cancelled_at?: string | null
+  cancel_reason?: string | null
+  cancel_comment?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  normalized_plate_number?: string | null
+  driver_full_name?: string | null
+  driver_phone?: string | null
+  created_by_full_name?: string | null
+  created_by_role?: string | null
+  created_by_signature_name?: string | null
+  cancelled_by_full_name?: string | null
+  cancelled_by_role?: string | null
+  cancelled_by_signature_name?: string | null
+}
+
+export type CancelledReservation = {
+  id: string
+  date: string | null
+  station_id: string | null
+  vehicle_id: string
+  driver_id: string | null
+  fuel_type: FuelType | string
+  requested_liters: number
+  queue_number: number
+  status: ReservationStatus
+  comment: string | null
+  cancelled_by: string | null
+  cancelled_at: string | null
+  cancel_reason: string | null
+  cancel_comment: string | null
+  created_at: string | null
+  updated_at: string | null
+  normalized_plate_number: string
+  driver_full_name: string
+  driver_phone: string | null
+  created_by_full_name: string
+  created_by_role: UserRole | string | null
+  created_by_signature_name: string | null
+  cancelled_by_full_name: string
+  cancelled_by_role: UserRole | string | null
+  cancelled_by_signature_name: string | null
+}
+
 function toNumber(value: unknown) {
   return typeof value === 'number' ? value : Number(value)
 }
@@ -248,6 +304,36 @@ export function withCurrentQueuePositions(rows: TodayQueueRow[]) {
   })
 }
 
+function toCancelledReservation(row: CancelledReservationRow): CancelledReservation {
+  return {
+    id: row.id,
+    date: row.date ?? null,
+    station_id: row.station_id ?? null,
+    vehicle_id: row.vehicle_id,
+    driver_id: row.driver_id ?? null,
+    fuel_type: row.fuel_type,
+    requested_liters: toNumber(row.requested_liters),
+    queue_number: toNumber(row.queue_number),
+    status: row.status as ReservationStatus,
+    comment: row.comment ?? null,
+    cancelled_by: row.cancelled_by ?? null,
+    cancelled_at: row.cancelled_at ?? null,
+    cancel_reason: row.cancel_reason ?? null,
+    cancel_comment: row.cancel_comment ?? null,
+    created_at: row.created_at ?? null,
+    updated_at: row.updated_at ?? null,
+    normalized_plate_number: row.normalized_plate_number ?? '',
+    driver_full_name: row.driver_full_name ?? '',
+    driver_phone: row.driver_phone ?? null,
+    created_by_full_name: row.created_by_full_name ?? '',
+    created_by_role: row.created_by_role ?? null,
+    created_by_signature_name: row.created_by_signature_name ?? null,
+    cancelled_by_full_name: row.cancelled_by_full_name ?? '',
+    cancelled_by_role: row.cancelled_by_role ?? null,
+    cancelled_by_signature_name: row.cancelled_by_signature_name ?? null,
+  }
+}
+
 export async function listTodayQueueRows() {
   if (!isSupabaseConfigured) {
     throw new Error('Supabase is not configured.')
@@ -269,6 +355,28 @@ export async function listTodayQueueRows() {
 
   return withCurrentQueuePositions(
     (Array.isArray(data) ? (data as ReservationRow[]) : []).map(toTodayQueueRow),
+  )
+}
+
+export async function listCancelledReservations(params: {
+  dateFrom: string
+  dateTo: string
+}): Promise<CancelledReservation[]> {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const { data, error } = await supabase.rpc('get_cancelled_reservations', {
+    date_from: params.dateFrom,
+    date_to: params.dateTo,
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (Array.isArray(data) ? (data as CancelledReservationRow[]) : []).map(
+    toCancelledReservation,
   )
 }
 

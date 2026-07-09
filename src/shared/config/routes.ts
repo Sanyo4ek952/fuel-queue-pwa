@@ -8,6 +8,7 @@ export const ROUTES = {
   limits: '/limits',
   fueling: '/fueling',
   history: '/history',
+  deletedReservations: '/deleted-reservations',
   reports: '/reports',
   users: '/users',
   sync: '/sync',
@@ -29,6 +30,7 @@ export const MAIN_SECTION_LINKS = [
   { path: ROUTES.limits, label: 'Лимиты', description: 'Дневные лимиты по АЗС и топливу' },
   { path: ROUTES.users, label: 'Сотрудники', description: 'Заявки на регистрацию и доступ сотрудников' },
   { path: ROUTES.sync, label: 'Синхронизация', description: 'Outbox, ошибки и конфликты' },
-  { path: ROUTES.reports, label: 'Отчеты', description: 'Отчеты по отпуску топлива для мэра' },
+  { path: ROUTES.deletedReservations, label: 'Удалённые из очереди', description: 'История отменённых записей и причин удаления' },
+  { path: ROUTES.reports, label: 'Отчёты', description: 'Отчёты по отпуску топлива для мэра' },
   { path: ROUTES.queueCheckQr, label: 'QR для проверки', description: 'Ссылка для водителей на публичную проверку номера' },
 ] as const

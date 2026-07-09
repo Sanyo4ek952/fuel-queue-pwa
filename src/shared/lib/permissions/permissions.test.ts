@@ -8,6 +8,7 @@ import {
   canCreateFuelingRecord,
   canCreateManualOverride,
   canCreateReservation,
+  canCancelReservation,
   canResolveSyncConflict,
   canViewAllStations,
 } from './index'
@@ -25,6 +26,13 @@ describe('permission helpers', () => {
     expect(canCreateFuelingRecord('station_manager')).toBe(true)
     expect(canCreateFuelingRecord('cashier')).toBe(true)
     expect(canCreateFuelingRecord('mayor_assistant')).toBe(false)
+  })
+
+  it('allows everyone except cashier to cancel reservations', () => {
+    expect(canCancelReservation('mayor')).toBe(true)
+    expect(canCancelReservation('station_manager')).toBe(true)
+    expect(canCancelReservation('mayor_assistant')).toBe(true)
+    expect(canCancelReservation('cashier')).toBe(false)
   })
 
   it('allows mayor to manage daily limits and station managers to manage operational exceptions', () => {
@@ -52,6 +60,10 @@ describe('permission helpers', () => {
     expect(canAccessRoute('station_manager', ROUTES.users)).toBe(true)
     expect(canAccessRoute('mayor', ROUTES.users)).toBe(true)
     expect(canAccessRoute('mayor_assistant', ROUTES.users)).toBe(false)
+    expect(canAccessRoute('mayor', ROUTES.deletedReservations)).toBe(true)
+    expect(canAccessRoute('station_manager', ROUTES.deletedReservations)).toBe(true)
+    expect(canAccessRoute('mayor_assistant', ROUTES.deletedReservations)).toBe(true)
+    expect(canAccessRoute('cashier', ROUTES.deletedReservations)).toBe(false)
     expect(canAccessRoute('mayor', ROUTES.preferentialQueues)).toBe(true)
     expect(canAccessRoute('station_manager', ROUTES.preferentialQueues)).toBe(false)
     expect(canAccessRoute('cashier', ROUTES.preferentialQueues)).toBe(false)

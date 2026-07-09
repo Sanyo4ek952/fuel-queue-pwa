@@ -10,11 +10,18 @@ import {
   Phone,
   PhoneOff,
   RotateCcw,
+  Trash2,
   XCircle,
 } from 'lucide-react'
 
 import { useDailyLimitOverview } from '@/entities/daily-limit'
+import { useCurrentProfile } from '@/entities/profile'
 import { useTodayQueue, type TodayQueueRow } from '@/entities/reservation'
+import {
+  cancelReservationSchema,
+  type CancelReservationFormValues,
+  useCancelReservation,
+} from '@/features/cancel-reservation'
 import { useLogReservationCall } from '@/features/log-reservation-call'
 import { useDailyFuelingSchedule } from '@/features/manage-fueling-schedule'
 import {
@@ -40,6 +47,7 @@ import {
   type FuelingScheduleConfig,
   type FuelingScheduleSummary,
 } from '@/shared/lib/fueling-schedule'
+import { canCancelReservation } from '@/shared/lib/permissions'
 import { cn } from '@/shared/lib/utils'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import {
@@ -350,8 +358,11 @@ function QueueRowCard({
   isUpdatingFuelPreference,
   isFuelPreferenceUpdateUnavailable,
   isFuelPreferenceLockedByGasolineLimit,
+  canCancel,
+  isCancelling,
   onLogCall,
   onUpdateFuelPreference,
+  onCancel,
 }: {
   row: TodayQueueRow
   estimatedArrivalTime: string | null
@@ -359,19 +370,31 @@ function QueueRowCard({
   isUpdatingFuelPreference: boolean
   isFuelPreferenceUpdateUnavailable: boolean
   isFuelPreferenceLockedByGasolineLimit: boolean
+  canCancel: boolean
+  isCancelling: boolean
   onLogCall: (row: TodayQueueRow, status: ReservationCallStatus) => void
   onUpdateFuelPreference: (
     row: TodayQueueRow,
     values: UpdateReservationFuelPreferenceFormValues,
   ) => void
+  onCancel: (row: TodayQueueRow, values: CancelReservationFormValues) => void
 }) {
   const [isFuelDialogOpen, setIsFuelDialogOpen] = useState(false)
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const fuelPreferenceForm = useForm<UpdateReservationFuelPreferenceFormValues>({
     resolver: zodResolver(updateReservationFuelPreferenceSchema),
     mode: 'onBlur',
     defaultValues: {
       fuelType: row.fuel_type as QueueFuelType,
       fuelPreferenceMode: (row.fuel_preference_mode ?? 'EXACT') as FuelPreferenceMode,
+    },
+  })
+  const cancelForm = useForm<CancelReservationFormValues>({
+    resolver: zodResolver(cancelReservationSchema),
+    mode: 'onBlur',
+    defaultValues: {
+      reason: 'OWNER_CANCELLED',
+      comment: '',
     },
   })
   const phoneHref = getPhoneHref(row.driver_phone)
@@ -403,7 +426,9 @@ function QueueRowCard({
     fuelPreferenceLabels[row.fuel_preference_mode as FuelPreferenceMode] ??
     fuelPreferenceLabels.EXACT
   const watchedFuelType = fuelPreferenceForm.watch('fuelType')
+  const watchedCancelReason = cancelForm.watch('reason')
   const isGasolineSelected = isGasolineFuelType(watchedFuelType)
+  const cancelActionDisabled = row.is_offline || isCancelling
 
   useEffect(() => {
     fuelPreferenceForm.reset({
@@ -418,9 +443,21 @@ function QueueRowCard({
     }
   }, [fuelPreferenceForm, isGasolineSelected])
 
+  useEffect(() => {
+    if (watchedCancelReason !== 'OTHER') {
+      cancelForm.setValue('comment', '', { shouldValidate: true })
+    }
+  }, [cancelForm, watchedCancelReason])
+
   function handleFuelPreferenceSubmit(values: UpdateReservationFuelPreferenceFormValues) {
     onUpdateFuelPreference(row, values)
     setIsFuelDialogOpen(false)
+  }
+
+  function handleCancelSubmit(values: CancelReservationFormValues) {
+    onCancel(row, values)
+    setIsCancelDialogOpen(false)
+    cancelForm.reset({ reason: 'OWNER_CANCELLED', comment: '' })
   }
 
   return (
@@ -539,6 +576,96 @@ function QueueRowCard({
                   <Phone className="size-4" aria-hidden="true" />
                 </Button>
               )}
+              {canCancel ? (
+                <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800"
+                      aria-label="Удалить из очереди"
+                      disabled={cancelActionDisabled}
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Удалить из очереди?</DialogTitle>
+                      <DialogDescription>
+                        Запись №{row.ticket_number} исчезнет из активной очереди, но останется в истории удалений.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form
+                      className="space-y-4"
+                      onSubmit={cancelForm.handleSubmit(handleCancelSubmit)}
+                    >
+                      <fieldset className="space-y-2">
+                        <legend className="text-sm font-medium text-slate-800">
+                          Причина удаления
+                        </legend>
+                        <label className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm">
+                          <input
+                            type="radio"
+                            className="mt-1"
+                            value="OWNER_CANCELLED"
+                            {...cancelForm.register('reason')}
+                          />
+                          <span>Отменено владельцем машины</span>
+                        </label>
+                        <label className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm">
+                          <input
+                            type="radio"
+                            className="mt-1"
+                            value="OTHER"
+                            {...cancelForm.register('reason')}
+                          />
+                          <span>Другое</span>
+                        </label>
+                      </fieldset>
+
+                      {watchedCancelReason === 'OTHER' ? (
+                        <div className="space-y-1.5">
+                          <label
+                            htmlFor={`cancelComment-${row.id}`}
+                            className="text-sm font-medium text-slate-700"
+                          >
+                            Что случилось
+                          </label>
+                          <Input
+                            id={`cancelComment-${row.id}`}
+                            placeholder="Например: дубль, ошибка в данных"
+                            {...cancelForm.register('comment')}
+                          />
+                          {cancelForm.formState.errors.comment ? (
+                            <p className="text-sm text-red-600">
+                              {cancelForm.formState.errors.comment.message}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      <DialogFooter>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsCancelDialogOpen(false)}
+                        >
+                          Не удалять
+                        </Button>
+                        <Button
+                          type="submit"
+                          className="bg-rose-600 text-white hover:bg-rose-700"
+                          disabled={cancelActionDisabled}
+                        >
+                          {isCancelling ? 'Удаляем...' : 'Удалить'}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              ) : null}
               <AccordionTrigger
                 className="size-8 flex-none justify-center gap-0 p-0 hover:no-underline"
                 aria-label="Открыть детали"
@@ -551,14 +678,6 @@ function QueueRowCard({
           <AccordionContent className="border-t border-slate-100 px-3 pt-3 pb-3">
             <span className="sr-only">Сведения о записи</span>
             <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-slate-500">Номер записи</dt>
-                <dd className="font-medium text-slate-950">{row.ticket_number}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">Перед вами</dt>
-                <dd className="font-medium text-slate-950">{row.people_ahead}</dd>
-              </div>
               {estimatedArrivalTime ? (
                 <div>
                   <dt className="text-slate-500">Предполагаемое время прибытия</dt>
@@ -780,11 +899,15 @@ export function TodayQueuePanel() {
   const [visibleCountByCategory, setVisibleCountByCategory] = useState(
     getInitialVisibleCountByCategory,
   )
+  const currentProfileQuery = useCurrentProfile()
   const queue = useTodayQueue()
   const dailyLimitOverview = useDailyLimitOverview({ date: todayDate })
   const fuelingSchedule = useDailyFuelingSchedule(todayDate)
   const logReservationCall = useLogReservationCall()
   const updateReservationFuelPreference = useUpdateReservationFuelPreference()
+  const cancelReservation = useCancelReservation()
+  const currentRole = currentProfileQuery.data?.role
+  const canCancelQueueRows = currentRole ? canCancelReservation(currentRole) : false
   const isFuelPreferenceLockedByGasolineLimit = hasActiveGasolineLimit(
     dailyLimitOverview.data?.category_overviews,
   )
@@ -897,6 +1020,15 @@ export function TodayQueuePanel() {
       reservationId: row.id,
       fuelType: values.fuelType,
       fuelPreferenceMode: values.fuelPreferenceMode,
+      clientMutationId: crypto.randomUUID(),
+    })
+  }
+
+  function handleCancelReservation(row: TodayQueueRow, values: CancelReservationFormValues) {
+    cancelReservation.mutate({
+      reservationId: row.id,
+      reason: values.reason,
+      comment: values.reason === 'OTHER' ? (values.comment ?? '').trim() : null,
       clientMutationId: crypto.randomUUID(),
     })
   }
@@ -1059,6 +1191,13 @@ export function TodayQueuePanel() {
         </Alert>
       ) : null}
 
+      {cancelReservation.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Запись не удалена</AlertTitle>
+          <AlertDescription>{cancelReservation.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
       {queue.isLoading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
           Загрузка очереди...
@@ -1114,8 +1253,14 @@ export function TodayQueuePanel() {
                         isFuelPreferenceLockedByGasolineLimit={
                           isFuelPreferenceLockedByGasolineLimit
                         }
+                        canCancel={canCancelQueueRows}
+                        isCancelling={
+                          cancelReservation.isPending &&
+                          cancelReservation.variables?.reservationId === row.id
+                        }
                         onLogCall={handleLogCall}
                         onUpdateFuelPreference={handleUpdateFuelPreference}
+                        onCancel={handleCancelReservation}
                       />
                     ))}
                     {hasMoreRows ? (

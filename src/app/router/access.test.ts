@@ -126,6 +126,18 @@ describe('getProtectedRouteState', () => {
     ).toBe('forbidden')
   })
 
+  it('blocks deleted reservations history for cashier', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: { ...activeProfile, role: 'cashier' },
+        route: ROUTES.deletedReservations,
+      }),
+    ).toBe('forbidden')
+  })
+
   it('allows authenticated active profile with route permission', () => {
     expect(
       getProtectedRouteState({
@@ -192,6 +204,18 @@ describe('getProtectedRouteState', () => {
         profileLoading: false,
         profile: activeProfile,
         route: ROUTES.queueCheckQr,
+      }),
+    ).toBe('allowed')
+  })
+
+  it('allows deleted reservations history for mayor assistant', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: activeProfile,
+        route: ROUTES.deletedReservations,
       }),
     ).toBe('allowed')
   })

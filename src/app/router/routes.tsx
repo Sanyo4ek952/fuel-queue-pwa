@@ -35,6 +35,9 @@ const FuelingPage = lazy(() =>
 const HistoryPage = lazy(() =>
   import('@/pages/history').then((m) => ({ default: m.HistoryPage })),
 )
+const DeletedReservationsPage = lazy(() =>
+  import('@/pages/deleted-reservations').then((m) => ({ default: m.DeletedReservationsPage })),
+)
 const ReportsPage = lazy(() =>
   import('@/pages/reports').then((m) => ({ default: m.ReportsPage })),
 )
@@ -202,6 +205,7 @@ function AppShell() {
             <Route path="/limits" element={<DailyLimitsPage />} />
             <Route path="/fueling" element={<FuelingPage />} />
             <Route path="/history" element={<HistoryPage />} />
+            <Route path="/deleted-reservations" element={<DeletedReservationsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/sync" element={<SyncStatusPage />} />
