@@ -47,5 +47,26 @@ describe('VehicleAccessResultView', () => {
 
     expect(screen.getAllByText('AI_95').length).toBeGreaterThan(0)
     expect(screen.getByText('AI_92')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Замена разрешена: желаемой марки нет в лимите, владелец разрешил бензин-замену.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('shows an instruction to use the desired fuel when it is available', () => {
+    render(
+      <VehicleAccessResultView
+        result={{
+          status: 'ALLOWED',
+          reason: 'ACTIVE_RESERVATION',
+          normalized_plate_number: 'А123ВС777',
+          fuel_type: 'AI_95',
+          matched_fuel_type: 'AI_95',
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Заправить желаемую марку: АИ-95.')).toBeInTheDocument()
   })
 })

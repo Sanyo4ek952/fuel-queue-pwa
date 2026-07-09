@@ -71,6 +71,10 @@ function canCreateFuelingRecord(result?: VehicleAccessResult, normalizedPlateNum
   return result.status === 'ALLOWED' || result.offline_decision === 'ALLOWED'
 }
 
+function getFuelTypeLabel(fuelType: string) {
+  return fuelTypeLabels[fuelType as FuelType] ?? fuelType
+}
+
 function AccessResultCard({ result }: { result: VehicleAccessResult }) {
   const isAllowed = result.status === 'ALLOWED'
   const isOfflineAllowed = result.offline_decision === 'ALLOWED'
@@ -90,6 +94,12 @@ function AccessResultCard({ result }: { result: VehicleAccessResult }) {
         ? 'Нужна перепроверка'
         : 'Допуск запрещён'
   const reason = result.offline_reason ?? result.reason
+  const fuelingInstruction =
+    (isAllowed || isOfflineAllowed) && result.matched_fuel_type && result.fuel_type
+      ? result.matched_fuel_type === result.fuel_type
+        ? `Заправить желаемую марку: ${getFuelTypeLabel(result.fuel_type)}.`
+        : 'Замена разрешена: желаемой марки нет в лимите, владелец разрешил бензин-замену.'
+      : null
 
   return (
     <div className={`rounded-lg border p-4 ${className}`}>
@@ -99,6 +109,9 @@ function AccessResultCard({ result }: { result: VehicleAccessResult }) {
           <div>
             <p className="font-medium">{title}</p>
             <p className="text-sm opacity-80">{reasonLabels[reason]}</p>
+            {fuelingInstruction ? (
+              <p className="mt-1 text-sm font-medium">{fuelingInstruction}</p>
+            ) : null}
           </div>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <div>

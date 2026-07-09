@@ -92,6 +92,7 @@ describe('createOfflineFuelingRecord', () => {
       status: 'OPEN',
       category_overviews: [
         {
+          fuel_type: 'AI_95',
           fuel_category: 'GASOLINE',
           label: 'Бензин',
           limit_mode: 'vehicle_count',

@@ -89,22 +89,6 @@ begin
   returning *
   into saved_reservation_row;
 
-  perform public.add_audit_log(
-    'cancel_reservation',
-    'fuel_reservations',
-    saved_reservation_row.id,
-    to_jsonb(reservation_row),
-    jsonb_build_object(
-      'id', saved_reservation_row.id,
-      'status', saved_reservation_row.status,
-      'cancelled_by', saved_reservation_row.cancelled_by,
-      'cancelled_at', saved_reservation_row.cancelled_at,
-      'cancel_reason', saved_reservation_row.cancel_reason,
-      'cancel_comment', saved_reservation_row.cancel_comment,
-      'client_mutation_id', cancel_reservation.client_mutation_id
-    )
-  );
-
   return jsonb_build_object(
     'id', saved_reservation_row.id,
     'date', saved_reservation_row.date,

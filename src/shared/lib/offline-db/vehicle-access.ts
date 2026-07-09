@@ -107,14 +107,6 @@ function pickMatchedFuelType(
     }
   }
 
-  const category = getFuelQueueCategory(reservation.fuel_type)
-  const categoryOverview = category ? overviewsByFuel.get(category) : undefined
-
-  if (categoryOverview && canCoverOverview(categoryOverview, effectiveLiters)) {
-    consumeOverview(categoryOverview, effectiveLiters)
-    return compatibleFuelTypes[0] ?? null
-  }
-
   return null
 }
 

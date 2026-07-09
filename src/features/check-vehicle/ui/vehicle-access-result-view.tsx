@@ -25,6 +25,19 @@ const categoryLabels: Record<string, string> = {
   GAS: 'Газ',
 }
 
+const fuelTypeLabels: Record<string, string> = {
+  AI_92: 'АИ-92',
+  AI_95: 'АИ-95',
+  AI_100: 'АИ-100',
+  DIESEL: 'дизель',
+  GAS: 'газ',
+  OTHER: 'другое',
+}
+
+function getFuelTypeLabel(fuelType: string) {
+  return fuelTypeLabels[fuelType] ?? fuelType
+}
+
 function getResultTone(result: VehicleAccessResult) {
   if (result.status === 'ALLOWED') {
     return {
@@ -72,6 +85,14 @@ export function VehicleAccessResultView({
   const isPreferentialQueueResult = result.reason === 'PREFERENTIAL_QUEUE_ACTIVE'
   const getReasonLabel = (accessReason: VehicleAccessReason) =>
     reasonLabelOverrides?.[accessReason] ?? reasonLabels[accessReason]
+  const fuelingInstruction =
+    (result.status === 'ALLOWED' || result.offline_decision === 'ALLOWED') &&
+    result.matched_fuel_type &&
+    result.fuel_type
+      ? result.matched_fuel_type === result.fuel_type
+        ? `Заправить желаемую марку: ${getFuelTypeLabel(result.fuel_type)}.`
+        : 'Замена разрешена: желаемой марки нет в лимите, владелец разрешил бензин-замену.'
+      : null
 
   return (
     <div className={`rounded-lg border p-4 ${className}`}>
@@ -87,6 +108,9 @@ export function VehicleAccessResultView({
               <p className="mt-1 text-sm opacity-80">
                 Локальный вывод: {reasonLabels[reason]}
               </p>
+            ) : null}
+            {fuelingInstruction ? (
+              <p className="mt-1 text-sm font-medium">{fuelingInstruction}</p>
             ) : null}
           </div>
           <dl className="grid gap-2 text-sm sm:grid-cols-2">

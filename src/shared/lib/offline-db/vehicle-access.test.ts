@@ -42,6 +42,7 @@ function makeSnapshot(
         status: 'OPEN',
         category_overviews: [
           {
+            fuel_type: 'AI_95',
             fuel_category: 'GASOLINE',
             label: 'Бензин',
             limit_mode: 'vehicle_count',
@@ -353,7 +354,7 @@ describe('evaluateVehicleAccessOffline', () => {
     })
   })
 
-  it('blocks when the category vehicle limit is already exhausted', () => {
+  it('blocks when the exact fuel vehicle limit is already exhausted', () => {
     expect(
       check(
         makeSnapshot({
@@ -365,6 +366,7 @@ describe('evaluateVehicleAccessOffline', () => {
               status: 'OPEN',
               category_overviews: [
                 {
+                  fuel_type: 'AI_95',
                   fuel_category: 'GASOLINE',
                   label: 'Бензин',
                   limit_mode: 'vehicle_count',
