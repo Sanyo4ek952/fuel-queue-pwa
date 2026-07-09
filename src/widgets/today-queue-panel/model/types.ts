@@ -3,7 +3,7 @@ import type { FuelQueueCategory, QueueFuelType } from '@/shared/constants'
 export const categoryOrder: FuelQueueCategory[] = ['GASOLINE', 'DIESEL', 'GAS']
 export const ALL_AUTHORS_FILTER = 'all'
 export const ALL_GASOLINE_FILTER = 'all'
-export const CALL_FILTERS = ['all', 'call', 'contacted', 'no_answer', 'call_later'] as const
+export const CALL_FILTERS = ['all', 'call', 'contacted', 'no_answer'] as const
 export const GASOLINE_FUEL_FILTERS = ['AI_92', 'AI_95', 'AI_100'] as const
 
 export type CallFilter = (typeof CALL_FILTERS)[number]

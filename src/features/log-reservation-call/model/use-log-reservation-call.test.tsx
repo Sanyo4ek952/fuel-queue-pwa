@@ -199,7 +199,7 @@ describe('useLogReservationCall', () => {
         is_callable_now: false,
         call_unavailable_reason: 'NO_OPEN_DAILY_LIMIT',
       }),
-      status: 'CALL_LATER',
+      status: 'NO_ANSWER',
     })
 
     await waitFor(() => expect(result.current.isError).toBe(true))

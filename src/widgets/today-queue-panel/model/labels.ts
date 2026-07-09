@@ -32,7 +32,6 @@ const callFilterLabels: Record<CallFilter, string> = {
   all: 'Все',
   contacted: 'Позвонили',
   no_answer: 'Не дозвонились',
-  call_later: 'Перезвонить',
 }
 
 export const TODAY_ARRIVALS_LABEL = 'Сегодня приедут'
@@ -45,16 +44,12 @@ export const callStatusLabels: Record<ReservationCallStatus, string> = {
   NOT_CALLED: 'Не звонили',
   CONTACTED: 'Позвонили',
   NO_ANSWER: 'Не ответил',
-  CALL_LATER: 'Перезвонить',
-  WRONG_NUMBER: 'Неверный номер',
 }
 
 export const callStatusBadgeClasses: Record<ReservationCallStatus, string> = {
   NOT_CALLED: 'border-slate-200 bg-slate-50 text-slate-500',
   CONTACTED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   NO_ANSWER: 'border-amber-200 bg-amber-50 text-amber-800',
-  CALL_LATER: 'border-sky-200 bg-sky-50 text-sky-700',
-  WRONG_NUMBER: 'border-rose-200 bg-rose-50 text-rose-700',
 }
 
 export const callUnavailableReasonLabels: Record<string, string> = {
@@ -74,6 +69,4 @@ export const callStatusButtonClasses: Record<ReservationCallStatus, string> = {
     'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800',
   NO_ANSWER:
     'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:text-amber-900',
-  CALL_LATER: 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800',
-  WRONG_NUMBER: 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:text-rose-800',
 }

@@ -7,9 +7,7 @@ import {
   Pencil,
   Phone,
   PhoneOff,
-  RotateCcw,
   Trash2,
-  XCircle,
 } from 'lucide-react'
 
 import type { TodayQueueRow } from '@/entities/reservation'
@@ -553,7 +551,7 @@ export function QueueRowCard({
 
             {row.comment ? <p className="mt-3 text-sm text-slate-500">{row.comment}</p> : null}
 
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -573,26 +571,6 @@ export function QueueRowCard({
               >
                 <PhoneOff className="size-4" aria-hidden="true" />
                 Не ответил
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className={cn('gap-2', callStatusButtonClasses.CALL_LATER)}
-                disabled={callActionsDisabled}
-                onClick={() => onLogCall(row, 'CALL_LATER')}
-              >
-                <RotateCcw className="size-4" aria-hidden="true" />
-                Перезвонить
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className={cn('gap-2', callStatusButtonClasses.WRONG_NUMBER)}
-                disabled={callActionsDisabled}
-                onClick={() => onLogCall(row, 'WRONG_NUMBER')}
-              >
-                <XCircle className="size-4" aria-hidden="true" />
-                Неверный
               </Button>
             </div>
 

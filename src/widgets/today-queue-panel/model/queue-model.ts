@@ -11,7 +11,7 @@ import {
   type TodayQueueScheduleRow,
 } from './types'
 
-export const callFiltersWithCounters = ['call', 'contacted', 'no_answer', 'call_later'] as const
+export const callFiltersWithCounters = ['call', 'contacted', 'no_answer'] as const
 
 export function isRowCallable(row: TodayQueueRow) {
   return Boolean(row.is_callable_now ?? row.is_within_today_limit)
@@ -31,10 +31,10 @@ export function matchesCallFilter(row: TodayQueueRow, filter: CallFilter) {
   }
 
   if (filter === 'no_answer') {
-    return row.latest_call_status === 'NO_ANSWER' || row.latest_call_status === 'WRONG_NUMBER'
+    return row.latest_call_status === 'NO_ANSWER'
   }
 
-  return row.latest_call_status === 'CALL_LATER'
+  return false
 }
 
 export function getCallFilterCounts(rows: TodayQueueRow[]) {

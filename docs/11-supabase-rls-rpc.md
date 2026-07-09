@@ -80,7 +80,13 @@ preferred_fuel_type
 
 Проверяет активность записи.
 
-Для любого статуса звонка требует `is_callable_now = true`; иначе возвращает ошибку `RESERVATION_NOT_CALLABLE`.
+Allowed statuses are `NOT_CALLED`, `CONTACTED`, and `NO_ANSWER`.
+`CALL_LATER` and `WRONG_NUMBER` are rejected with `INVALID_CALL_STATUS`.
+
+Для любого нового статуса звонка требует `is_callable_now = true`; иначе возвращает ошибку `RESERVATION_NOT_CALLABLE`.
+`NOT_CALLED` is additionally allowed only as a reset after latest `CONTACTED`.
+
+`NO_ANSWER` is a valid call result. If the reservation remains `RESERVED`, is within the exact daily fuel limit, and the vehicle has not fueled on the date, access can be allowed for that date. If the driver still does not fuel, the no-show policy counts the date as one missed fueling day.
 
 ### check_public_queue_position
 

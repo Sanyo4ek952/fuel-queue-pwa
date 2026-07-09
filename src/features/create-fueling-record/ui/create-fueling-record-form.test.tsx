@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { STATIONS } from '@/shared/config/stations'
 
+import { createFuelingRecordSchema } from '../model/schema'
 import { CreateFuelingRecordForm } from './create-fueling-record-form'
 
 const mocks = vi.hoisted(() => ({
@@ -133,6 +134,34 @@ describe('CreateFuelingRecordForm', () => {
 
     expect(fuelSelect).toBeDisabled()
     expect(within(fuelSelect).getByText('АИ-95')).toBeInTheDocument()
+  })
+
+  it('clears plate validation after the user starts editing again', async () => {
+    renderWithQueryClient(<CreateFuelingRecordForm />)
+    const plateInput = document.querySelector<HTMLInputElement>('#plateNumber')
+    expect(plateInput).not.toBeNull()
+
+    await userEvent.type(plateInput!, 'D123ZZ777')
+    await userEvent.click(screen.getAllByRole('button')[0])
+
+    const validationResult = createFuelingRecordSchema.safeParse({
+      plateNumber: 'D123ZZ777',
+      liters: 20,
+      fuelType: 'AI_95',
+      comment: '',
+    })
+    if (validationResult.success) {
+      throw new Error('Expected invalid plate number')
+    }
+    const validationMessage = validationResult.error.issues[0]?.message
+    if (!validationMessage) {
+      throw new Error('Expected plate validation message')
+    }
+    expect(await screen.findByText(validationMessage)).toBeInTheDocument()
+
+    await userEvent.clear(plateInput!)
+
+    expect(screen.queryByText(validationMessage)).not.toBeInTheDocument()
   })
 
   it('shows a disabled fuel select with calculated replacement fuel', async () => {

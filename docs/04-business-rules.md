@@ -138,6 +138,19 @@ date + vehicle_id
 9. Ручные разрешения.
 10. Статус синхронизации.
 
+Call status rules:
+
+- Allowed reservation call statuses are `NOT_CALLED`, `CONTACTED`, `NO_ANSWER`.
+- `CALL_LATER` and `WRONG_NUMBER` are legacy statuses and must be normalized to `NO_ANSWER`.
+- `CONTACTED` means the operator reached the driver.
+- `NO_ANSWER` means the driver did not answer. If the reservation is still `RESERVED`, is within the exact daily fuel limit, and the vehicle has not fueled on that date, access is allowed for that date.
+- `ARRIVED`, `APPROVED`, `FUELING`, and `FUELED` do not count as "not arrived" for the `NO_ANSWER` access rule.
+
+No-show rules:
+
+- A missed fueling day is counted when the reservation has `CONTACTED` or `NO_ANSWER` on or before the processed date, has no `fueling_records` row for that reservation/date, and was callable/within limit for that date.
+- When `missed_fueling_days` reaches the mayor-configured `reservation_no_show_grace_days`, the reservation status becomes `NO_SHOW` and leaves the active queue.
+
 ## Статусы допуска
 
 ### ALLOWED
