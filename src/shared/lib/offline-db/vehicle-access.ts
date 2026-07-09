@@ -58,13 +58,34 @@ function getOverviewKey(overview: LimitOverview) {
   return overview.fuel_type ?? overview.fuel_category
 }
 
-function cloneFuelOverviews(dailyLimit: LocalDailyLimit | undefined) {
-  return new Map(
+function cloneFuelOverviews(
+  dailyLimit: LocalDailyLimit | undefined,
+  fuelingRecords: LocalFuelingRecord[],
+) {
+  const overviewsByFuel = new Map(
     (dailyLimit?.category_overviews ?? []).map((overview) => [
       getOverviewKey(overview),
       { ...overview },
     ]),
   )
+
+  if (!dailyLimit) {
+    return overviewsByFuel
+  }
+
+  for (const record of fuelingRecords) {
+    if (record.date !== dailyLimit.date || !record.fuel_type || !record.liters) {
+      continue
+    }
+
+    const overview = overviewsByFuel.get(record.fuel_type)
+
+    if (overview?.limit_mode === 'fuel_liters' && overview.liters_limit != null) {
+      overview.liters_limit = Math.max(overview.liters_limit - record.liters, 0)
+    }
+  }
+
+  return overviewsByFuel
 }
 
 function canCoverOverview(overview: LimitOverview | undefined, effectiveLiters: number) {
@@ -131,6 +152,7 @@ function isReservationCoveredByDailyLimit(
   reservation: LocalReservation,
   dailyLimit: LocalDailyLimit | undefined,
   reservations: LocalReservation[],
+  fuelingRecords: LocalFuelingRecord[],
 ) {
   const fuelCategory = getFuelQueueCategory(reservation.fuel_type)
 
@@ -143,7 +165,7 @@ function isReservationCoveredByDailyLimit(
     } as const
   }
 
-  const overviewsByFuel = cloneFuelOverviews(dailyLimit)
+  const overviewsByFuel = cloneFuelOverviews(dailyLimit, fuelingRecords)
   const activeReservations = reservations
     .filter((item) => activeReservationStatuses.has(item.status))
     .sort((left, right) => left.queue_number - right.queue_number || left.id.localeCompare(right.id))
@@ -336,6 +358,7 @@ export function evaluateVehicleAccessOffline(
     reservation,
     dailyLimit,
     snapshot.reservations,
+    snapshot.fuelingRecords,
   )
 
   if (!limitDecision.isCovered) {

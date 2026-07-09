@@ -176,7 +176,6 @@ export function applyUnsyncedReservationEstimate(
 
       if (item.liters_limit != null && nextLiters <= item.liters_limit) {
         item.covered_vehicle_count += 1
-        item.covered_liters = nextLiters
         item.projected_queue_number = Math.max(
           item.projected_queue_number ?? 0,
           reservation.queue_number,

@@ -391,6 +391,55 @@ describe('evaluateVehicleAccessOffline', () => {
     })
   })
 
+  it('blocks a fuel-liters reservation when existing local fueling consumed the remaining liters', () => {
+    expect(
+      check(
+        makeSnapshot({
+          dailyLimits: [
+            {
+              id: 'daily-limit-1',
+              station_id: null,
+              date: checkDate,
+              status: 'OPEN',
+              category_overviews: [
+                {
+                  fuel_type: 'AI_95',
+                  fuel_category: 'GASOLINE',
+                  label: 'AI-95',
+                  limit_mode: 'fuel_liters',
+                  vehicle_limit: 0,
+                  liters_limit: 100,
+                  queue_count: 1,
+                  queued_liters: 40,
+                  covered_vehicle_count: 0,
+                  covered_liters: 0,
+                  remaining_vehicle_count: null,
+                  remaining_liters: 100,
+                  projected_queue_number: null,
+                },
+              ],
+            },
+          ],
+          fuelingRecords: [
+            {
+              id: 'fueling-1',
+              station_id: otherStationId,
+              vehicle_id: 'other-vehicle',
+              date: checkDate,
+              fuel_type: 'AI_95',
+              liters: 90,
+              fueled_at: '2026-07-05T09:00:00.000Z',
+              is_manual_override: false,
+            },
+          ],
+        }),
+      ),
+    ).toMatchObject({
+      status: 'BLOCKED',
+      reason: 'OUTSIDE_TODAY_LIMIT',
+    })
+  })
+
   it('marks offline results as warning and keeps the local decision', () => {
     expect(markOfflineResult(check())).toMatchObject({
       status: 'WARNING',

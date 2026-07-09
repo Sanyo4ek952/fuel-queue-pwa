@@ -213,4 +213,48 @@ describe('createOfflineFuelingRecord', () => {
       }),
     ).rejects.toThrow('ALREADY_FUELED')
   })
+
+  it('blocks actual offline liters that exceed the remaining local fuel-liters limit', async () => {
+    Object.assign(mocks.tables.local_reservations.rows[0], {
+      requested_liters: 5,
+    })
+    mocks.tables.local_daily_limits.rows[0].category_overviews = [
+      {
+        fuel_type: 'AI_95',
+        fuel_category: 'GASOLINE',
+        label: 'AI-95',
+        limit_mode: 'fuel_liters',
+        vehicle_limit: 0,
+        liters_limit: 100,
+        queue_count: 1,
+        queued_liters: 5,
+        covered_vehicle_count: 0,
+        covered_liters: 0,
+        remaining_vehicle_count: null,
+        remaining_liters: 100,
+        projected_queue_number: null,
+      },
+    ]
+    mocks.tables.local_fueling_records.rows.push({
+      id: 'fueling-1',
+      station_id: stationId,
+      vehicle_id: 'other-vehicle',
+      date: targetDate,
+      fuel_type: 'AI_95',
+      liters: 90,
+      fueled_at: '2026-07-05T09:00:00.000Z',
+      is_manual_override: false,
+    })
+
+    await expect(
+      createOfflineFuelingRecord({
+        stationId,
+        plateNumber: String(mocks.tables.local_vehicles.rows[0].normalized_plate_number),
+        liters: 15,
+        targetDate,
+        fueledAt: '2026-07-05T10:00:00.000Z',
+        clientMutationId: 'mutation-id',
+      }),
+    ).rejects.toThrow('LITERS_LIMIT_EXCEEDED')
+  })
 })

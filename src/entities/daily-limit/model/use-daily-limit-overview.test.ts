@@ -51,7 +51,7 @@ function makeReservation(overrides: Partial<LocalReservation>): LocalReservation
 }
 
 describe('applyUnsyncedReservationEstimate', () => {
-  it('adds unsynced active reservations to exact fuel queue and liters projection', () => {
+  it('adds unsynced active reservations to the queue without subtracting actual remaining liters', () => {
     const result = applyUnsyncedReservationEstimate(
       overview,
       [
@@ -72,8 +72,8 @@ describe('applyUnsyncedReservationEstimate', () => {
       queue_count: 3,
       queued_liters: 110,
       covered_vehicle_count: 3,
-      covered_liters: 110,
-      remaining_liters: 90,
+      covered_liters: 80,
+      remaining_liters: 120,
       projected_queue_number: 3,
     })
   })

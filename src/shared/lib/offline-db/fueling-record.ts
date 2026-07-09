@@ -3,7 +3,12 @@ import type { VehicleAccessResult } from '@/shared/types/vehicle-access'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import { evaluateVehicleAccessOffline } from './vehicle-access'
-import { offlineDb, type LocalFuelingRecord, type SyncOutboxOperation } from './db'
+import {
+  offlineDb,
+  type LocalDailyLimit,
+  type LocalFuelingRecord,
+  type SyncOutboxOperation,
+} from './db'
 
 export type CreateOfflineFuelingRecordParams = {
   stationId: string
@@ -66,6 +71,35 @@ function isAllowedForOfflineFueling(result: VehicleAccessResult) {
   return result.status === 'ALLOWED'
 }
 
+function assertFuelingLitersWithinLocalLimit({
+  dailyLimits,
+  fuelingRecords,
+  targetDate,
+  fuelType,
+  liters,
+}: {
+  dailyLimits: LocalDailyLimit[]
+  fuelingRecords: LocalFuelingRecord[]
+  targetDate: string
+  fuelType: FuelType
+  liters: number
+}) {
+  const dailyLimit = dailyLimits.find((item) => item.date === targetDate)
+  const overview = dailyLimit?.category_overviews?.find((item) => item.fuel_type === fuelType)
+
+  if (overview?.limit_mode !== 'fuel_liters' || overview.liters_limit == null) {
+    return
+  }
+
+  const fueledLiters = fuelingRecords
+    .filter((record) => record.date === targetDate && record.fuel_type === fuelType)
+    .reduce((total, record) => total + (record.liters ?? 0), 0)
+
+  if (fueledLiters + liters > overview.liters_limit) {
+    throw new Error('LITERS_LIMIT_EXCEEDED')
+  }
+}
+
 export async function createOfflineFuelingRecord({
   stationId,
   plateNumber,
@@ -115,6 +149,14 @@ export async function createOfflineFuelingRecord({
   if (!effectiveFuelType) {
     throw new Error('INVALID_FUEL_TYPE')
   }
+
+  assertFuelingLitersWithinLocalLimit({
+    dailyLimits,
+    fuelingRecords,
+    targetDate,
+    fuelType: effectiveFuelType,
+    liters,
+  })
 
   const id = `local-${clientMutationId}`
   const now = new Date().toISOString()
