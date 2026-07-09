@@ -116,6 +116,47 @@ function makeGasolineQueueRows(count: number) {
   })
 }
 
+function makeDailyLimitOverview(category_overviews: unknown[] = []) {
+  return {
+    data: {
+      exists: true,
+      id: 'daily-limit-id',
+      date: '2026-07-08',
+      station_id: null,
+      status: 'OPEN',
+      category_overviews,
+      updated_at: '2026-07-08T10:00:00.000Z',
+      source: 'online',
+      is_estimated: false,
+      unsynced_reservation_count: 0,
+    },
+    isOnline: true,
+    isLoading: false,
+    isFetching: false,
+    error: null,
+  }
+}
+
+function makeGasolineLimitOverview(overrides: Record<string, unknown> = {}) {
+  return makeDailyLimitOverview([
+    {
+      fuel_category: 'GASOLINE',
+      label: 'Бензин',
+      limit_mode: 'vehicle_count',
+      vehicle_limit: 0,
+      liters_limit: null,
+      queue_count: 0,
+      queued_liters: 0,
+      covered_vehicle_count: 0,
+      covered_liters: 0,
+      remaining_vehicle_count: 0,
+      remaining_liters: null,
+      projected_queue_number: null,
+      ...overrides,
+    },
+  ])
+}
+
 describe('TodayQueuePanel', () => {
   beforeEach(() => {
     mocks.useTodayQueue.mockReturnValue({
@@ -358,6 +399,34 @@ describe('TodayQueuePanel', () => {
     })
   })
 
+  it('resets a contacted call from the expanded contacted action', async () => {
+    const row = makeQueueRow({
+      latest_call_status: 'CONTACTED',
+      latest_called_by_full_name: 'Мария Петрова',
+      latest_called_at: '2026-07-07T10:30:00.000Z',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [row],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    const article = screen.getByRole('article')
+
+    await userEvent.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
+    await userEvent.click(within(article).getAllByRole('button', { name: 'Дозвонились' })[1])
+
+    expect(mocks.mutateCall).toHaveBeenCalledWith({
+      reservation: row,
+      status: 'NOT_CALLED',
+    })
+  })
+
   it('disables every call status action outside the call list', async () => {
     const row = makeQueueRow({
       is_callable_now: false,
@@ -388,7 +457,7 @@ describe('TodayQueuePanel', () => {
     expect(mocks.mutateCall).not.toHaveBeenCalled()
   })
 
-  it('disables resetting a contacted call after it leaves the call list', () => {
+  it('allows resetting a contacted call after it leaves the call list', async () => {
     const row = makeQueueRow({
       is_callable_now: false,
       call_unavailable_reason: 'ALREADY_CONTACTED',
@@ -405,7 +474,16 @@ describe('TodayQueuePanel', () => {
 
     render(<TodayQueuePanel />)
 
-    expect(screen.getByRole('button', { name: 'Дозвонились' })).toBeDisabled()
+    const contactedButton = screen.getByRole('button', { name: 'Дозвонились' })
+
+    expect(contactedButton).toBeEnabled()
+
+    await userEvent.click(contactedButton)
+
+    expect(mocks.mutateCall).toHaveBeenCalledWith({
+      reservation: row,
+      status: 'NOT_CALLED',
+    })
   })
 
   it('renders the latest call author on the card details', async () => {
@@ -626,7 +704,7 @@ describe('TodayQueuePanel', () => {
     expect(within(article).getByText('7')).toBeInTheDocument()
   })
 
-  it('disables fuel preference editing while today daily limit is open', async () => {
+  it('disables fuel preference editing while gasoline vehicle limit is greater than zero', async () => {
     const row = makeQueueRow({
       id: 'reservation-id',
       fuel_type: 'AI_95',
@@ -640,24 +718,9 @@ describe('TodayQueuePanel', () => {
       isFetching: false,
       error: null,
     })
-    mocks.useDailyLimitOverview.mockReturnValue({
-      data: {
-        exists: true,
-        id: 'daily-limit-id',
-        date: '2026-07-08',
-        station_id: null,
-        status: 'OPEN',
-        category_overviews: [],
-        updated_at: '2026-07-08T10:00:00.000Z',
-        source: 'online',
-        is_estimated: false,
-        unsynced_reservation_count: 0,
-      },
-      isOnline: true,
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
+    mocks.useDailyLimitOverview.mockReturnValue(
+      makeGasolineLimitOverview({ vehicle_limit: 1, remaining_vehicle_count: 1 }),
+    )
 
     render(<TodayQueuePanel />)
 
@@ -667,7 +730,115 @@ describe('TodayQueuePanel', () => {
 
     expect(
       within(article).getByRole('button', {
-        name: 'Топливо нельзя изменить после открытия лимитов на сегодня',
+        name: 'Топливо нельзя изменить, пока по бензину установлен ненулевой лимит',
+      }),
+    ).toBeDisabled()
+  })
+
+  it('allows fuel preference editing while gasoline vehicle limit is zero', async () => {
+    const user = userEvent.setup()
+    const row = makeQueueRow({
+      id: 'reservation-id',
+      fuel_type: 'AI_95',
+      fuel_preference_mode: 'EXACT',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [row],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useDailyLimitOverview.mockReturnValue(makeGasolineLimitOverview({ vehicle_limit: 0 }))
+
+    render(<TodayQueuePanel />)
+
+    const article = screen.getByRole('article')
+
+    await user.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
+    await user.click(within(article).getByRole('button', { name: /Изменить марку топлива/ }))
+    await user.click(screen.getByRole('button', { name: /Сохранить/ }))
+
+    expect(mocks.mutateFuelPreference).toHaveBeenCalledWith({
+      reservationId: 'reservation-id',
+      fuelType: 'AI_95',
+      fuelPreferenceMode: 'EXACT',
+      clientMutationId: expect.any(String),
+    })
+  })
+
+  it('allows fuel preference editing when gasoline limit row is missing', async () => {
+    const row = makeQueueRow({
+      id: 'reservation-id',
+      fuel_type: 'AI_95',
+      fuel_preference_mode: 'EXACT',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [row],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useDailyLimitOverview.mockReturnValue(makeDailyLimitOverview())
+
+    render(<TodayQueuePanel />)
+
+    const article = screen.getByRole('article')
+
+    await userEvent.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
+
+    expect(within(article).getByRole('button', { name: /Изменить марку топлива/ })).toBeEnabled()
+  })
+
+  it('locks fuel preference editing only for non-zero gasoline liters limits', async () => {
+    const row = makeQueueRow({
+      id: 'reservation-id',
+      fuel_type: 'AI_95',
+      fuel_preference_mode: 'EXACT',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [row],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useDailyLimitOverview.mockReturnValue(
+      makeGasolineLimitOverview({
+        limit_mode: 'fuel_liters',
+        vehicle_limit: 0,
+        liters_limit: 0,
+        remaining_vehicle_count: null,
+        remaining_liters: 0,
+      }),
+    )
+
+    const { rerender } = render(<TodayQueuePanel />)
+    const article = screen.getByRole('article')
+
+    await userEvent.click(within(article).getByRole('button', { name: DETAILS_BUTTON_NAME }))
+
+    expect(within(article).getByRole('button', { name: /Изменить марку топлива/ })).toBeEnabled()
+
+    mocks.useDailyLimitOverview.mockReturnValue(
+      makeGasolineLimitOverview({
+        limit_mode: 'fuel_liters',
+        vehicle_limit: 0,
+        liters_limit: 100,
+        remaining_vehicle_count: null,
+        remaining_liters: 100,
+      }),
+    )
+
+    rerender(<TodayQueuePanel />)
+
+    expect(
+      within(article).getByRole('button', {
+        name: 'Топливо нельзя изменить, пока по бензину установлен ненулевой лимит',
       }),
     ).toBeDisabled()
   })

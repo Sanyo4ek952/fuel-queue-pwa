@@ -15,6 +15,8 @@ export type {
 }
 
 const updateReservationFuelPreferenceErrorMessages: Record<string, string> = {
+  FUEL_PREFERENCE_LOCKED_BY_ACTIVE_GASOLINE_LIMIT:
+    'Топливо нельзя изменить, пока по бензину установлен ненулевой лимит.',
   FUEL_PREFERENCE_LOCKED_BY_OPEN_LIMIT:
     'Топливо нельзя изменить после открытия лимитов на сегодня.',
 }

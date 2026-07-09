@@ -145,6 +145,51 @@ describe('useLogReservationCall', () => {
     expect(mocks.createReservationCallLog).not.toHaveBeenCalled()
   })
 
+  it('allows resetting a contacted call outside the call list', async () => {
+    mocks.createReservationCallLog.mockResolvedValue({
+      data: {
+        id: 'call-id',
+        reservation_id: 'reservation-id',
+        status: 'NOT_CALLED',
+        called_by_profile_id: 'profile-id',
+        called_by_full_name: 'Мария Петрова',
+        called_by_role: 'cashier',
+        called_by_signature_name: 'Петрова М.',
+        called_at: '2026-07-07T10:30:00.000Z',
+        comment: null,
+        client_mutation_id: '00000000-0000-4000-8000-000000000001',
+        sync_status: 'SYNCED',
+      },
+      error: null,
+    })
+    const { result } = renderHook(() => useLogReservationCall(), { wrapper: makeWrapper() })
+
+    result.current.mutate({
+      reservation: makeQueueRow({
+        is_callable_now: false,
+        call_unavailable_reason: 'ALREADY_CONTACTED',
+        latest_call_status: 'CONTACTED',
+      }),
+      status: 'NOT_CALLED',
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(mocks.createReservationCallLog).toHaveBeenCalledWith({
+      reservationId: 'reservation-id',
+      status: 'NOT_CALLED',
+      comment: undefined,
+      clientMutationId: '00000000-0000-4000-8000-000000000001',
+    })
+    expect(mocks.offlineDb.local_reservations.update).toHaveBeenCalledWith(
+      'reservation-id',
+      expect.objectContaining({
+        latest_call_status: 'NOT_CALLED',
+        latest_call_sync_status: 'SYNCED',
+      }),
+    )
+  })
+
   it('does not enqueue an offline call status outside the call list', async () => {
     mocks.isOnline = false
     const { result } = renderHook(() => useLogReservationCall(), { wrapper: makeWrapper() })
@@ -162,5 +207,37 @@ describe('useLogReservationCall', () => {
     expect(result.current.error).toMatchObject({ message: 'NO_OPEN_DAILY_LIMIT' })
     expect(mocks.offlineDb.local_reservation_call_logs.put).not.toHaveBeenCalled()
     expect(mocks.offlineDb.sync_outbox.put).not.toHaveBeenCalled()
+  })
+
+  it('enqueues an offline contacted call reset outside the call list', async () => {
+    mocks.isOnline = false
+    const { result } = renderHook(() => useLogReservationCall(), { wrapper: makeWrapper() })
+
+    result.current.mutate({
+      reservation: makeQueueRow({
+        is_callable_now: false,
+        call_unavailable_reason: 'ALREADY_CONTACTED',
+        latest_call_status: 'CONTACTED',
+      }),
+      status: 'NOT_CALLED',
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(mocks.offlineDb.local_reservation_call_logs.put).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reservation_id: 'reservation-id',
+        status: 'NOT_CALLED',
+        sync_status: 'PENDING',
+        client_mutation_id: '00000000-0000-4000-8000-000000000001',
+      }),
+    )
+    expect(mocks.offlineDb.sync_outbox.put).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client_mutation_id: '00000000-0000-4000-8000-000000000001',
+        type: 'CREATE_RESERVATION_CALL_LOG',
+        status: 'PENDING',
+      }),
+    )
   })
 })

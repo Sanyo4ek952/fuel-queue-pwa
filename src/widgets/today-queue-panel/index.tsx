@@ -273,6 +273,24 @@ function matchesGasolineFuelFilter(row: TodayQueueRow, filter: GasolineFuelFilte
   return filter === ALL_GASOLINE_FILTER || getEffectiveFuelType(row) === filter
 }
 
+function hasActiveGasolineLimit(
+  categoryOverviews:
+    | NonNullable<ReturnType<typeof useDailyLimitOverview>['data']>['category_overviews']
+    | undefined,
+) {
+  const gasolineOverview = categoryOverviews?.find((row) => row.fuel_category === 'GASOLINE')
+
+  if (!gasolineOverview) {
+    return false
+  }
+
+  if (gasolineOverview.limit_mode === 'fuel_liters') {
+    return (gasolineOverview.liters_limit ?? 0) > 0
+  }
+
+  return gasolineOverview.vehicle_limit > 0
+}
+
 function formatCallTime(value: string | null) {
   return value
     ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -284,7 +302,7 @@ function QueueRowCard({
   isLoggingCall,
   isUpdatingFuelPreference,
   isFuelPreferenceUpdateUnavailable,
-  isFuelPreferenceLockedByOpenLimit,
+  isFuelPreferenceLockedByGasolineLimit,
   onLogCall,
   onUpdateFuelPreference,
 }: {
@@ -292,7 +310,7 @@ function QueueRowCard({
   isLoggingCall: boolean
   isUpdatingFuelPreference: boolean
   isFuelPreferenceUpdateUnavailable: boolean
-  isFuelPreferenceLockedByOpenLimit: boolean
+  isFuelPreferenceLockedByGasolineLimit: boolean
   onLogCall: (row: TodayQueueRow, status: ReservationCallStatus) => void
   onUpdateFuelPreference: (
     row: TodayQueueRow,
@@ -310,16 +328,19 @@ function QueueRowCard({
   })
   const phoneHref = getPhoneHref(row.driver_phone)
   const callableNow = isRowCallable(row)
+  const isContacted = row.latest_call_status === 'CONTACTED'
+  const canResetContacted = isContacted
   const callActionsDisabled = isLoggingCall || row.is_offline || !callableNow
+  const contactedActionDisabled =
+    isLoggingCall || row.is_offline || (!callableNow && !canResetContacted)
   const fuelPreferenceActionsDisabled =
     isFuelPreferenceUpdateUnavailable ||
-    isFuelPreferenceLockedByOpenLimit ||
+    isFuelPreferenceLockedByGasolineLimit ||
     row.is_offline ||
     isUpdatingFuelPreference
-  const fuelPreferenceEditLabel = isFuelPreferenceLockedByOpenLimit
-    ? 'Топливо нельзя изменить после открытия лимитов на сегодня'
+  const fuelPreferenceEditLabel = isFuelPreferenceLockedByGasolineLimit
+    ? 'Топливо нельзя изменить, пока по бензину установлен ненулевой лимит'
     : 'Изменить марку топлива'
-  const isContacted = row.latest_call_status === 'CONTACTED'
   const hasPendingCallSync = row.latest_call_sync_status === 'PENDING'
   const callTime = formatCallTime(row.latest_called_at)
   const quickCallStatus: ReservationCallStatus = isContacted ? 'NOT_CALLED' : 'CONTACTED'
@@ -438,7 +459,7 @@ function QueueRowCard({
                 variant="outline"
                 size="icon"
                 aria-label="Дозвонились"
-                disabled={callActionsDisabled}
+                disabled={contactedActionDisabled}
                 className={cn(
                   isContacted
                     ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
@@ -639,8 +660,8 @@ function QueueRowCard({
                 type="button"
                 variant="outline"
                 className={cn('gap-2', callStatusButtonClasses.CONTACTED)}
-                disabled={callActionsDisabled}
-                onClick={() => onLogCall(row, 'CONTACTED')}
+                disabled={contactedActionDisabled}
+                onClick={() => onLogCall(row, quickCallStatus)}
               >
                 <CheckCircle2 className="size-4" aria-hidden="true" />
                 Дозвонились
@@ -704,8 +725,9 @@ export function TodayQueuePanel() {
   const dailyLimitOverview = useDailyLimitOverview({ date: todayDate })
   const logReservationCall = useLogReservationCall()
   const updateReservationFuelPreference = useUpdateReservationFuelPreference()
-  const isFuelPreferenceLockedByOpenLimit =
-    dailyLimitOverview.data?.exists === true && dailyLimitOverview.data.status === 'OPEN'
+  const isFuelPreferenceLockedByGasolineLimit = hasActiveGasolineLimit(
+    dailyLimitOverview.data?.category_overviews,
+  )
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
   const authorOptions = useMemo(() => buildAuthorOptions(queue.rows), [queue.rows])
   const rowsMatchingBaseFilters = useMemo(
@@ -988,7 +1010,9 @@ export function TodayQueuePanel() {
                           updateReservationFuelPreference.variables?.reservationId === row.id
                         }
                         isFuelPreferenceUpdateUnavailable={!queue.isOnline}
-                        isFuelPreferenceLockedByOpenLimit={isFuelPreferenceLockedByOpenLimit}
+                        isFuelPreferenceLockedByGasolineLimit={
+                          isFuelPreferenceLockedByGasolineLimit
+                        }
                         onLogCall={handleLogCall}
                         onUpdateFuelPreference={handleUpdateFuelPreference}
                       />

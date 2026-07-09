@@ -134,14 +134,14 @@ describe('useUpdateReservationFuelPreference', () => {
     ).rejects.toThrow('OFFLINE_UNAVAILABLE')
   })
 
-  it('shows a clear error when fuel editing is locked by an open limit', async () => {
+  it('shows a clear error when fuel editing is locked by an active gasoline limit', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })
 
     mocks.updateReservationFuelPreference.mockResolvedValue({
       data: null,
-      error: 'FUEL_PREFERENCE_LOCKED_BY_OPEN_LIMIT',
+      error: 'FUEL_PREFERENCE_LOCKED_BY_ACTIVE_GASOLINE_LIMIT',
     })
 
     const { result } = renderHook(() => useUpdateReservationFuelPreference(), {
@@ -155,7 +155,7 @@ describe('useUpdateReservationFuelPreference', () => {
         fuelPreferenceMode: 'ANY_GASOLINE',
         clientMutationId: 'mutation-id',
       }),
-    ).rejects.toThrow('Топливо нельзя изменить после открытия лимитов на сегодня.')
+    ).rejects.toThrow('Топливо нельзя изменить, пока по бензину установлен ненулевой лимит.')
 
     expect(mocks.localReservationUpdate).not.toHaveBeenCalled()
   })

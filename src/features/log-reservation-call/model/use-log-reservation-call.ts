@@ -21,6 +21,13 @@ export type LogReservationCallInput = {
   comment?: string
 }
 
+function canLogReservationCall(reservation: TodayQueueRow, status: ReservationCallStatus) {
+  return (
+    reservation.is_callable_now ||
+    (status === 'NOT_CALLED' && reservation.latest_call_status === 'CONTACTED')
+  )
+}
+
 function applyCallToReservation({
   reservationId,
   status,
@@ -115,7 +122,7 @@ async function createOfflineReservationCallLog({
     throw new Error('RESERVATION_NOT_SYNCED')
   }
 
-  if (!reservation.is_callable_now) {
+  if (!canLogReservationCall(reservation, status)) {
     throw new Error(reservation.call_unavailable_reason ?? 'RESERVATION_NOT_CALLABLE')
   }
 
@@ -200,7 +207,7 @@ export function useLogReservationCall() {
         throw new Error('PROFILE_NOT_LOADED')
       }
 
-      if (!reservation.is_callable_now) {
+      if (!canLogReservationCall(reservation, status)) {
         throw new Error(reservation.call_unavailable_reason ?? 'RESERVATION_NOT_CALLABLE')
       }
 
