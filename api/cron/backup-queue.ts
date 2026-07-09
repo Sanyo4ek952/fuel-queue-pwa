@@ -67,9 +67,8 @@ function getEnv(): Env {
 
 function isAuthorized(req: CronRequest, cronSecret: string) {
   const authorization = req.headers.authorization
-  const querySecret = typeof req.query.secret === 'string' ? req.query.secret : null
 
-  return authorization === `Bearer ${cronSecret}` || querySecret === cronSecret
+  return authorization === `Bearer ${cronSecret}`
 }
 
 export default async function handler(req: CronRequest, res: CronResponse) {

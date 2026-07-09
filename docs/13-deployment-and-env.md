@@ -45,10 +45,10 @@ Vercel Cron вызывает `/api/cron/backup-queue` каждый день в `
 Файл сохраняется как `azs-queue-backup-YYYY-MM-DD.csv`, открывается в Excel и содержит активную очередь за дату выгрузки.
 Система хранит последние 10 ежедневных файлов, старые удаляет автоматически.
 
-Для ручной проверки после деплоя можно открыть:
+Для ручной проверки после деплоя нужно вызывать endpoint только через `Authorization: Bearer`:
 
-```text
-https://<your-domain>/api/cron/backup-queue?secret=<CRON_SECRET>
+```bash
+curl -H "Authorization: Bearer <CRON_SECRET>" https://<your-domain>/api/cron/backup-queue
 ```
 
 В нормальной эксплуатации скачивать файл нужно напрямую из Google Drive папки.
