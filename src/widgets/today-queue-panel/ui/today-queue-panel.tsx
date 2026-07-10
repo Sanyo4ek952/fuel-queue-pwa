@@ -41,7 +41,6 @@ import {
   getCallFilterCounts,
   groupRowsByFuelCategory,
   hasActiveGasolineLimit,
-  matchesCallFilter,
   toFuelingScheduleConfigs,
   toFuelingScheduleRows,
 } from '../model/queue-model'
@@ -101,21 +100,35 @@ export function TodayQueuePanel() {
     [fuelingScheduleRows, scheduleConfigs],
   )
   const fuelingScheduleSummaries = useMemo(
-    () => buildFuelingScheduleSummary(fuelingScheduleRows, scheduleConfigs, categoryOrder),
-    [fuelingScheduleRows, scheduleConfigs],
+    () =>
+      buildFuelingScheduleSummary(
+        fuelingScheduleRows,
+        scheduleConfigs,
+        categoryOrder,
+        queue.isOnline ? queue.summary?.callable_category_counts : undefined,
+      ),
+    [fuelingScheduleRows, queue.isOnline, queue.summary?.callable_category_counts, scheduleConfigs],
   )
   const rowsMatchingBaseFilters = queue.rows
   const filteredRows = queue.rows
-  const callRowsCount = rowsMatchingBaseFilters.filter((row) => matchesCallFilter(row, 'call')).length
-  const contactedRowsCount = rowsMatchingBaseFilters.filter(
-    (row) => row.latest_call_status === 'CONTACTED',
-  ).length
   const callFilterCounts = useMemo(
-    () => getCallFilterCounts(rowsMatchingBaseFilters),
-    [rowsMatchingBaseFilters],
+    () =>
+      queue.summary
+        ? {
+            call: queue.summary.callable_count,
+            contacted: queue.summary.contacted_count,
+            no_answer: queue.summary.no_answer_count,
+          }
+        : getCallFilterCounts(rowsMatchingBaseFilters),
+    [queue.summary, rowsMatchingBaseFilters],
   )
   const rowsByCategory = groupRowsByFuelCategory(filteredRows)
   const visibleRowsCount = rowsByCategory.reduce((count, category) => count + category.rows.length, 0)
+  const summaryTotalCount = queue.summary?.total_count ?? visibleRowsCount
+  const callRowsCount = queue.summary?.callable_count ?? callFilterCounts.call
+  const contactedRowsCount = queue.summary?.contacted_count ?? callFilterCounts.contacted
+  const getCategoryRowsCount = (fuelCategory: (typeof categoryOrder)[number], rowsCount: number) =>
+    queue.isOnline ? (queue.summary?.category_counts[fuelCategory] ?? rowsCount) : rowsCount
   const hasActiveFilters =
     normalizedPlateSearch.length > 0 ||
     authorFilter !== ALL_AUTHORS_FILTER ||
@@ -182,7 +195,7 @@ export function TodayQueuePanel() {
           ) : null}
 
           <div className="grid grid-cols-3 gap-2">
-            <SummaryTile label="Всего" value={visibleRowsCount} />
+            <SummaryTile label="Всего" value={summaryTotalCount} />
             <SummaryTile label="Обзвон" value={callRowsCount} />
             <SummaryTile label="Позвонили" value={contactedRowsCount} />
           </div>
@@ -272,7 +285,7 @@ export function TodayQueuePanel() {
           <TabsList className="grid w-full grid-cols-3">
             {rowsByCategory.map(({ fuelCategory, rows }) => (
               <TabsTrigger key={fuelCategory} value={fuelCategory}>
-                {categoryLabels[fuelCategory]} ({rows.length})
+                {categoryLabels[fuelCategory]} ({getCategoryRowsCount(fuelCategory, rows.length)})
               </TabsTrigger>
             ))}
           </TabsList>

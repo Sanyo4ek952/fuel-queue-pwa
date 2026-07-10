@@ -1,12 +1,14 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { UserRole } from '@/shared/config/roles'
 import type {
+  FuelQueueCategory,
   FuelPreferenceMode,
   FuelType,
   ReservationCallStatus,
   ReservationStatus,
   SyncStatus,
 } from '@/shared/constants'
+import { getFuelQueueCategory } from '@/shared/constants'
 import { supabase } from '@/shared/api/supabase'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { offlineDb, type LocalReservation } from '@/shared/lib/offline-db'
@@ -158,6 +160,16 @@ export type CancelledReservationsCursor = {
 export type TodayQueuePage = {
   rows: TodayQueueRow[]
   nextCursor: TodayQueueCursor | null
+  summary: TodayQueueSummary
+}
+
+export type TodayQueueSummary = {
+  total_count: number
+  callable_count: number
+  contacted_count: number
+  no_answer_count: number
+  category_counts: Record<FuelQueueCategory, number>
+  callable_category_counts: Record<FuelQueueCategory, number>
 }
 
 export type CancelledReservationsPage = {
@@ -168,6 +180,7 @@ export type CancelledReservationsPage = {
 type TodayQueuePageResponse = {
   rows?: ReservationRow[] | null
   next_cursor?: TodayQueueCursor | null
+  summary?: Partial<TodayQueueSummary> | null
 }
 
 type CancelledReservationsPageResponse = {
@@ -219,6 +232,12 @@ export type CancelledReservation = {
 
 function toNumber(value: unknown) {
   return typeof value === 'number' ? value : Number(value)
+}
+
+function toSafeNumber(value: unknown) {
+  const numericValue = toNumber(value)
+
+  return Number.isFinite(numericValue) ? numericValue : 0
 }
 
 function toNullableNumber(value: unknown) {
@@ -352,6 +371,80 @@ export function withCurrentQueuePositions(rows: TodayQueueRow[]) {
   })
 }
 
+function buildTodayQueueSummaryFromRows(rows: TodayQueueRow[]): TodayQueueSummary {
+  return {
+    total_count: rows.length,
+    callable_count: rows.filter(
+      (row) => Boolean(row.is_callable_now ?? row.is_within_today_limit) && row.latest_call_status !== 'CONTACTED',
+    ).length,
+    contacted_count: rows.filter((row) => row.latest_call_status === 'CONTACTED').length,
+    no_answer_count: rows.filter((row) => row.latest_call_status === 'NO_ANSWER').length,
+    category_counts: {
+      GASOLINE: rows.filter((row) => getFuelQueueCategory(row.fuel_type) === 'GASOLINE').length,
+      DIESEL: rows.filter((row) => getFuelQueueCategory(row.fuel_type) === 'DIESEL').length,
+      GAS: rows.filter((row) => getFuelQueueCategory(row.fuel_type) === 'GAS').length,
+    },
+    callable_category_counts: {
+      GASOLINE: rows.filter(
+        (row) =>
+          Boolean(row.is_callable_now ?? row.is_within_today_limit) &&
+          getFuelQueueCategory(row.fuel_type) === 'GASOLINE',
+      ).length,
+      DIESEL: rows.filter(
+        (row) =>
+          Boolean(row.is_callable_now ?? row.is_within_today_limit) &&
+          getFuelQueueCategory(row.fuel_type) === 'DIESEL',
+      ).length,
+      GAS: rows.filter(
+        (row) =>
+          Boolean(row.is_callable_now ?? row.is_within_today_limit) &&
+          getFuelQueueCategory(row.fuel_type) === 'GAS',
+      ).length,
+    },
+  }
+}
+
+function parseTodayQueueSummary(
+  value: TodayQueuePageResponse['summary'],
+  fallbackRows: TodayQueueRow[],
+): TodayQueueSummary {
+  const fallback = buildTodayQueueSummaryFromRows(fallbackRows)
+
+  if (!value || typeof value !== 'object') {
+    return fallback
+  }
+
+  const categoryCounts =
+    value.category_counts && typeof value.category_counts === 'object'
+      ? (value.category_counts as Partial<Record<FuelQueueCategory, unknown>>)
+      : {}
+  const callableCategoryCounts =
+    value.callable_category_counts && typeof value.callable_category_counts === 'object'
+      ? (value.callable_category_counts as Partial<Record<FuelQueueCategory, unknown>>)
+      : {}
+
+  return {
+    total_count: toSafeNumber(value.total_count ?? fallback.total_count),
+    callable_count: toSafeNumber(value.callable_count ?? fallback.callable_count),
+    contacted_count: toSafeNumber(value.contacted_count ?? fallback.contacted_count),
+    no_answer_count: toSafeNumber(value.no_answer_count ?? fallback.no_answer_count),
+    category_counts: {
+      GASOLINE: toSafeNumber(categoryCounts.GASOLINE ?? fallback.category_counts.GASOLINE),
+      DIESEL: toSafeNumber(categoryCounts.DIESEL ?? fallback.category_counts.DIESEL),
+      GAS: toSafeNumber(categoryCounts.GAS ?? fallback.category_counts.GAS),
+    },
+    callable_category_counts: {
+      GASOLINE: toSafeNumber(
+        callableCategoryCounts.GASOLINE ?? fallback.callable_category_counts.GASOLINE,
+      ),
+      DIESEL: toSafeNumber(
+        callableCategoryCounts.DIESEL ?? fallback.callable_category_counts.DIESEL,
+      ),
+      GAS: toSafeNumber(callableCategoryCounts.GAS ?? fallback.callable_category_counts.GAS),
+    },
+  }
+}
+
 function toCancelledReservation(row: CancelledReservationRow): CancelledReservation {
   return {
     id: row.id,
@@ -389,6 +482,7 @@ function parseTodayQueuePage(data: unknown): TodayQueuePage {
   return {
     rows,
     nextCursor: page?.next_cursor ?? null,
+    summary: parseTodayQueueSummary(page?.summary, rows),
   }
 }
 

@@ -29,6 +29,7 @@ vi.mock('@/shared/lib/offline-db', () => ({
 import {
   listCancelledReservationsPage,
   listTodayQueueAuthors,
+  listTodayQueueRowsPage,
   listTodayQueueRows,
 } from './index'
 
@@ -109,6 +110,103 @@ describe('listTodayQueueRows', () => {
         people_ahead: 1,
       },
     ])
+  })
+
+  it('parses the full server summary separately from the current page rows', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: { status: 'SYNCED' }, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          rows: [
+            {
+              id: 'reservation-id',
+              vehicle_id: 'vehicle-id',
+              operator_id: 'profile-id',
+              fuel_type: 'AI_95',
+              requested_liters: 40,
+              queue_number: 1,
+              status: 'RESERVED',
+              is_callable_now: true,
+            },
+          ],
+          next_cursor: null,
+          summary: {
+            total_count: '125',
+            callable_count: '40',
+            contacted_count: 12,
+            no_answer_count: 7,
+            category_counts: {
+              GASOLINE: '100',
+              DIESEL: 20,
+              GAS: 5,
+            },
+          },
+        },
+        error: null,
+      })
+
+    await expect(listTodayQueueRowsPage()).resolves.toMatchObject({
+      rows: [{ id: 'reservation-id' }],
+      summary: {
+        total_count: 125,
+        callable_count: 40,
+        contacted_count: 12,
+        no_answer_count: 7,
+        category_counts: {
+          GASOLINE: 100,
+          DIESEL: 20,
+          GAS: 5,
+        },
+      },
+    })
+  })
+
+  it('falls back to row-derived summary when the RPC has not returned summary yet', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: { status: 'SYNCED' }, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          rows: [
+            {
+              id: 'callable-id',
+              vehicle_id: 'vehicle-id',
+              operator_id: 'profile-id',
+              fuel_type: 'AI_95',
+              requested_liters: 40,
+              queue_number: 1,
+              status: 'RESERVED',
+              is_callable_now: true,
+            },
+            {
+              id: 'contacted-id',
+              vehicle_id: 'vehicle-id',
+              operator_id: 'profile-id',
+              fuel_type: 'DIESEL',
+              requested_liters: 40,
+              queue_number: 2,
+              status: 'RESERVED',
+              is_callable_now: true,
+              latest_call_status: 'CONTACTED',
+            },
+          ],
+          next_cursor: null,
+        },
+        error: null,
+      })
+
+    await expect(listTodayQueueRowsPage()).resolves.toMatchObject({
+      summary: {
+        total_count: 2,
+        callable_count: 1,
+        contacted_count: 1,
+        no_answer_count: 0,
+        category_counts: {
+          GASOLINE: 1,
+          DIESEL: 1,
+          GAS: 0,
+        },
+      },
+    })
   })
 })
 

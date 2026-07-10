@@ -2,6 +2,7 @@ import type { FuelQueueCategory } from '@/shared/constants'
 
 export type FuelingScheduleConfig = {
   fuelCategory: FuelQueueCategory
+  date: string
   startTime: string
   intervalMinutes: number
   vehiclesPerInterval: number
@@ -28,7 +29,15 @@ export type FuelingScheduleSummary = {
   vehiclesPerInterval: number | null
 }
 
-const MINUTES_PER_DAY = 24 * 60
+const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
+  day: 'numeric',
+  month: 'long',
+})
+
+const timeFormatter = new Intl.DateTimeFormat('ru-RU', {
+  hour: '2-digit',
+  minute: '2-digit',
+})
 
 function parseTimeToMinutes(value: string) {
   const match = /^(\d{2}):(\d{2})$/.exec(value)
@@ -47,12 +56,40 @@ function parseTimeToMinutes(value: string) {
   return hours * 60 + minutes
 }
 
-function formatMinutesAsTime(totalMinutes: number) {
-  const dayMinutes = ((totalMinutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
-  const hours = Math.floor(dayMinutes / 60)
-  const minutes = dayMinutes % 60
+function parseScheduleStartDate(schedule: FuelingScheduleConfig) {
+  const timeMinutes = parseTimeToMinutes(schedule.startTime)
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(schedule.date)
 
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+  if (timeMinutes === null || !dateMatch) {
+    return null
+  }
+
+  const year = Number(dateMatch[1])
+  const monthIndex = Number(dateMatch[2]) - 1
+  const day = Number(dateMatch[3])
+  const hours = Math.floor(timeMinutes / 60)
+  const minutes = timeMinutes % 60
+  const date = new Date(year, monthIndex, day, hours, minutes)
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== monthIndex ||
+    date.getDate() !== day ||
+    date.getHours() !== hours ||
+    date.getMinutes() !== minutes
+  ) {
+    return null
+  }
+
+  return date
+}
+
+function addMinutes(date: Date, minutes: number) {
+  return new Date(date.getTime() + minutes * 60_000)
+}
+
+function formatScheduleDateTime(date: Date) {
+  return `${timeFormatter.format(date)} ${dateFormatter.format(date)}`
 }
 
 function isUsableSchedule(
@@ -60,7 +97,7 @@ function isUsableSchedule(
 ): schedule is FuelingScheduleConfig {
   return Boolean(
     schedule &&
-      parseTimeToMinutes(schedule.startTime) !== null &&
+      parseScheduleStartDate(schedule) !== null &&
       schedule.intervalMinutes > 0 &&
       schedule.vehiclesPerInterval > 0,
   )
@@ -73,7 +110,12 @@ export function addMinutesToTime(time: string, minutes: number) {
     return null
   }
 
-  return formatMinutesAsTime(startMinutes + minutes)
+  const dayMinutes = startMinutes + minutes
+  const hours = Math.floor(dayMinutes / 60) % 24
+  const normalizedHours = hours < 0 ? hours + 24 : hours
+  const normalizedMinutes = ((dayMinutes % 60) + 60) % 60
+
+  return `${String(normalizedHours).padStart(2, '0')}:${String(normalizedMinutes).padStart(2, '0')}`
 }
 
 export function calculateArrivalTime(
@@ -84,9 +126,15 @@ export function calculateArrivalTime(
     return null
   }
 
+  const startDate = parseScheduleStartDate(schedule)
+
+  if (!startDate) {
+    return null
+  }
+
   const intervalIndex = Math.floor((categoryPosition - 1) / schedule.vehiclesPerInterval)
 
-  return addMinutesToTime(schedule.startTime, intervalIndex * schedule.intervalMinutes)
+  return formatScheduleDateTime(addMinutes(startDate, intervalIndex * schedule.intervalMinutes))
 }
 
 export function calculateFuelingEndTime(
@@ -97,13 +145,19 @@ export function calculateFuelingEndTime(
     return null
   }
 
+  const startDate = parseScheduleStartDate(schedule)
+
+  if (!startDate) {
+    return null
+  }
+
   if (queueCount <= 0) {
-    return schedule.startTime
+    return formatScheduleDateTime(startDate)
   }
 
   const intervalCount = Math.ceil(queueCount / schedule.vehiclesPerInterval)
 
-  return addMinutesToTime(schedule.startTime, intervalCount * schedule.intervalMinutes)
+  return formatScheduleDateTime(addMinutes(startDate, intervalCount * schedule.intervalMinutes))
 }
 
 export function buildFuelingScheduleEta(
@@ -144,17 +198,20 @@ export function buildFuelingScheduleSummary(
   rows: FuelingScheduleQueueRow[],
   schedules: FuelingScheduleConfig[],
   fuelCategories: FuelQueueCategory[],
+  queueCountsByCategory?: Partial<Record<FuelQueueCategory, number>>,
 ): FuelingScheduleSummary[] {
   const schedulesByCategory = new Map(schedules.map((schedule) => [schedule.fuelCategory, schedule]))
 
   return fuelCategories.map((fuelCategory) => {
     const schedule = schedulesByCategory.get(fuelCategory)
-    const queueCount = rows.filter((row) => row.fuelCategory === fuelCategory).length
+    const queueCount =
+      queueCountsByCategory?.[fuelCategory] ??
+      rows.filter((row) => row.fuelCategory === fuelCategory).length
 
     return {
       fuelCategory,
       queueCount,
-      startTime: schedule?.startTime ?? null,
+      startTime: schedule ? calculateFuelingEndTime(schedule, 0) : null,
       endTime: calculateFuelingEndTime(schedule, queueCount),
       intervalMinutes: schedule?.intervalMinutes ?? null,
       vehiclesPerInterval: schedule?.vehiclesPerInterval ?? null,

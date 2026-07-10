@@ -574,6 +574,71 @@ describe('TodayQueuePanel', () => {
     expect(screen.getByRole('button', { name: 'Показать еще' })).toBeInTheDocument()
   })
 
+  it('shows server summary counters instead of counting only the loaded page', async () => {
+    const user = userEvent.setup()
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: makeGasolineQueueRows(25),
+      summary: {
+        total_count: 125,
+        callable_count: 40,
+        contacted_count: 12,
+        no_answer_count: 7,
+        category_counts: {
+          GASOLINE: 100,
+          DIESEL: 20,
+          GAS: 5,
+        },
+      },
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      isFetchingNextPage: false,
+      hasNextPage: true,
+      fetchNextPage: vi.fn(),
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    expect(screen.getByText('125')).toBeInTheDocument()
+    expect(screen.getByText('40')).toBeInTheDocument()
+    expect(screen.getAllByText('12').length).toBeGreaterThan(0)
+    expect(screen.getByRole('tab', { name: /100/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /20/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /5/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox', { name: CALL_FILTER_NAME }))
+
+    expect(
+      screen.getByRole('option', { name: new RegExp('^' + TODAY_ARRIVALS_LABEL + '40$') }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /^Позвонили12$/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /^Не дозвонились7$/ })).toBeInTheDocument()
+  })
+
+  it('falls back to loaded rows for counters in offline mode', () => {
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [
+        makeQueueRow({ id: 'callable', is_callable_now: true }),
+        makeQueueRow({
+          id: 'contacted',
+          queue_number: 2,
+          latest_call_status: 'CONTACTED',
+        }),
+      ],
+      isOnline: false,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    expect(screen.getByText('2')).toBeInTheDocument()
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0)
+  })
+
   it('renders the current position after filtering the queue', async () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [
@@ -945,8 +1010,8 @@ describe('TodayQueuePanel', () => {
 
     expect(screen.getByText('Начало')).toBeInTheDocument()
     expect(screen.getByText('Окончание')).toBeInTheDocument()
-    expect(screen.getAllByText('Предполагаемое время прибытия: 13:00')).toHaveLength(5)
-    expect(screen.getByText('Предполагаемое время прибытия: 13:05')).toBeInTheDocument()
+    expect(screen.getAllByText('Предполагаемое время прибытия: 13:00 9 июля')).toHaveLength(5)
+    expect(screen.getByText('Предполагаемое время прибытия: 13:05 9 июля')).toBeInTheDocument()
   })
 
   it('hides estimated arrival time for rows outside today fueling plan', () => {
@@ -1016,7 +1081,7 @@ describe('TodayQueuePanel', () => {
     expect(outsideLimit).not.toBeNull()
     expect(callableSecond).not.toBeNull()
     expect(
-      within(callableFirst as HTMLElement).getByText('Предполагаемое время прибытия: 13:00'),
+      within(callableFirst as HTMLElement).getByText('Предполагаемое время прибытия: 13:00 9 июля'),
     ).toBeInTheDocument()
     expect(
       within(noFuel as HTMLElement).queryByText(/Предполагаемое время прибытия/),
@@ -1025,7 +1090,7 @@ describe('TodayQueuePanel', () => {
       within(outsideLimit as HTMLElement).queryByText(/Предполагаемое время прибытия/),
     ).not.toBeInTheDocument()
     expect(
-      within(callableSecond as HTMLElement).getByText('Предполагаемое время прибытия: 13:05'),
+      within(callableSecond as HTMLElement).getByText('Предполагаемое время прибытия: 13:05 9 июля'),
     ).toBeInTheDocument()
   })
 })

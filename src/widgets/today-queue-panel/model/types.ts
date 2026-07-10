@@ -17,6 +17,7 @@ export type DailyLimitCategoryLike = {
 }
 
 export type FuelingScheduleConfigLike = {
+  date: string
   fuel_category: FuelQueueCategory
   start_time: string
   interval_minutes: number

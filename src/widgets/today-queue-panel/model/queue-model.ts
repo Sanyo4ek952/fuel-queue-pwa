@@ -79,6 +79,7 @@ export function toFuelingScheduleConfigs(
   return (rows ?? []).map(
     (row): FuelingScheduleConfig => ({
       fuelCategory: row.fuel_category,
+      date: row.date,
       startTime: row.start_time,
       intervalMinutes: row.interval_minutes,
       vehiclesPerInterval: row.vehicles_per_interval,

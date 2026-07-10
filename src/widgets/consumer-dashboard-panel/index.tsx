@@ -136,6 +136,7 @@ export function ConsumerDashboardPanel() {
     return calculateArrivalTime(
       {
         fuelCategory: schedule.fuel_category,
+        date: schedule.date,
         startTime: schedule.start_time,
         intervalMinutes: schedule.interval_minutes,
         vehiclesPerInterval: schedule.vehicles_per_interval,

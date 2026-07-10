@@ -11,9 +11,11 @@ import {
   type QueueAuthorOption,
   type QueueCallFilter,
   type QueueGasolineFuelFilter,
+  type TodayQueueSummary,
   type TodayQueueCursor,
   type TodayQueueRow,
 } from '@/shared/api/reservation'
+import { getFuelQueueCategory } from '@/shared/constants'
 import { offlineDb } from '@/shared/lib/offline-db'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import { useOnlineStatus } from '@/shared/lib/sync'
@@ -90,6 +92,39 @@ function mergeRows(onlineRows: TodayQueueRow[], localRows: TodayQueueRow[]) {
   return [...onlineRowsWithPendingCallState, ...unsyncedLocalRows].sort(compareQueueRows)
 }
 
+function buildLocalSummary(rows: TodayQueueRow[]): TodayQueueSummary {
+  return {
+    total_count: rows.length,
+    callable_count: rows.filter(
+      (row) => Boolean(row.is_callable_now ?? row.is_within_today_limit) && row.latest_call_status !== 'CONTACTED',
+    ).length,
+    contacted_count: rows.filter((row) => row.latest_call_status === 'CONTACTED').length,
+    no_answer_count: rows.filter((row) => row.latest_call_status === 'NO_ANSWER').length,
+    category_counts: {
+      GASOLINE: rows.filter((row) => getFuelQueueCategory(row.fuel_type) === 'GASOLINE').length,
+      DIESEL: rows.filter((row) => getFuelQueueCategory(row.fuel_type) === 'DIESEL').length,
+      GAS: rows.filter((row) => getFuelQueueCategory(row.fuel_type) === 'GAS').length,
+    },
+    callable_category_counts: {
+      GASOLINE: rows.filter(
+        (row) =>
+          Boolean(row.is_callable_now ?? row.is_within_today_limit) &&
+          getFuelQueueCategory(row.fuel_type) === 'GASOLINE',
+      ).length,
+      DIESEL: rows.filter(
+        (row) =>
+          Boolean(row.is_callable_now ?? row.is_within_today_limit) &&
+          getFuelQueueCategory(row.fuel_type) === 'DIESEL',
+      ).length,
+      GAS: rows.filter(
+        (row) =>
+          Boolean(row.is_callable_now ?? row.is_within_today_limit) &&
+          getFuelQueueCategory(row.fuel_type) === 'GAS',
+      ).length,
+    },
+  }
+}
+
 export function useTodayQueue(params: TodayQueueParams = {}) {
   const isOnline = useOnlineStatus()
   const [localRows, setLocalRows] = useState<TodayQueueRow[]>([])
@@ -147,9 +182,14 @@ export function useTodayQueue(params: TodayQueueParams = {}) {
     () => (isOnline && onlineQuery.data ? mergeRows(onlineRows, localRows) : localRows),
     [isOnline, localRows, onlineQuery.data, onlineRows],
   )
+  const summary = useMemo(
+    () => (isOnline && onlineQuery.data ? onlineQuery.data.pages[0]?.summary : buildLocalSummary(localRows)),
+    [isOnline, localRows, onlineQuery.data],
+  )
 
   return {
     rows,
+    summary,
     isOnline,
     isLoading: isOnline ? onlineQuery.isLoading : !isLocalReady,
     isFetching: onlineQuery.isFetching,
@@ -168,4 +208,4 @@ export function useTodayQueueAuthors(params: TodayQueueAuthorsParams = {}) {
   })
 }
 
-export type { QueueAuthorOption, TodayQueueRow }
+export type { QueueAuthorOption, TodayQueueRow, TodayQueueSummary }
