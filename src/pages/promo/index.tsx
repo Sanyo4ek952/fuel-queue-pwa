@@ -83,7 +83,7 @@ export function PromoPage() {
           <div className="relative z-10">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-normal text-sky-100">
               <ShieldCheck className="size-4" aria-hidden="true" />
-              Fuel Queue PWA
+              АЗС Онлайн
             </div>
 
             <h1 className="mt-5 max-w-[12ch] text-4xl font-black leading-[1.02] tracking-normal sm:text-5xl md:max-w-[13ch] md:text-6xl lg:text-7xl">

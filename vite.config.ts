@@ -126,8 +126,8 @@ export default defineConfig(({ mode }) => ({
         skipWaiting: true,
       },
       manifest: {
-        name: 'Fuel Queue PWA',
-        short_name: 'FuelQueue',
+        name: 'АЗС Онлайн',
+        short_name: 'АЗС Онлайн',
         display: 'standalone',
         start_url: '/',
         theme_color: '#0f172a',

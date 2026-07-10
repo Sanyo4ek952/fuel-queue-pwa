@@ -41,7 +41,7 @@ export function AppHeader() {
             </span>
             <span className="min-w-0">
               <span className="block truncate text-base leading-5 font-semibold">
-                Fuel Queue
+                АЗС Онлайн
               </span>
               <span className="block truncate text-xs text-slate-500">
                 {stationContextLabel}

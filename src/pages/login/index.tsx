@@ -19,7 +19,7 @@ export function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
       <div className="w-full max-w-md space-y-4">
         <div>
-          <p className="text-sm text-slate-500">Fuel Queue PWA</p>
+          <p className="text-sm text-slate-500">АЗС Онлайн</p>
           <h1 className="mt-2 text-2xl font-semibold text-slate-950">Вход в приложение</h1>
         </div>
         <Tabs defaultValue="login" className="w-full">

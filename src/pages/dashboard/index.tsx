@@ -40,7 +40,7 @@ export function DashboardPage() {
       <section className="rounded-xl bg-slate-950 p-5 text-white">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm text-slate-300">Fuel Queue PWA</p>
+            <p className="text-sm text-slate-300">АЗС Онлайн</p>
             <h1 className="mt-2 text-2xl font-semibold">Учёт очереди и отпуска топлива</h1>
           </div>
           <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/10">
