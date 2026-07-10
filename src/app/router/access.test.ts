@@ -162,6 +162,18 @@ describe('getProtectedRouteState', () => {
     ).toBe('allowed')
   })
 
+  it('allows an approved active consumer to open the dashboard', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: { ...activeProfile, role: 'consumer', approval_status: 'approved', is_active: true },
+        route: ROUTES.dashboard,
+      }),
+    ).toBe('allowed')
+  })
+
   it('allows queue access for cashier call workflow', () => {
     expect(
       getProtectedRouteState({

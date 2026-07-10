@@ -25,6 +25,15 @@ export type SignUpWithPasswordParams = {
   requestedStationId?: string
 }
 
+export type SignUpConsumerWithPasswordParams = {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  middleName?: string
+  phone?: string
+}
+
 export async function getAuthSession(): Promise<AuthResult<Session>> {
   if (!isSupabaseConfigured) {
     return {
@@ -108,6 +117,45 @@ export async function signUpWithPassword({
       },
     },
   })
+
+  return {
+    data: data.session,
+    error: error?.message ?? null,
+  }
+}
+
+export async function signUpConsumerWithPassword({
+  email,
+  password,
+  firstName,
+  lastName,
+  middleName,
+  phone,
+}: SignUpConsumerWithPasswordParams): Promise<AuthResult<Session>> {
+  if (!isSupabaseConfigured) {
+    return {
+      data: null,
+      error: 'Supabase is not configured.',
+    }
+  }
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        first_name: firstName,
+        last_name: lastName,
+        middle_name: middleName ?? '',
+        phone: phone ?? '',
+        requested_role: 'consumer',
+      },
+    },
+  })
+
+  if (!error && !data.session) {
+    return signInWithPassword({ email, password })
+  }
 
   return {
     data: data.session,

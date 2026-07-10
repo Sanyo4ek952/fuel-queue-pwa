@@ -19,6 +19,7 @@ export type CreateReservationMutationResult = CreateReservationResult | OfflineR
 const createReservationErrorMessages: Record<string, string> = {
   ACTIVE_RESERVATION_ALREADY_EXISTS:
     'Автомобиль уже есть в очереди. Повторная запись запрещена.',
+  INVALID_DRIVER_PHONE: 'Введите телефон водителя.',
 }
 
 function shouldFallbackToOffline(error: string) {

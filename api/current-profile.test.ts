@@ -102,6 +102,47 @@ describe('/api/current-profile', () => {
     })
   })
 
+  it('returns a consumer profile without loading assigned stations', async () => {
+    stubSupabaseEnv()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(createJsonResponse({ id: 'auth-user-id' }))
+      .mockResolvedValueOnce(
+        createJsonResponse([
+          {
+            id: 'profile-id',
+            auth_user_id: 'auth-user-id',
+            full_name: 'Consumer User',
+            role: 'consumer',
+            is_active: true,
+            approval_status: 'approved',
+          },
+        ]),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    const response = createResponse()
+
+    await handler(
+      {
+        method: 'GET',
+        headers: {
+          authorization: 'Bearer access-token',
+        },
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(response.body)).toMatchObject({
+      id: 'profile-id',
+      role: 'consumer',
+      is_active: true,
+      approval_status: 'approved',
+      stations: [],
+    })
+  })
+
   it('returns a diagnostic error when the auth user has no profile', async () => {
     stubSupabaseEnv()
     vi.stubGlobal(

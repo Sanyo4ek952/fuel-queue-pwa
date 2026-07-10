@@ -122,7 +122,7 @@ function getErrorStatusCode(error: unknown) {
   return Number.isInteger(statusCode) ? Number(statusCode) : 500
 }
 
-const userRoles = new Set(['mayor', 'station_manager', 'cashier', 'mayor_assistant'])
+const userRoles = new Set(['mayor', 'station_manager', 'cashier', 'mayor_assistant', 'consumer'])
 const profileApprovalStatuses = new Set(['pending', 'approved', 'rejected'])
 
 function createSupabaseError(message: string, statusCode: number) {
@@ -244,6 +244,11 @@ export default async function handler(request: VercelRequestLike, response: Verc
 
       const stations = await fetchSupabaseJson(stationsQuery.toString(), { anonKey, accessToken })
       sendJson(response, 200, { ...profile, stations: Array.isArray(stations) ? stations.map(toStation) : [] })
+      return
+    }
+
+    if (profile.role === 'consumer') {
+      sendJson(response, 200, { ...profile, stations: [] })
       return
     }
 

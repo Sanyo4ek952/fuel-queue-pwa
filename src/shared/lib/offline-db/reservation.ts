@@ -140,6 +140,10 @@ export async function createOfflineReservation({
     throw new Error('INVALID_DRIVER_FULL_NAME')
   }
 
+  if (!trimmedDriverPhone) {
+    throw new Error('INVALID_DRIVER_PHONE')
+  }
+
   if (requestedLiters <= 0) {
     throw new Error('INVALID_REQUESTED_LITERS')
   }

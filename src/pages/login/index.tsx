@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
-import { LoginForm, RegistrationForm } from '@/features/auth'
+import { ConsumerRegistrationForm, LoginForm, RegistrationForm } from '@/features/auth'
 import { ROUTES } from '@/shared/config/routes'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 
@@ -23,15 +23,19 @@ export function LoginPage() {
           <h1 className="mt-2 text-2xl font-semibold text-slate-950">Вход в приложение</h1>
         </div>
         <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid h-10 w-full grid-cols-2">
+          <TabsList className="grid h-10 w-full grid-cols-3">
             <TabsTrigger value="login">Вход</TabsTrigger>
-            <TabsTrigger value="register">Регистрация</TabsTrigger>
+            <TabsTrigger value="consumer">Житель</TabsTrigger>
+            <TabsTrigger value="register">Сотрудник</TabsTrigger>
           </TabsList>
           <TabsContent value="login">
             <LoginForm onSuccess={() => navigate(from, { replace: true })} />
           </TabsContent>
           <TabsContent value="register">
             <RegistrationForm onSuccess={() => navigate(ROUTES.dashboard, { replace: true })} />
+          </TabsContent>
+          <TabsContent value="consumer">
+            <ConsumerRegistrationForm onSuccess={() => navigate(ROUTES.dashboard, { replace: true })} />
           </TabsContent>
         </Tabs>
         <Link

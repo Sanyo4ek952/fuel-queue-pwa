@@ -18,6 +18,8 @@ const updateReservationFuelPreferenceErrorMessages: Record<string, string> = {
     'Топливо нельзя изменить, пока по бензину установлен ненулевой лимит.',
   FUEL_PREFERENCE_LOCKED_BY_OPEN_LIMIT:
     'Топливо нельзя изменить после открытия лимитов на сегодня.',
+  FUEL_PREFERENCE_LOCKED_BY_ACTIVE_FUELING:
+    'Топливо нельзя изменить, пока идет заправка. Попробуйте позже.',
 }
 
 function getUpdateReservationFuelPreferenceErrorMessage(error: string) {
@@ -58,6 +60,7 @@ export function useUpdateReservationFuelPreference() {
 
       void queryClient.invalidateQueries({ queryKey: ['today-queue'] })
       void queryClient.invalidateQueries({ queryKey: ['today-queue-authors'] })
+      void queryClient.invalidateQueries({ queryKey: ['my-queue-status'] })
       void queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === 'daily-limit-overview',
       })

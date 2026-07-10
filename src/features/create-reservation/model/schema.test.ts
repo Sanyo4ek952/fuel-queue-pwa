@@ -7,14 +7,14 @@ describe('createReservationSchema', () => {
     const result = createReservationSchema.parse({
       plateNumber: 'a-123-bc-777',
       driverFullName: 'Иван Иванов',
-      driverPhone: '',
+      driverPhone: '+7 999 123-45-67',
       fuelType: 'AI_95',
       requestedLiters: '40',
       comment: '',
     })
 
     expect(result.plateNumber).toBe('А123ВС777')
-    expect(result.driverPhone).toBeUndefined()
+    expect(result.driverPhone).toBe('+79991234567')
     expect(result.requestedLiters).toBe(40)
   })
 
@@ -45,6 +45,18 @@ describe('createReservationSchema', () => {
       ).toBe(false)
     },
   )
+
+  it('rejects missing driver phone', () => {
+    expect(
+      createReservationSchema.safeParse({
+        plateNumber: 'a123bc777',
+        driverFullName: 'Ivan Ivanov',
+        driverPhone: '',
+        fuelType: 'AI_95',
+        requestedLiters: 40,
+      }).success,
+    ).toBe(false)
+  })
 
   it('rejects missing plate and driver', () => {
     const result = createReservationSchema.safeParse({

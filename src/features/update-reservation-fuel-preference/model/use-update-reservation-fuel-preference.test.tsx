@@ -86,6 +86,7 @@ describe('useUpdateReservationFuelPreference', () => {
     )
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['today-queue'] })
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['today-queue-authors'] })
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['my-queue-status'] })
   })
 
   it('blocks updates while offline', async () => {
@@ -130,6 +131,32 @@ describe('useUpdateReservationFuelPreference', () => {
         clientMutationId: 'mutation-id',
       }),
     ).rejects.toThrow('Топливо нельзя изменить, пока по бензину установлен ненулевой лимит.')
+
+    expect(mocks.localReservationUpdate).not.toHaveBeenCalled()
+  })
+
+  it('shows a clear error when fuel editing is locked by active fueling', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    mocks.updateReservationFuelPreference.mockResolvedValue({
+      data: null,
+      error: 'FUEL_PREFERENCE_LOCKED_BY_ACTIVE_FUELING',
+    })
+
+    const { result } = renderHook(() => useUpdateReservationFuelPreference(), {
+      wrapper: makeWrapper(queryClient),
+    })
+
+    await expect(
+      result.current.mutateAsync({
+        reservationId: 'reservation-id',
+        fuelType: 'AI_92',
+        fuelPreferenceMode: 'ANY_GASOLINE',
+        clientMutationId: 'mutation-id',
+      }),
+    ).rejects.toThrow('Топливо нельзя изменить, пока идет заправка. Попробуйте позже.')
 
     expect(mocks.localReservationUpdate).not.toHaveBeenCalled()
   })

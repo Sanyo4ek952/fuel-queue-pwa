@@ -6,11 +6,12 @@ import { isValidPlateNumber, normalizePlateNumber } from '@/shared/lib/plate-num
 
 const phoneValidationMessage = 'Введите телефон в формате +7 999 123-45-67'
 
-const optionalRuPhoneNumberSchema = z
+const requiredRuPhoneNumberSchema = z
   .string()
   .trim()
-  .refine((value) => value.length === 0 || isValidRuPhoneNumber(value), phoneValidationMessage)
-  .transform((value) => normalizeRuPhoneNumber(value) || undefined)
+  .min(1, phoneValidationMessage)
+  .refine(isValidRuPhoneNumber, phoneValidationMessage)
+  .transform((value) => normalizeRuPhoneNumber(value))
 
 export const createReservationSchema = z.object({
   plateNumber: z
@@ -20,7 +21,7 @@ export const createReservationSchema = z.object({
     .refine((value) => value.length > 0, 'Введите госномер')
     .refine(isValidPlateNumber, 'Введите номер в формате А 123 ВС 777'),
   driverFullName: z.string().trim().min(1, 'Введите ФИО водителя'),
-  driverPhone: optionalRuPhoneNumberSchema,
+  driverPhone: requiredRuPhoneNumberSchema,
   fuelType: z.enum(QUEUE_FUEL_TYPES),
   fuelPreferenceMode: z.enum(FUEL_PREFERENCE_MODES).default('EXACT'),
   requestedLiters: z.coerce.number().positive('Литры должны быть больше нуля'),

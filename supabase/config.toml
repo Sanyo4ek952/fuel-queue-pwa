@@ -13,7 +13,7 @@ shadow_port = 54320
 major_version = 15
 
 [db.seed]
-enabled = true
+enabled = false
 sql_paths = ["./seed.sql"]
 
 [db.pooler]
@@ -54,3 +54,9 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 secure_password_change = false
+
+[auth.rate_limit]
+email_sent = 1000
+sign_in_sign_ups = 1000
+token_refresh = 1000
+token_verifications = 1000

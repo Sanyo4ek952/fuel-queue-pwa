@@ -1,10 +1,17 @@
 import type { UserRole } from '@/shared/config/roles'
 import { ROUTES, type AppRoute } from '@/shared/config/routes'
 
-const allRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier', 'mayor_assistant'])
+const allRoles = new Set<UserRole>([
+  'mayor',
+  'station_manager',
+  'cashier',
+  'mayor_assistant',
+  'consumer',
+])
+const staffRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier', 'mayor_assistant'])
 const createReservationRoles = new Set<UserRole>(['mayor', 'station_manager', 'mayor_assistant'])
-const checkVehicleRoles = allRoles
-const queueViewerRoles = allRoles
+const checkVehicleRoles = staffRoles
+const queueViewerRoles = staffRoles
 const cancelReservationRoles = new Set<UserRole>(['mayor', 'station_manager', 'mayor_assistant'])
 
 const createFuelingRecordRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier'])
@@ -23,13 +30,13 @@ const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
   [ROUTES.preferentialQueues]: mayorOnlyRoles,
   [ROUTES.fueling]: createFuelingRecordRoles,
   [ROUTES.limits]: limitRouteRoles,
-  [ROUTES.history]: allRoles,
+  [ROUTES.history]: staffRoles,
   [ROUTES.deletedReservations]: cancelReservationRoles,
   [ROUTES.reports]: mayorOnlyRoles,
   [ROUTES.users]: userManagerRoles,
   [ROUTES.sync]: stationManagerRoles,
-  [ROUTES.settings]: allRoles,
-  [ROUTES.queueCheckQr]: allRoles,
+  [ROUTES.settings]: staffRoles,
+  [ROUTES.queueCheckQr]: staffRoles,
   [ROUTES.login]: allRoles,
   [ROUTES.promo]: allRoles,
 }

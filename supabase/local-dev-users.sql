@@ -1,0 +1,505 @@
+-- Local development users for Fuel Queue PWA.
+-- Run only against the local Supabase database:
+--   npx supabase db query --local --file supabase/local-dev-users.sql
+--
+-- Password for every account in this file: password123
+
+do $$
+declare
+  dev_instance_id uuid := '00000000-0000-0000-0000-000000000000';
+  station_ids uuid[] := array[
+    '10000000-0000-0000-0000-000000000001'::uuid,
+    '10000000-0000-0000-0000-000000000002'::uuid,
+    '10000000-0000-0000-0000-000000000003'::uuid
+  ];
+  row_data record;
+  n integer;
+  auth_user_id_value uuid;
+  profile_id_value uuid;
+  email_value text;
+  full_name_value text;
+  first_name_value text;
+  role_value text;
+  position_value text;
+  requested_station_id_value uuid;
+  is_active_value boolean;
+  approval_status_value text;
+  generated_count integer;
+  documented_count integer;
+begin
+  insert into public.stations (id, name, address, is_active)
+  values
+    (station_ids[1], 'AZS #1', 'Main station #1', true),
+    (station_ids[2], 'AZS #2', 'Main station #2', true),
+    (station_ids[3], 'AZS #3', 'Main station #3', true)
+  on conflict (id) do update
+  set
+    name = excluded.name,
+    address = excluded.address,
+    is_active = excluded.is_active;
+
+  for row_data in
+    select *
+    from (
+      values
+        (
+          '20000000-0000-0000-0000-000000000001'::uuid,
+          '30000000-0000-0000-0000-000000000001'::uuid,
+          'mayor@example.local',
+          'Dev Mayor',
+          'Mayor',
+          'mayor',
+          'Mayor',
+          null::uuid,
+          true,
+          'approved'
+        ),
+        (
+          '20000000-0000-0000-0000-000000000002'::uuid,
+          '30000000-0000-0000-0000-000000000002'::uuid,
+          'cashier@example.local',
+          'Dev Cashier',
+          'Cashier',
+          'cashier',
+          'Cashier',
+          station_ids[1],
+          true,
+          'approved'
+        ),
+        (
+          '20000000-0000-0000-0000-000000000003'::uuid,
+          '30000000-0000-0000-0000-000000000003'::uuid,
+          'station-manager-2@example.local',
+          'Dev Station Manager 2',
+          'Station Manager 2',
+          'station_manager',
+          'Station Manager',
+          station_ids[2],
+          true,
+          'approved'
+        ),
+        (
+          '20000000-0000-0000-0000-000000000004'::uuid,
+          '30000000-0000-0000-0000-000000000004'::uuid,
+          'station-manager@example.local',
+          'Dev Station Manager',
+          'Station Manager',
+          'station_manager',
+          'Station Manager',
+          null::uuid,
+          true,
+          'approved'
+        ),
+        (
+          '20000000-0000-0000-0000-000000000005'::uuid,
+          '30000000-0000-0000-0000-000000000005'::uuid,
+          'mayor-assistant@example.local',
+          'Dev Mayor Assistant',
+          'Mayor Assistant',
+          'mayor_assistant',
+          'Mayor Assistant',
+          null::uuid,
+          true,
+          'approved'
+        ),
+        (
+          '20000000-0000-0000-0000-000000000006'::uuid,
+          '30000000-0000-0000-0000-000000000006'::uuid,
+          'cashier-2@example.local',
+          'Dev Cashier 2',
+          'Cashier 2',
+          'cashier',
+          'Cashier',
+          station_ids[2],
+          true,
+          'approved'
+        ),
+        (
+          '20000000-0000-0000-0000-000000000007'::uuid,
+          '30000000-0000-0000-0000-000000000007'::uuid,
+          'pending-cashier@example.local',
+          'Pending Cashier',
+          'Pending',
+          'cashier',
+          'Cashier',
+          station_ids[1],
+          false,
+          'pending'
+        ),
+        (
+          '20000000-0000-0000-0000-000000000008'::uuid,
+          '30000000-0000-0000-0000-000000000008'::uuid,
+          'rejected-cashier@example.local',
+          'Rejected Cashier',
+          'Rejected',
+          'cashier',
+          'Cashier',
+          station_ids[2],
+          false,
+          'rejected'
+        )
+    ) as documented(
+      auth_user_id,
+      profile_id,
+      email,
+      full_name,
+      first_name,
+      profile_role,
+      position,
+      requested_station_id,
+      is_active,
+      approval_status
+    )
+  loop
+    insert into auth.users (
+      id,
+      instance_id,
+      aud,
+      role,
+      email,
+      encrypted_password,
+      email_confirmed_at,
+      raw_app_meta_data,
+      raw_user_meta_data,
+      created_at,
+      updated_at,
+      confirmation_token,
+      recovery_token,
+      email_change_token_new,
+      email_change
+    )
+    values (
+      row_data.auth_user_id,
+      dev_instance_id,
+      'authenticated',
+      'authenticated',
+      row_data.email,
+      extensions.crypt('password123', extensions.gen_salt('bf')),
+      now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      jsonb_build_object('requested_role', row_data.profile_role),
+      now(),
+      now(),
+      '',
+      '',
+      '',
+      ''
+    )
+    on conflict (id) do update
+    set
+      aud = excluded.aud,
+      role = excluded.role,
+      email = excluded.email,
+      encrypted_password = excluded.encrypted_password,
+      email_confirmed_at = excluded.email_confirmed_at,
+      raw_app_meta_data = excluded.raw_app_meta_data,
+      raw_user_meta_data = excluded.raw_user_meta_data,
+      updated_at = now();
+
+    insert into auth.identities (
+      id,
+      user_id,
+      provider_id,
+      identity_data,
+      provider,
+      last_sign_in_at,
+      created_at,
+      updated_at
+    )
+    values (
+      row_data.auth_user_id,
+      row_data.auth_user_id,
+      row_data.auth_user_id::text,
+      jsonb_build_object(
+        'sub',
+        row_data.auth_user_id::text,
+        'email',
+        row_data.email,
+        'email_verified',
+        true,
+        'phone_verified',
+        false
+      ),
+      'email',
+      now(),
+      now(),
+      now()
+    )
+    on conflict (provider_id, provider) do update
+    set
+      user_id = excluded.user_id,
+      identity_data = excluded.identity_data,
+      updated_at = now();
+
+    insert into public.profiles (
+      id,
+      auth_user_id,
+      full_name,
+      first_name,
+      last_name,
+      position,
+      signature_name,
+      requested_station_id,
+      role,
+      is_active,
+      approval_status,
+      approved_at,
+      rejected_at,
+      rejection_reason
+    )
+    values (
+      row_data.profile_id,
+      row_data.auth_user_id,
+      row_data.full_name,
+      row_data.first_name,
+      'Dev',
+      row_data.position,
+      row_data.full_name,
+      row_data.requested_station_id,
+      row_data.profile_role,
+      row_data.is_active,
+      row_data.approval_status,
+      case when row_data.approval_status = 'approved' then now() else null end,
+      case when row_data.approval_status = 'rejected' then now() else null end,
+      case when row_data.approval_status = 'rejected' then 'Local seed rejected test user' else null end
+    )
+    on conflict (auth_user_id) do update
+    set
+      full_name = excluded.full_name,
+      first_name = excluded.first_name,
+      last_name = excluded.last_name,
+      position = excluded.position,
+      signature_name = excluded.signature_name,
+      requested_station_id = excluded.requested_station_id,
+      role = excluded.role,
+      is_active = excluded.is_active,
+      approval_status = excluded.approval_status,
+      approved_at = excluded.approved_at,
+      rejected_at = excluded.rejected_at,
+      rejection_reason = excluded.rejection_reason;
+  end loop;
+
+  for n in 1..1000 loop
+    auth_user_id_value := (
+      substr(md5('local-dev-auth-' || n::text), 1, 8) || '-' ||
+      substr(md5('local-dev-auth-' || n::text), 9, 4) || '-' ||
+      substr(md5('local-dev-auth-' || n::text), 13, 4) || '-' ||
+      substr(md5('local-dev-auth-' || n::text), 17, 4) || '-' ||
+      substr(md5('local-dev-auth-' || n::text), 21, 12)
+    )::uuid;
+    profile_id_value := (
+      substr(md5('local-dev-profile-' || n::text), 1, 8) || '-' ||
+      substr(md5('local-dev-profile-' || n::text), 9, 4) || '-' ||
+      substr(md5('local-dev-profile-' || n::text), 13, 4) || '-' ||
+      substr(md5('local-dev-profile-' || n::text), 17, 4) || '-' ||
+      substr(md5('local-dev-profile-' || n::text), 21, 12)
+    )::uuid;
+
+    if n <= 700 then
+      role_value := 'consumer';
+      email_value := 'local-consumer-' || lpad(n::text, 4, '0') || '@example.local';
+      full_name_value := 'Local Consumer ' || lpad(n::text, 4, '0');
+      first_name_value := 'Consumer ' || lpad(n::text, 4, '0');
+      position_value := null;
+      requested_station_id_value := null;
+    elsif n <= 850 then
+      role_value := 'cashier';
+      email_value := 'local-cashier-' || lpad((n - 700)::text, 4, '0') || '@example.local';
+      full_name_value := 'Local Cashier ' || lpad((n - 700)::text, 4, '0');
+      first_name_value := 'Cashier ' || lpad((n - 700)::text, 4, '0');
+      position_value := 'Cashier';
+      requested_station_id_value := station_ids[1 + ((n - 1) % 3)];
+    elsif n <= 950 then
+      role_value := 'station_manager';
+      email_value := 'local-station-manager-' || lpad((n - 850)::text, 4, '0') || '@example.local';
+      full_name_value := 'Local Station Manager ' || lpad((n - 850)::text, 4, '0');
+      first_name_value := 'Station Manager ' || lpad((n - 850)::text, 4, '0');
+      position_value := 'Station Manager';
+      requested_station_id_value := station_ids[1 + ((n - 1) % 3)];
+    else
+      role_value := 'mayor_assistant';
+      email_value := 'local-mayor-assistant-' || lpad((n - 950)::text, 4, '0') || '@example.local';
+      full_name_value := 'Local Mayor Assistant ' || lpad((n - 950)::text, 4, '0');
+      first_name_value := 'Mayor Assistant ' || lpad((n - 950)::text, 4, '0');
+      position_value := 'Mayor Assistant';
+      requested_station_id_value := null;
+    end if;
+
+    is_active_value := true;
+    approval_status_value := 'approved';
+
+    insert into auth.users (
+      id,
+      instance_id,
+      aud,
+      role,
+      email,
+      encrypted_password,
+      email_confirmed_at,
+      raw_app_meta_data,
+      raw_user_meta_data,
+      created_at,
+      updated_at,
+      confirmation_token,
+      recovery_token,
+      email_change_token_new,
+      email_change
+    )
+    values (
+      auth_user_id_value,
+      dev_instance_id,
+      'authenticated',
+      'authenticated',
+      email_value,
+      extensions.crypt('password123', extensions.gen_salt('bf')),
+      now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      jsonb_build_object('requested_role', role_value),
+      now(),
+      now(),
+      '',
+      '',
+      '',
+      ''
+    )
+    on conflict (id) do update
+    set
+      aud = excluded.aud,
+      role = excluded.role,
+      email = excluded.email,
+      encrypted_password = excluded.encrypted_password,
+      email_confirmed_at = excluded.email_confirmed_at,
+      raw_app_meta_data = excluded.raw_app_meta_data,
+      raw_user_meta_data = excluded.raw_user_meta_data,
+      updated_at = now();
+
+    insert into auth.identities (
+      id,
+      user_id,
+      provider_id,
+      identity_data,
+      provider,
+      last_sign_in_at,
+      created_at,
+      updated_at
+    )
+    values (
+      auth_user_id_value,
+      auth_user_id_value,
+      auth_user_id_value::text,
+      jsonb_build_object(
+        'sub',
+        auth_user_id_value::text,
+        'email',
+        email_value,
+        'email_verified',
+        true,
+        'phone_verified',
+        false
+      ),
+      'email',
+      now(),
+      now(),
+      now()
+    )
+    on conflict (provider_id, provider) do update
+    set
+      user_id = excluded.user_id,
+      identity_data = excluded.identity_data,
+      updated_at = now();
+
+    insert into public.profiles (
+      id,
+      auth_user_id,
+      full_name,
+      first_name,
+      last_name,
+      position,
+      signature_name,
+      requested_station_id,
+      role,
+      is_active,
+      approval_status,
+      approved_at
+    )
+    values (
+      profile_id_value,
+      auth_user_id_value,
+      full_name_value,
+      first_name_value,
+      'Local',
+      position_value,
+      full_name_value,
+      requested_station_id_value,
+      role_value,
+      is_active_value,
+      approval_status_value,
+      now()
+    )
+    on conflict (auth_user_id) do update
+    set
+      full_name = excluded.full_name,
+      first_name = excluded.first_name,
+      last_name = excluded.last_name,
+      position = excluded.position,
+      signature_name = excluded.signature_name,
+      requested_station_id = excluded.requested_station_id,
+      role = excluded.role,
+      is_active = excluded.is_active,
+      approval_status = excluded.approval_status,
+      approved_at = coalesce(public.profiles.approved_at, excluded.approved_at);
+  end loop;
+
+  insert into public.user_stations (user_id, station_id)
+  select profile_id, station_id
+  from (
+    select
+      p.id as profile_id,
+      unnest(case
+        when p.role in ('mayor', 'mayor_assistant') then station_ids
+        when p.role in ('station_manager', 'cashier') and p.requested_station_id is not null
+          then array[p.requested_station_id]
+        else array[]::uuid[]
+      end) as station_id
+    from public.profiles p
+    join auth.users u on u.id = p.auth_user_id
+    where u.email in (
+      'mayor@example.local',
+      'cashier@example.local',
+      'station-manager@example.local',
+      'station-manager-2@example.local',
+      'mayor-assistant@example.local',
+      'cashier-2@example.local',
+      'pending-cashier@example.local',
+      'rejected-cashier@example.local'
+    )
+      or u.email like 'local-consumer-%@example.local'
+      or u.email like 'local-cashier-%@example.local'
+      or u.email like 'local-station-manager-%@example.local'
+      or u.email like 'local-mayor-assistant-%@example.local'
+  ) station_rows
+  on conflict (user_id, station_id) do nothing;
+
+  select count(*)
+  into generated_count
+  from auth.users
+  where email like 'local-%@example.local';
+
+  select count(*)
+  into documented_count
+  from auth.users
+  where email in (
+    'mayor@example.local',
+    'cashier@example.local',
+    'station-manager@example.local',
+    'station-manager-2@example.local',
+    'mayor-assistant@example.local',
+    'cashier-2@example.local',
+    'pending-cashier@example.local',
+    'rejected-cashier@example.local'
+  );
+
+  raise notice 'local-dev-users-ready: generated_auth_users=%, documented_auth_users=%',
+    generated_count,
+    documented_count;
+end $$;

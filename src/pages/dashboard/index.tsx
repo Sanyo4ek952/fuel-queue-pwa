@@ -8,6 +8,7 @@ import { canAccessRoute } from '@/shared/lib/permissions'
 import { useOnlineStatus } from '@/shared/lib/sync'
 import { Badge } from '@/shared/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { ConsumerDashboardPanel } from '@/widgets/consumer-dashboard-panel'
 
 function getStationContextLabel(stations: Array<{ name: string }>) {
   if (stations.length === 0) {
@@ -29,6 +30,10 @@ export function DashboardPage() {
   const visibleLinks = profile
     ? MAIN_SECTION_LINKS.filter((item) => canAccessRoute(profile.role, item.path))
     : MAIN_SECTION_LINKS
+
+  if (profile?.role === 'consumer') {
+    return <ConsumerDashboardPanel />
+  }
 
   return (
     <div className="space-y-4">

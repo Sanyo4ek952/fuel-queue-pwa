@@ -5,6 +5,7 @@ import { useCurrentProfile } from '@/entities/profile'
 import { useLogout } from '@/features/auth'
 import { ROUTES } from '@/shared/config/routes'
 import { ROLE_LABELS } from '@/shared/config/roles'
+import { canAccessRoute } from '@/shared/lib/permissions'
 import { Button } from '@/shared/ui/button'
 import { SyncStatusPanel } from '@/widgets/sync-status-panel'
 
@@ -25,6 +26,7 @@ export function AppHeader() {
   const logoutMutation = useLogout()
   const profile = currentProfileQuery.data
   const stationContextLabel = getStationContextLabel(profile?.stations ?? [])
+  const canOpenSettings = profile ? canAccessRoute(profile.role, ROUTES.settings) : false
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -57,12 +59,14 @@ export function AppHeader() {
                 </span>
               </span>
             ) : null}
-            <SyncStatusPanel />
+            {canOpenSettings ? <SyncStatusPanel /> : null}
+            {canOpenSettings ? (
             <Button asChild variant="ghost" size="icon" aria-label="Настройки">
               <Link to={ROUTES.settings}>
                 <Settings className="size-5" aria-hidden="true" />
               </Link>
             </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="icon"

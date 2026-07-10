@@ -69,6 +69,7 @@ describe('createOfflineReservation', () => {
     const result = await createOfflineReservation({
       plateNumber: 'А123ВС777',
       driverFullName: 'Ivan Ivanov',
+      driverPhone: '+79991234567',
       fuelType: 'AI_95',
       requestedLiters: 40,
       clientMutationId: 'mutation-id',
@@ -107,6 +108,7 @@ describe('createOfflineReservation', () => {
     await createOfflineReservation({
       plateNumber: 'А123ВС777',
       driverFullName: 'Ivan Ivanov',
+      driverPhone: '+79991234567',
       fuelType: 'AI_95',
       requestedLiters: 40,
       clientMutationId: 'mutation-id',
@@ -116,6 +118,7 @@ describe('createOfflineReservation', () => {
       createOfflineReservation({
         plateNumber: 'А123ВС777',
         driverFullName: 'Ivan Ivanov',
+        driverPhone: '+79991234567',
         fuelType: 'AI_95',
         requestedLiters: 40,
         clientMutationId: 'mutation-id-2',
@@ -138,6 +141,7 @@ describe('createOfflineReservation', () => {
     const result = await createOfflineReservation({
       plateNumber: 'А123ВС778',
       driverFullName: 'Ivan Ivanov',
+      driverPhone: '+79991234567',
       fuelType: 'AI_95',
       requestedLiters: 40,
       clientMutationId: 'mutation-id',
@@ -180,6 +184,7 @@ describe('createOfflineReservation', () => {
       createOfflineReservation({
         plateNumber: 'A123BC777',
         driverFullName: 'Ivan Ivanov',
+        driverPhone: '+79991234567',
         fuelType: 'AI_95',
         requestedLiters: 40,
         clientMutationId: 'mutation-id',

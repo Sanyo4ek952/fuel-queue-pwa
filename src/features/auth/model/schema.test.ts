@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { loginSchema, registerSchema } from './schema'
+import { consumerRegisterSchema, loginSchema, registerSchema } from './schema'
 
 describe('loginSchema', () => {
   it('accepts valid email and password', () => {
@@ -81,6 +81,31 @@ describe('registerSchema', () => {
     const result = registerSchema.safeParse({
       ...validRegistration,
       requestedRole: 'station_manager',
+    })
+
+    expect(result.success).toBe(false)
+  })
+})
+
+describe('consumerRegisterSchema', () => {
+  const validRegistration = {
+    email: 'resident@example.local',
+    password: 'password123',
+    passwordConfirmation: 'password123',
+    firstName: 'Ivan',
+    lastName: 'Resident',
+    middleName: '',
+    phone: '+79990000000',
+  }
+
+  it('accepts a complete consumer registration request', () => {
+    expect(consumerRegisterSchema.safeParse(validRegistration).success).toBe(true)
+  })
+
+  it('rejects mismatched passwords', () => {
+    const result = consumerRegisterSchema.safeParse({
+      ...validRegistration,
+      passwordConfirmation: 'password456',
     })
 
     expect(result.success).toBe(false)

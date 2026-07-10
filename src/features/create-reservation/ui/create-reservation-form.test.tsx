@@ -188,6 +188,7 @@ describe('CreateReservationForm', () => {
       expect(screen.getByRole('button', { name: /создать запись/i })).toBeEnabled()
     })
     await userEvent.type(screen.getByLabelText('Водитель'), 'Иван Иванов')
+    await userEvent.type(screen.getByLabelText('Телефон'), '9991234567')
     await userEvent.click(screen.getByRole('button', { name: /создать запись/i }))
 
     await waitFor(() => {
@@ -195,6 +196,7 @@ describe('CreateReservationForm', () => {
         expect.objectContaining({
           plateNumber: 'А123ВС777',
           driverFullName: 'Иван Иванов',
+          driverPhone: '+79991234567',
           fuelType: 'AI_95',
           requestedLiters: 20,
         }),
@@ -301,6 +303,7 @@ describe('CreateReservationForm', () => {
     renderWithQueryClient(<CreateReservationForm />)
     await checkPlateNumber()
     await userEvent.type(screen.getByLabelText('Водитель'), 'Иван Иванов')
+    await userEvent.type(screen.getByLabelText('Телефон'), '9991234567')
     await userEvent.click(screen.getByRole('button', { name: /создать запись/i }))
 
     expect(
@@ -371,6 +374,7 @@ describe('CreateReservationForm', () => {
     renderWithQueryClient(<CreateReservationForm />)
     await checkPlateNumber()
     await userEvent.type(screen.getByLabelText('Водитель'), 'Иван Иванов')
+    await userEvent.type(screen.getByLabelText('Телефон'), '9991234567')
     await userEvent.click(screen.getByRole('button', { name: /создать запись/i }))
 
     await waitFor(() => {

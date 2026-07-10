@@ -34,7 +34,24 @@ export const registerSchema = z
     message: 'Выберите АЗС.',
   })
 
+export const consumerRegisterSchema = z
+  .object({
+    email: z.email('Введите корректный email.'),
+    password: z.string().min(6, 'Пароль должен быть не короче 6 символов.'),
+    passwordConfirmation: z.string().min(6, 'Повторите пароль.'),
+    firstName: z.string().trim().min(2, 'Введите имя.'),
+    lastName: z.string().trim().min(2, 'Введите фамилию.'),
+    middleName: z.string().trim().optional(),
+    phone: z.string().trim().optional(),
+  })
+  .refine((value) => value.password === value.passwordConfirmation, {
+    path: ['passwordConfirmation'],
+    message: 'Пароли не совпадают.',
+  })
+
 export type LoginFormInput = z.input<typeof loginSchema>
 export type LoginFormValues = z.output<typeof loginSchema>
 export type RegisterFormInput = z.input<typeof registerSchema>
 export type RegisterFormValues = z.output<typeof registerSchema>
+export type ConsumerRegisterFormInput = z.input<typeof consumerRegisterSchema>
+export type ConsumerRegisterFormValues = z.output<typeof consumerRegisterSchema>
