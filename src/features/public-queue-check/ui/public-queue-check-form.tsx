@@ -16,6 +16,7 @@ import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { getFuelQueueCategory, type FuelType } from '@/shared/constants'
 
 const remainingAttemptsStorageKey = 'public-queue-check-remaining-attempts'
 
@@ -25,6 +26,12 @@ const fuelTypeLabels: Record<string, string> = {
   AI_100: 'АИ-100',
   DIESEL: 'Дизель',
   GAS: 'Газ',
+}
+
+const fuelCategoryLabels: Record<string, string> = {
+  GASOLINE: 'бензин',
+  DIESEL: 'дизель',
+  GAS: 'газ',
 }
 
 function saveRemainingAttempts(value: number) {
@@ -62,20 +69,25 @@ function QueuePositionSummary({
   ticketNumber,
   currentPosition,
   peopleAhead,
+  preferredFuelType,
 }: {
   ticketNumber: number | null
   currentPosition: number | null
   peopleAhead: number | null
+  preferredFuelType?: FuelType | string | null
 }) {
   if (ticketNumber === null) {
     return null
   }
 
+  const fuelCategory = preferredFuelType ? getFuelQueueCategory(preferredFuelType) : null
+  const fuelQueueLabel = fuelCategory ? fuelCategoryLabels[fuelCategory] : 'топлива'
+
   return (
     <span className="block">
       Номер записи №{ticketNumber}.
       {currentPosition !== null && peopleAhead !== null
-        ? ` Текущая позиция: ${currentPosition}, впереди: ${peopleAhead}.`
+        ? ` Позиция в очереди ${fuelQueueLabel}: ${currentPosition}, впереди: ${peopleAhead}.`
         : ''}
     </span>
   )
@@ -194,6 +206,7 @@ export function PublicQueueCheckForm() {
                     ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
+                    preferredFuelType={result.preferred_fuel_type}
                   />
                   Окончательный допуск подтвердят на АЗС.
                   <span className="mt-2 block">{noShowGraceDescription}</span>
@@ -210,6 +223,7 @@ export function PublicQueueCheckForm() {
                     ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
+                    preferredFuelType={result.preferred_fuel_type}
                   />
                   Ожидайте звонка оператора
                   {result.matched_fuel_type
@@ -229,6 +243,7 @@ export function PublicQueueCheckForm() {
                     ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
+                    preferredFuelType={result.preferred_fuel_type}
                   />
                   Сейчас нет подходящей марки топлива для вашей записи.
                 </AlertDescription>
@@ -244,6 +259,7 @@ export function PublicQueueCheckForm() {
                     ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
+                    preferredFuelType={result.preferred_fuel_type}
                   />
                   Ваша запись найдена, но сегодня она еще не входит в лимит. Пожалуйста,
                   ожидайте своей очереди. Когда очередь подойдет, вам позвонят.

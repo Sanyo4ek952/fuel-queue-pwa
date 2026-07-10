@@ -9,6 +9,7 @@ import type { TodayQueueRow } from '@/entities/reservation'
 
 const mocks = vi.hoisted(() => ({
   mutateCall: vi.fn(),
+  mutateCancel: vi.fn(),
   mutateFuelPreference: vi.fn(),
   useTodayQueue: vi.fn(),
   useTodayQueueAuthors: vi.fn(),
@@ -140,6 +141,29 @@ function makeGasolineQueueRows(count: number) {
   })
 }
 
+function makeFuelCategoryQueueRows(
+  count: number,
+  fuelType: 'AI_95' | 'DIESEL' | 'GAS',
+  platePrefix: string,
+  queueNumberOffset = 0,
+) {
+  return Array.from({ length: count }, (_, index) => {
+    const number = index + 1
+    const queueNumber = queueNumberOffset + number
+
+    return makeQueueRow({
+      id: `${platePrefix.toLowerCase()}-row-${number}`,
+      created_by_profile_id: `profile-${platePrefix}-${number}`,
+      fuel_type: fuelType,
+      queue_number: queueNumber,
+      ticket_number: queueNumber,
+      current_position: number,
+      people_ahead: number - 1,
+      normalized_plate_number: `${platePrefix}-${String(number).padStart(3, '0')}`,
+    })
+  })
+}
+
 function makeDailyLimitOverview(category_overviews: unknown[] = []) {
   return {
     data: {
@@ -234,7 +258,7 @@ describe('TodayQueuePanel', () => {
       },
     })
     mocks.useCancelReservation.mockReturnValue({
-      mutate: vi.fn(),
+      mutate: mocks.mutateCancel,
       isPending: false,
       error: null,
       variables: undefined,
@@ -574,6 +598,107 @@ describe('TodayQueuePanel', () => {
     expect(screen.getByRole('button', { name: 'Показать еще' })).toBeInTheDocument()
   })
 
+  it('shows a server page of twenty five diesel rows in the diesel tab', async () => {
+    const user = userEvent.setup()
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [
+        ...makeFuelCategoryQueueRows(1, 'AI_95', 'GASOLINE', 0),
+        ...makeFuelCategoryQueueRows(25, 'DIESEL', 'DIESEL', 100),
+      ],
+      summary: {
+        total_count: 26,
+        callable_count: 26,
+        contacted_count: 0,
+        no_answer_count: 0,
+        category_counts: {
+          GASOLINE: 1,
+          DIESEL: 25,
+          GAS: 0,
+        },
+        callable_category_counts: {
+          GASOLINE: 1,
+          DIESEL: 25,
+          GAS: 0,
+        },
+      },
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      isFetchingNextPage: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    await user.click(screen.getByRole('tab', { name: /Дизель/ }))
+
+    expect(screen.getByText('DIESEL-001')).toBeInTheDocument()
+    expect(screen.getByText('DIESEL-025')).toBeInTheDocument()
+  })
+
+  it('loads the next page for the active gas tab only', async () => {
+    const user = userEvent.setup()
+    const fetchGasNextPage = vi.fn()
+    const fetchDieselNextPage = vi.fn()
+    const fetchGasolineNextPage = vi.fn()
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: makeFuelCategoryQueueRows(1, 'GAS', 'GAS', 200),
+      summary: {
+        total_count: 1,
+        callable_count: 1,
+        contacted_count: 0,
+        no_answer_count: 0,
+        category_counts: {
+          GASOLINE: 0,
+          DIESEL: 0,
+          GAS: 51,
+        },
+        callable_category_counts: {
+          GASOLINE: 0,
+          DIESEL: 0,
+          GAS: 51,
+        },
+      },
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      isFetchingNextPage: false,
+      hasNextPage: true,
+      fetchNextPage: fetchGasolineNextPage,
+      categoryPagination: {
+        GASOLINE: {
+          hasNextPage: false,
+          isFetchingNextPage: false,
+          fetchNextPage: fetchGasolineNextPage,
+        },
+        DIESEL: {
+          hasNextPage: true,
+          isFetchingNextPage: false,
+          fetchNextPage: fetchDieselNextPage,
+        },
+        GAS: {
+          hasNextPage: true,
+          isFetchingNextPage: false,
+          fetchNextPage: fetchGasNextPage,
+        },
+      },
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    await user.click(screen.getByRole('tab', { name: /Газ/ }))
+    await user.click(screen.getByRole('button', { name: 'Показать еще' }))
+
+    expect(fetchGasNextPage).toHaveBeenCalledTimes(1)
+    expect(fetchDieselNextPage).not.toHaveBeenCalled()
+    expect(fetchGasolineNextPage).not.toHaveBeenCalled()
+  })
+
   it('shows server summary counters instead of counting only the loaded page', async () => {
     const user = userEvent.setup()
 
@@ -674,7 +799,7 @@ describe('TodayQueuePanel', () => {
 
     expect(secondRow).not.toBeNull()
     expect(
-      within(secondRow as HTMLElement).getByLabelText('Текущая позиция 71'),
+      within(secondRow as HTMLElement).getByLabelText('Позиция в очереди топлива 71'),
     ).toBeInTheDocument()
 
     expect(within(secondRow as HTMLElement).getByText('B456TC777')).toBeInTheDocument()
@@ -816,6 +941,62 @@ describe('TodayQueuePanel', () => {
       reservationId: 'reservation-id',
       fuelType: 'AI_92',
       fuelPreferenceMode: 'ANY_GASOLINE',
+      clientMutationId: expect.any(String),
+    })
+  })
+
+  it('cancels only the selected queue row by reservation id', async () => {
+    const user = userEvent.setup()
+    const selectedRow = makeQueueRow({
+      id: 'selected-diesel-reservation-id',
+      queue_number: 10,
+      ticket_number: 10,
+      current_position: 3,
+      fuel_type: 'DIESEL',
+      normalized_plate_number: 'DIESEL-010',
+    })
+
+    mocks.useCurrentProfile.mockReturnValue({
+      data: {
+        role: 'mayor_assistant',
+      },
+    })
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [
+        makeQueueRow({
+          id: 'other-reservation-id',
+          queue_number: 9,
+          ticket_number: 9,
+          normalized_plate_number: 'OTHER-009',
+        }),
+        selectedRow,
+      ],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    await user.click(screen.getByRole('tab', { name: /Дизель/ }))
+
+    const selectedArticle = screen.getByText('DIESEL-010').closest('article')
+
+    expect(selectedArticle).not.toBeNull()
+
+    await user.click(
+      within(selectedArticle as HTMLElement).getByRole('button', {
+        name: 'Удалить из очереди',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Удалить' }))
+
+    expect(mocks.mutateCancel).toHaveBeenCalledTimes(1)
+    expect(mocks.mutateCancel).toHaveBeenCalledWith({
+      reservationId: 'selected-diesel-reservation-id',
+      reason: 'OWNER_CANCELLED',
+      comment: null,
       clientMutationId: expect.any(String),
     })
   })

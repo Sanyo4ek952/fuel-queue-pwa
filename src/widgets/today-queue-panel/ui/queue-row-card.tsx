@@ -25,6 +25,7 @@ import {
   type FuelType,
   type QueueFuelType,
   QUEUE_FUEL_TYPES,
+  getFuelQueueCategory,
   type ReservationCallStatus,
 } from '@/shared/constants'
 import { cn } from '@/shared/lib/utils'
@@ -59,6 +60,7 @@ import {
   callStatusButtonClasses,
   callStatusLabels,
   callUnavailableReasonLabels,
+  categoryLabels,
   fuelPreferenceLabels,
   fuelTypeLabels,
 } from '../model/labels'
@@ -140,6 +142,8 @@ export function QueueRowCard({
   const matchedFuelLabel = row.matched_fuel_type
     ? (fuelTypeLabels[row.matched_fuel_type as FuelType] ?? row.matched_fuel_type)
     : null
+  const fuelCategory = getFuelQueueCategory(row.fuel_type)
+  const fuelCategoryLabel = fuelCategory ? categoryLabels[fuelCategory].toLowerCase() : 'топлива'
   const callReasonLabel = row.call_unavailable_reason
     ? (callUnavailableReasonLabels[row.call_unavailable_reason] ?? row.call_unavailable_reason)
     : null
@@ -190,7 +194,7 @@ export function QueueRowCard({
               <div className="flex items-center gap-2">
                 <div
                   className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-md bg-slate-900 text-white"
-                  aria-label={`Текущая позиция ${row.current_position}`}
+                  aria-label={`Позиция в очереди топлива ${row.current_position}`}
                 >
                   <span className="text-sm font-semibold leading-tight">
                     {row.current_position}
@@ -202,6 +206,9 @@ export function QueueRowCard({
                   </h2>
                   <p className="truncate text-xs text-slate-500">
                     {row.driver_full_name || 'Водитель не указан'}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">
+                    В очереди {fuelCategoryLabel}: {row.current_position} · Талон №{row.ticket_number}
                   </p>
                   {estimatedArrivalTime ? (
                     <p className="mt-0.5 truncate text-xs font-medium text-slate-700">
@@ -404,6 +411,14 @@ export function QueueRowCard({
                   <dd className="font-medium text-slate-950">{estimatedArrivalTime}</dd>
                 </div>
               ) : null}
+              <div>
+                <dt className="text-slate-500">Позиция в очереди топлива</dt>
+                <dd className="font-medium text-slate-950">{row.current_position}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Номер талона</dt>
+                <dd className="font-medium text-slate-950">№{row.ticket_number}</dd>
+              </div>
               <div>
                 <dt className="text-slate-500">Топливо</dt>
                 <dd className="flex items-center gap-2 font-medium text-slate-950">

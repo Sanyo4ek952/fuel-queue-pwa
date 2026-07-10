@@ -354,11 +354,23 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
 }
 
 export function withCurrentQueuePositions(rows: TodayQueueRow[]) {
-  const positionsById = new Map(
-    [...rows]
+  const rowsByCategory = new Map<FuelQueueCategory | null, TodayQueueRow[]>()
+
+  for (const row of rows) {
+    const fuelCategory = getFuelQueueCategory(row.fuel_type)
+    const categoryRows = rowsByCategory.get(fuelCategory) ?? []
+
+    categoryRows.push(row)
+    rowsByCategory.set(fuelCategory, categoryRows)
+  }
+
+  const positionsById = new Map<string, number>()
+
+  for (const categoryRows of rowsByCategory.values()) {
+    categoryRows
       .sort((left, right) => left.ticket_number - right.ticket_number || left.id.localeCompare(right.id))
-      .map((row, index) => [row.id, index + 1]),
-  )
+      .forEach((row, index) => positionsById.set(row.id, index + 1))
+  }
 
   return rows.map((row) => {
     const currentPosition = positionsById.get(row.id) ?? row.current_position
@@ -516,6 +528,7 @@ export async function listTodayQueueRowsPage(params: {
   createdByProfileId?: string | null
   callFilter?: QueueCallFilter
   gasolineFuelFilter?: QueueGasolineFuelFilter
+  fuelCategoryFilter?: FuelQueueCategory | null
 } = {}): Promise<TodayQueuePage> {
   if (!isSupabaseConfigured) {
     throw new Error('Supabase is not configured.')
@@ -536,6 +549,7 @@ export async function listTodayQueueRowsPage(params: {
     created_by_profile_id: params.createdByProfileId ?? null,
     call_filter: params.callFilter ?? 'all',
     gasoline_fuel_filter: params.gasolineFuelFilter ?? 'all',
+    fuel_category_filter: params.fuelCategoryFilter ?? null,
   })
 
   if (error) {

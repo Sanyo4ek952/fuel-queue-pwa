@@ -100,6 +100,7 @@ describe('PublicQueueCheckForm', () => {
         ticket_number: 2847,
         current_position: 71,
         people_ahead: 70,
+        preferred_fuel_type: 'AI_95',
         public_status: 'IN_CALL_LIST',
         is_within_today_limit: true,
         is_callable_now: true,
@@ -116,7 +117,7 @@ describe('PublicQueueCheckForm', () => {
 
     expect(await screen.findByText('Запись включена в список обзвона')).toBeInTheDocument()
     expect(
-      screen.getByText(/Номер записи №2847. Текущая позиция: 71, впереди: 70./),
+      screen.getByText(/Номер записи №2847. Позиция в очереди бензин: 71, впереди: 70./),
     ).toBeInTheDocument()
     expect(screen.getByText(/Ожидайте звонка оператора, доступно АИ-95./)).toBeInTheDocument()
     expect(screen.queryByText(/Если вы не заправитесь/)).not.toBeInTheDocument()
@@ -132,6 +133,7 @@ describe('PublicQueueCheckForm', () => {
         ticket_number: 2847,
         current_position: 71,
         people_ahead: 70,
+        preferred_fuel_type: 'DIESEL',
         public_status: 'QUEUE_NOT_READY',
         is_within_today_limit: false,
         is_callable_now: false,
@@ -147,7 +149,7 @@ describe('PublicQueueCheckForm', () => {
 
     expect(await screen.findByText('Номер записи №2847 еще не подошел')).toBeInTheDocument()
     expect(
-      screen.getByText(/Номер записи №2847. Текущая позиция: 71, впереди: 70./),
+      screen.getByText(/Номер записи №2847. Позиция в очереди дизель: 71, впереди: 70./),
     ).toBeInTheDocument()
     expect(screen.queryByText(/аннулирована/)).not.toBeInTheDocument()
     expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
@@ -170,6 +172,7 @@ describe('PublicQueueCheckForm', () => {
         ticket_number: 9,
         current_position: 3,
         people_ahead: 2,
+        preferred_fuel_type: 'GAS',
         public_status: 'INVITED_BY_OPERATOR',
         is_within_today_limit: true,
         is_callable_now: false,

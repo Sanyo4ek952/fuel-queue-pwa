@@ -39,7 +39,7 @@ describe('consumer cabinet RPC parsers', () => {
     })
   })
 
-  it('parses a consumer reservation response', () => {
+  it('parses ticket number and fuel queue position for a consumer reservation response', () => {
     expect(
       parseConsumerReservation({
         id: 'reservation-id',
@@ -50,10 +50,10 @@ describe('consumer cabinet RPC parsers', () => {
         normalized_plate_number: 'А123ВС777',
         driver_full_name: 'Иван Иванов',
         driver_phone: '+79991234567',
-        fuel_type: 'AI_95',
-        fuel_preference_mode: 'ANY_GASOLINE',
+        fuel_type: 'DIESEL',
+        fuel_preference_mode: 'EXACT',
         requested_liters: '20.5',
-        queue_number: '7',
+        queue_number: '10',
         current_position: '3',
         people_ahead: '2',
         is_within_today_limit: true,
@@ -66,8 +66,9 @@ describe('consumer cabinet RPC parsers', () => {
     ).toMatchObject({
       id: 'reservation-id',
       vehicle_id: 'vehicle-id',
-      queue_number: 7,
-      ticket_number: 7,
+      fuel_type: 'DIESEL',
+      queue_number: 10,
+      ticket_number: 10,
       current_position: 3,
       people_ahead: 2,
       is_within_today_limit: true,

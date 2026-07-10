@@ -1,4 +1,4 @@
-import type { FuelPreferenceMode, FuelType } from '@/shared/constants'
+import { getFuelQueueCategory, type FuelPreferenceMode, type FuelType } from '@/shared/constants'
 import type { UserRole } from '@/shared/config/roles'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
@@ -188,8 +188,10 @@ export async function createOfflineReservation({
 
   const nextQueueNumber =
     Math.max(0, ...reservations.map((reservation) => reservation.queue_number)) + 1
+  const fuelCategory = getFuelQueueCategory(fuelType)
   const activeReservationsAhead = reservations.filter((reservation) =>
-    activeReservationStatuses.has(reservation.status),
+    activeReservationStatuses.has(reservation.status) &&
+    getFuelQueueCategory(reservation.fuel_type) === fuelCategory,
   ).length
   const currentPosition = activeReservationsAhead + 1
   const id = `local-${clientMutationId}`

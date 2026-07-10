@@ -130,11 +130,12 @@ describe('createOfflineReservation', () => {
     expect(mocks.tables.sync_outbox.rows[0].client_mutation_id).toBe('mutation-id')
   })
 
-  it('assigns queue numbers globally', async () => {
+  it('assigns queue numbers globally and queue positions by fuel category', async () => {
     mocks.tables.local_reservations.rows.push({
       id: 'reservation-10',
       vehicle_id: 'other-vehicle',
       status: 'RESERVED',
+      fuel_type: 'DIESEL',
       queue_number: 10,
     })
 
@@ -149,8 +150,8 @@ describe('createOfflineReservation', () => {
 
     expect(result.queue_number).toBe(11)
     expect(result.ticket_number).toBe(11)
-    expect(result.current_position).toBe(2)
-    expect(result.people_ahead).toBe(1)
+    expect(result.current_position).toBe(1)
+    expect(result.people_ahead).toBe(0)
   })
 
   it('blocks a local reservation when cached refuel cooldown is active', async () => {

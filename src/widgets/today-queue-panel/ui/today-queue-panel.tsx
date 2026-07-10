@@ -17,7 +17,7 @@ import {
   type UpdateReservationFuelPreferenceFormValues,
   useUpdateReservationFuelPreference,
 } from '@/features/update-reservation-fuel-preference'
-import type { ReservationCallStatus } from '@/shared/constants'
+import type { FuelQueueCategory, ReservationCallStatus } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import {
   buildFuelingScheduleEta,
@@ -63,6 +63,7 @@ export function TodayQueuePanel() {
   const [gasolineFuelFilter, setGasolineFuelFilter] =
     useState<GasolineFuelFilter>(ALL_GASOLINE_FILTER)
   const [callFilter, setCallFilter] = useState<CallFilter>('all')
+  const [activeFuelCategory, setActiveFuelCategory] = useState<FuelQueueCategory>('GASOLINE')
   const currentProfileQuery = useCurrentProfile()
   const queue = useTodayQueue({
     plateSearch,
@@ -134,6 +135,11 @@ export function TodayQueuePanel() {
     authorFilter !== ALL_AUTHORS_FILTER ||
     gasolineFuelFilter !== ALL_GASOLINE_FILTER ||
     callFilter !== 'all'
+  const activeCategoryPagination = queue.categoryPagination?.[activeFuelCategory] ?? {
+    hasNextPage: queue.hasNextPage,
+    isFetchingNextPage: queue.isFetchingNextPage,
+    fetchNextPage: queue.fetchNextPage,
+  }
 
   useEffect(() => {
     if (
@@ -281,7 +287,11 @@ export function TodayQueuePanel() {
       ) : null}
 
       {visibleRowsCount > 0 ? (
-        <Tabs defaultValue="GASOLINE" className="space-y-3">
+        <Tabs
+          value={activeFuelCategory}
+          onValueChange={(value) => setActiveFuelCategory(value as FuelQueueCategory)}
+          className="space-y-3"
+        >
           <TabsList className="grid w-full grid-cols-3">
             {rowsByCategory.map(({ fuelCategory, rows }) => (
               <TabsTrigger key={fuelCategory} value={fuelCategory}>
@@ -332,15 +342,15 @@ export function TodayQueuePanel() {
         </Tabs>
       ) : null}
 
-      {visibleRowsCount > 0 && queue.hasNextPage ? (
+      {visibleRowsCount > 0 && activeCategoryPagination.hasNextPage ? (
         <Button
           type="button"
           variant="outline"
           className="w-full"
-          disabled={queue.isFetchingNextPage}
-          onClick={() => void queue.fetchNextPage()}
+          disabled={activeCategoryPagination.isFetchingNextPage}
+          onClick={() => void activeCategoryPagination.fetchNextPage()}
         >
-          {queue.isFetchingNextPage ? 'Загружаем...' : 'Показать еще'}
+          {activeCategoryPagination.isFetchingNextPage ? 'Загружаем...' : 'Показать еще'}
         </Button>
       ) : null}
     </div>

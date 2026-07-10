@@ -15,7 +15,11 @@ import {
   type TodayQueueCursor,
   type TodayQueueRow,
 } from '@/shared/api/reservation'
-import { getFuelQueueCategory } from '@/shared/constants'
+import {
+  getFuelQueueCategory,
+  type FuelQueueCategory,
+} from '@/shared/constants'
+import { getTodayDateInputValue } from '@/shared/lib/date'
 import { offlineDb } from '@/shared/lib/offline-db'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import { useOnlineStatus } from '@/shared/lib/sync'
@@ -30,6 +34,7 @@ export const todayQueueQueryKey = (params: TodayQueueParams = {}) =>
     params.createdByProfileId ?? 'all',
     params.callFilter ?? 'all',
     params.gasolineFuelFilter ?? 'all',
+    params.fuelCategoryFilter ?? 'all',
   ] as const
 
 export const todayQueueAuthorsQueryKey = (params: TodayQueueAuthorsParams = {}) =>
@@ -45,6 +50,7 @@ export type TodayQueueParams = {
   createdByProfileId?: string | null
   callFilter?: QueueCallFilter
   gasolineFuelFilter?: QueueGasolineFuelFilter
+  fuelCategoryFilter?: FuelQueueCategory | null
 }
 
 export type TodayQueueAuthorsParams = {
@@ -125,8 +131,36 @@ function buildLocalSummary(rows: TodayQueueRow[]): TodayQueueSummary {
   }
 }
 
+function useTodayQueueCategory(params: TodayQueueParams, fuelCategory: FuelQueueCategory, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: todayQueueQueryKey({
+      ...params,
+      fuelCategoryFilter: fuelCategory,
+    }),
+    enabled,
+    initialPageParam: null as TodayQueueCursor | null,
+    queryFn: async ({ pageParam }) => {
+      const page = await listTodayQueueRowsPage({
+        pageSize: TODAY_QUEUE_PAGE_SIZE,
+        cursor: pageParam,
+        plateSearch: params.plateSearch,
+        createdByProfileId: params.createdByProfileId,
+        callFilter: params.callFilter,
+        gasolineFuelFilter: params.gasolineFuelFilter,
+        fuelCategoryFilter: fuelCategory,
+      })
+
+      await cacheTodayQueueRows(page.rows)
+
+      return page
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  })
+}
+
 export function useTodayQueue(params: TodayQueueParams = {}) {
   const isOnline = useOnlineStatus()
+  const todayDate = getTodayDateInputValue()
   const [localRows, setLocalRows] = useState<TodayQueueRow[]>([])
   const [localError, setLocalError] = useState<Error | null>(null)
   const [isLocalReady, setIsLocalReady] = useState(false)
@@ -134,7 +168,7 @@ export function useTodayQueue(params: TodayQueueParams = {}) {
   useEffect(() => {
     const subscription = liveQuery(async () => {
       const rows = (await offlineDb.local_reservations.toArray())
-        .filter((row) => activeReservationStatuses.has(row.status))
+        .filter((row) => row.date === todayDate && activeReservationStatuses.has(row.status))
         .map(toTodayQueueRowFromLocal)
         .sort(compareQueueRows)
 
@@ -152,51 +186,75 @@ export function useTodayQueue(params: TodayQueueParams = {}) {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [todayDate])
 
-  const onlineQuery = useInfiniteQuery({
-    queryKey: todayQueueQueryKey(params),
-    enabled: isOnline,
-    initialPageParam: null as TodayQueueCursor | null,
-    queryFn: async ({ pageParam }) => {
-      const page = await listTodayQueueRowsPage({
-        pageSize: TODAY_QUEUE_PAGE_SIZE,
-        cursor: pageParam,
-        plateSearch: params.plateSearch,
-        createdByProfileId: params.createdByProfileId,
-        callFilter: params.callFilter,
-        gasolineFuelFilter: params.gasolineFuelFilter,
-      })
-
-      await cacheTodayQueueRows(page.rows)
-
-      return page
-    },
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
-  })
+  const gasolineQuery = useTodayQueueCategory(params, 'GASOLINE', isOnline)
+  const dieselQuery = useTodayQueueCategory(params, 'DIESEL', isOnline)
+  const gasQuery = useTodayQueueCategory(params, 'GAS', isOnline)
   const onlineRows = useMemo(
-    () => onlineQuery.data?.pages.flatMap((page) => page.rows) ?? [],
-    [onlineQuery.data],
+    () => [
+      ...(gasolineQuery.data?.pages.flatMap((page) => page.rows) ?? []),
+      ...(dieselQuery.data?.pages.flatMap((page) => page.rows) ?? []),
+      ...(gasQuery.data?.pages.flatMap((page) => page.rows) ?? []),
+    ],
+    [dieselQuery.data, gasQuery.data, gasolineQuery.data],
   )
   const rows = useMemo(
-    () => (isOnline && onlineQuery.data ? mergeRows(onlineRows, localRows) : localRows),
-    [isOnline, localRows, onlineQuery.data, onlineRows],
+    () => (isOnline && (gasolineQuery.data || dieselQuery.data || gasQuery.data) ? mergeRows(onlineRows, localRows) : localRows),
+    [dieselQuery.data, gasQuery.data, gasolineQuery.data, isOnline, localRows, onlineRows],
   )
   const summary = useMemo(
-    () => (isOnline && onlineQuery.data ? onlineQuery.data.pages[0]?.summary : buildLocalSummary(localRows)),
-    [isOnline, localRows, onlineQuery.data],
+    () =>
+      isOnline && (gasolineQuery.data || dieselQuery.data || gasQuery.data)
+        ? (
+            gasolineQuery.data?.pages[0]?.summary ??
+            dieselQuery.data?.pages[0]?.summary ??
+            gasQuery.data?.pages[0]?.summary
+          )
+        : buildLocalSummary(localRows),
+    [dieselQuery.data, gasQuery.data, gasolineQuery.data, isOnline, localRows],
   )
+  const categoryPagination = {
+    GASOLINE: {
+      hasNextPage: Boolean(gasolineQuery.hasNextPage),
+      isFetchingNextPage: gasolineQuery.isFetchingNextPage,
+      fetchNextPage: gasolineQuery.fetchNextPage,
+    },
+    DIESEL: {
+      hasNextPage: Boolean(dieselQuery.hasNextPage),
+      isFetchingNextPage: dieselQuery.isFetchingNextPage,
+      fetchNextPage: dieselQuery.fetchNextPage,
+    },
+    GAS: {
+      hasNextPage: Boolean(gasQuery.hasNextPage),
+      isFetchingNextPage: gasQuery.isFetchingNextPage,
+      fetchNextPage: gasQuery.fetchNextPage,
+    },
+  } satisfies Record<FuelQueueCategory, {
+    hasNextPage: boolean
+    isFetchingNextPage: boolean
+    fetchNextPage: typeof gasolineQuery.fetchNextPage
+  }>
 
   return {
     rows,
     summary,
     isOnline,
-    isLoading: isOnline ? onlineQuery.isLoading : !isLocalReady,
-    isFetching: onlineQuery.isFetching,
-    isFetchingNextPage: onlineQuery.isFetchingNextPage,
-    hasNextPage: Boolean(onlineQuery.hasNextPage),
-    fetchNextPage: onlineQuery.fetchNextPage,
-    error: onlineQuery.error ?? localError,
+    isLoading: isOnline
+      ? gasolineQuery.isLoading || dieselQuery.isLoading || gasQuery.isLoading
+      : !isLocalReady,
+    isFetching: gasolineQuery.isFetching || dieselQuery.isFetching || gasQuery.isFetching,
+    isFetchingNextPage:
+      gasolineQuery.isFetchingNextPage ||
+      dieselQuery.isFetchingNextPage ||
+      gasQuery.isFetchingNextPage,
+    hasNextPage:
+      Boolean(gasolineQuery.hasNextPage) ||
+      Boolean(dieselQuery.hasNextPage) ||
+      Boolean(gasQuery.hasNextPage),
+    fetchNextPage: gasolineQuery.fetchNextPage,
+    categoryPagination,
+    error: gasolineQuery.error ?? dieselQuery.error ?? gasQuery.error ?? localError,
   }
 }
 

@@ -22,6 +22,7 @@ import {
   QUEUE_FUEL_TYPES,
   getFuelQueueCategory,
   isGasolineFuelType,
+  type FuelQueueCategory,
   type FuelPreferenceMode,
   type FuelType,
   type QueueFuelType,
@@ -78,6 +79,12 @@ const fuelPreferenceLabels: Record<FuelPreferenceMode, string> = {
   ANY_GASOLINE: 'Подойдет АИ-92/95/100',
 }
 
+const fuelCategoryLabels: Record<FuelQueueCategory, string> = {
+  GASOLINE: 'бензин',
+  DIESEL: 'дизель',
+  GAS: 'газ',
+}
+
 export function ConsumerDashboardPanel() {
   const todayDate = getTodayDateInputValue()
   const vehiclesQuery = useConsumerVehicles()
@@ -100,6 +107,12 @@ export function ConsumerDashboardPanel() {
   const matchedFuelLabel = activeReservation?.matched_fuel_type
     ? (fuelTypeLabels[activeReservation.matched_fuel_type] ?? activeReservation.matched_fuel_type)
     : null
+  const activeFuelCategory = activeReservation
+    ? getFuelQueueCategory(activeReservation.fuel_type)
+    : null
+  const activeFuelCategoryLabel = activeFuelCategory
+    ? fuelCategoryLabels[activeFuelCategory]
+    : 'топлива'
   const fuelPreferenceForm = useForm<UpdateReservationFuelPreferenceFormValues>({
     resolver: zodResolver(updateReservationFuelPreferenceSchema),
     mode: 'onBlur',
@@ -246,7 +259,7 @@ export function ConsumerDashboardPanel() {
             <CardDescription>
               Номер записи №{activeReservation.ticket_number}
               {activeReservation.current_position
-                ? `, текущая позиция ${activeReservation.current_position}`
+                ? `, в очереди ${activeFuelCategoryLabel}: ${activeReservation.current_position}`
                 : ''}
             </CardDescription>
           </CardHeader>
@@ -398,7 +411,7 @@ export function ConsumerDashboardPanel() {
                 </p>
               </div>
               <div>
-                <span className="text-slate-500">Текущая позиция</span>
+                <span className="text-slate-500">Позиция в очереди топлива</span>
                 <p className="font-medium text-slate-950">
                   {activeReservation.current_position ?? 'Позиция уточняется'}
                 </p>

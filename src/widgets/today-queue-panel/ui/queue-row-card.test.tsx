@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import '@testing-library/jest-dom/vitest'
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -100,5 +100,41 @@ describe('QueueRowCard', () => {
 
     expect(screen.getByRole('button', { name: 'Дозвонились' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Удалить из очереди' })).toBeDisabled()
+  })
+
+  it('shows current position separately from ticket number for diesel rows', async () => {
+    renderCard(
+      makeQueueRow({
+        fuel_type: 'DIESEL',
+        ticket_number: 10,
+        current_position: 3,
+        people_ahead: 2,
+      }),
+    )
+
+    expect(screen.getByLabelText('Позиция в очереди топлива 3')).toBeInTheDocument()
+    expect(screen.getByText('В очереди дизель: 3 · Талон №10')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Открыть детали' }))
+
+    const article = screen.getByRole('article')
+
+    expect(within(article).getByText('Позиция в очереди топлива')).toBeInTheDocument()
+    expect(within(article).getByText('Номер талона')).toBeInTheDocument()
+    expect(within(article).getByText('№10')).toBeInTheDocument()
+  })
+
+  it('cancels only the selected reservation row', async () => {
+    const row = makeQueueRow({ id: 'diesel-reservation-id', ticket_number: 10 })
+    const { onCancel } = renderCard(row)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить из очереди' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить' }))
+
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(onCancel).toHaveBeenCalledWith(row, {
+      reason: 'OWNER_CANCELLED',
+      comment: '',
+    })
   })
 })

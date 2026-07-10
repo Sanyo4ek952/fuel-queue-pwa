@@ -55,6 +55,34 @@ describe('listTodayQueueRows', () => {
       created_by_profile_id: null,
       call_filter: 'all',
       gasoline_fuel_filter: 'all',
+      fuel_category_filter: null,
+    })
+  })
+
+  it('passes a fuel category filter to the today call list RPC', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: { status: 'SYNCED' }, error: null })
+      .mockResolvedValueOnce({ data: { rows: [], next_cursor: null }, error: null })
+
+    await expect(
+      listTodayQueueRowsPage({
+        fuelCategoryFilter: 'DIESEL',
+      }),
+    ).resolves.toMatchObject({
+      rows: [],
+      nextCursor: null,
+    })
+
+    expect(mocks.rpc).toHaveBeenNthCalledWith(2, 'get_today_call_list', {
+      target_date: '2026-07-08',
+      page_size: 25,
+      cursor_queue_number: null,
+      cursor_id: null,
+      plate_search: '',
+      created_by_profile_id: null,
+      call_filter: 'all',
+      gasoline_fuel_filter: 'all',
+      fuel_category_filter: 'DIESEL',
     })
   })
 
@@ -106,6 +134,94 @@ describe('listTodayQueueRows', () => {
         id: 'reservation-id',
         queue_number: 2847,
         ticket_number: 2847,
+        current_position: 2,
+        people_ahead: 1,
+      },
+    ])
+  })
+
+  it('recalculates offline queue positions separately by fuel category', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: { status: 'SYNCED' }, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          rows: [
+            {
+              id: 'gasoline-reservation-id',
+              vehicle_id: 'gasoline-vehicle-id',
+              operator_id: 'profile-id',
+              fuel_type: 'AI_95',
+              requested_liters: 40,
+              queue_number: 1,
+              ticket_number: 1,
+              current_position: 1,
+              people_ahead: 0,
+              status: 'RESERVED',
+            },
+            {
+              id: 'first-diesel-reservation-id',
+              vehicle_id: 'first-diesel-vehicle-id',
+              operator_id: 'profile-id',
+              fuel_type: 'DIESEL',
+              requested_liters: 40,
+              queue_number: 2,
+              ticket_number: 2,
+              current_position: 2,
+              people_ahead: 1,
+              status: 'RESERVED',
+            },
+            {
+              id: 'gas-reservation-id',
+              vehicle_id: 'gas-vehicle-id',
+              operator_id: 'profile-id',
+              fuel_type: 'GAS',
+              requested_liters: 40,
+              queue_number: 3,
+              ticket_number: 3,
+              current_position: 3,
+              people_ahead: 2,
+              status: 'RESERVED',
+            },
+            {
+              id: 'second-diesel-reservation-id',
+              vehicle_id: 'second-diesel-vehicle-id',
+              operator_id: 'profile-id',
+              fuel_type: 'DIESEL',
+              requested_liters: 40,
+              queue_number: 10,
+              ticket_number: 10,
+              current_position: 10,
+              people_ahead: 9,
+              status: 'RESERVED',
+            },
+          ],
+          next_cursor: null,
+        },
+        error: null,
+      })
+
+    await expect(listTodayQueueRows()).resolves.toMatchObject([
+      {
+        id: 'gasoline-reservation-id',
+        ticket_number: 1,
+        current_position: 1,
+        people_ahead: 0,
+      },
+      {
+        id: 'first-diesel-reservation-id',
+        ticket_number: 2,
+        current_position: 1,
+        people_ahead: 0,
+      },
+      {
+        id: 'gas-reservation-id',
+        ticket_number: 3,
+        current_position: 1,
+        people_ahead: 0,
+      },
+      {
+        id: 'second-diesel-reservation-id',
+        ticket_number: 10,
         current_position: 2,
         people_ahead: 1,
       },
