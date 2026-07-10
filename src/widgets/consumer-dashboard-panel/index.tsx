@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertTriangle, Car, Clock, Pencil, RefreshCw, Ticket, XCircle } from 'lucide-react'
+import { AlertTriangle, Car, Clock, MapPin, Pencil, RefreshCw, Ticket, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { useCancelConsumerReservation } from '@/features/cancel-consumer-reservation'
 import {
   CreateConsumerReservationForm,
+  useMyTodayFuelingStatus,
   useMyQueueStatus,
 } from '@/features/create-consumer-reservation'
 import { useDailyFuelingSchedule } from '@/features/manage-fueling-schedule'
@@ -85,18 +86,50 @@ const fuelCategoryLabels: Record<FuelQueueCategory, string> = {
   GAS: 'газ',
 }
 
+function getLimitStatusView(isWithinTodayLimit: boolean | null | undefined) {
+  if (isWithinTodayLimit === true) {
+    return {
+      label: 'В лимите',
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50',
+    }
+  }
+
+  if (isWithinTodayLimit === false) {
+    return {
+      label: 'Вне лимита',
+      className: 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50',
+    }
+  }
+
+  return {
+    label: 'Уточняется',
+    className: 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-50',
+  }
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
 export function ConsumerDashboardPanel() {
   const todayDate = getTodayDateInputValue()
   const vehiclesQuery = useConsumerVehicles()
   const queueStatusQuery = useMyQueueStatus()
+  const todayFuelingStatusQuery = useMyTodayFuelingStatus()
   const fuelingScheduleQuery = useDailyFuelingSchedule(todayDate)
   const cancelReservationMutation = useCancelConsumerReservation()
   const updateFuelPreferenceMutation = useUpdateReservationFuelPreference()
   const [isFuelDialogOpen, setIsFuelDialogOpen] = useState(false)
   const vehicles = vehiclesQuery.data ?? []
   const activeReservation = queueStatusQuery.data
+  const todayFuelingStatus = todayFuelingStatusQuery.data
   const canAddVehicle = vehicles.length < 3
-  const canCreateReservation = vehicles.length > 0 && !activeReservation
+  const canCreateReservation = vehicles.length > 0 && !activeReservation && !todayFuelingStatus
   const canCancelReservation = activeReservation?.status === 'RESERVED'
   const isFuelPreferenceUpdateLocked =
     activeReservation?.is_fuel_preference_update_locked === true
@@ -107,12 +140,14 @@ export function ConsumerDashboardPanel() {
   const matchedFuelLabel = activeReservation?.matched_fuel_type
     ? (fuelTypeLabels[activeReservation.matched_fuel_type] ?? activeReservation.matched_fuel_type)
     : null
+  const stationLabel = activeReservation?.station_name ?? 'АЗС будет назначена'
   const activeFuelCategory = activeReservation
     ? getFuelQueueCategory(activeReservation.fuel_type)
     : null
   const activeFuelCategoryLabel = activeFuelCategory
     ? fuelCategoryLabels[activeFuelCategory]
     : 'топлива'
+  const limitStatusView = getLimitStatusView(activeReservation?.is_within_today_limit)
   const fuelPreferenceForm = useForm<UpdateReservationFuelPreferenceFormValues>({
     resolver: zodResolver(updateReservationFuelPreferenceSchema),
     mode: 'onBlur',
@@ -161,6 +196,7 @@ export function ConsumerDashboardPanel() {
   function refresh() {
     void vehiclesQuery.refetch()
     void queueStatusQuery.refetch()
+    void todayFuelingStatusQuery.refetch()
     void fuelingScheduleQuery.refetch()
   }
 
@@ -249,6 +285,13 @@ export function ConsumerDashboardPanel() {
         </Alert>
       ) : null}
 
+      {todayFuelingStatusQuery.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Не удалось загрузить сегодняшнюю заправку</AlertTitle>
+          <AlertDescription>{todayFuelingStatusQuery.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
       {activeReservation ? (
         <Card className="rounded-lg border-slate-200 bg-white shadow-sm">
           <CardHeader>
@@ -276,6 +319,16 @@ export function ConsumerDashboardPanel() {
                 <p className="font-medium text-slate-950">
                   {reservationStatusLabels[activeReservation.status]}
                 </p>
+              </div>
+              <div>
+                <span className="text-slate-500">АЗС</span>
+                <p className="flex items-center gap-1.5 font-medium text-slate-950">
+                  <MapPin className="size-4 text-slate-500" aria-hidden="true" />
+                  {stationLabel}
+                </p>
+                {activeReservation.station_address ? (
+                  <p className="mt-1 text-xs text-slate-500">{activeReservation.station_address}</p>
+                ) : null}
               </div>
               <div>
                 <span className="text-slate-500">Топливо</span>
@@ -418,13 +471,11 @@ export function ConsumerDashboardPanel() {
               </div>
               <div>
                 <span className="text-slate-500">Статус лимита</span>
-                <p className="font-medium text-slate-950">
-                  {activeReservation.is_within_today_limit === true
-                    ? 'В лимите'
-                    : activeReservation.is_within_today_limit === false
-                      ? 'Вне лимита'
-                      : 'Уточняется'}
-                </p>
+                <div className="mt-1">
+                  <Badge variant="outline" className={`rounded-md ${limitStatusView.className}`}>
+                    {limitStatusView.label}
+                  </Badge>
+                </div>
               </div>
               {matchedFuelLabel ? (
                 <div>
@@ -491,6 +542,59 @@ export function ConsumerDashboardPanel() {
                 <AlertDescription>{cancelReservationMutation.error.message}</AlertDescription>
               </Alert>
             ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {todayFuelingStatus ? (
+        <Card className="rounded-lg border-emerald-200 bg-emerald-50 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-emerald-950">
+              <Ticket className="size-5 text-emerald-700" aria-hidden="true" />
+              Сегодня заправлено
+            </CardTitle>
+            <CardDescription className="text-emerald-800">
+              {todayFuelingStatus.ticket_number
+                ? `Запись №${todayFuelingStatus.ticket_number}`
+                : 'Заправка за сегодня'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
+            <div>
+              <span className="text-emerald-700">Госномер</span>
+              <p className="font-medium text-emerald-950">
+                {todayFuelingStatus.normalized_plate_number}
+              </p>
+            </div>
+            <div>
+              <span className="text-emerald-700">АЗС</span>
+              <p className="flex items-center gap-1.5 font-medium text-emerald-950">
+                <MapPin className="size-4 text-emerald-700" aria-hidden="true" />
+                {todayFuelingStatus.station_name ?? 'АЗС не указана'}
+              </p>
+              {todayFuelingStatus.station_address ? (
+                <p className="mt-1 text-xs text-emerald-700">
+                  {todayFuelingStatus.station_address}
+                </p>
+              ) : null}
+            </div>
+            <div>
+              <span className="text-emerald-700">Топливо</span>
+              <p className="font-medium text-emerald-950">
+                {fuelTypeLabels[todayFuelingStatus.fuel_type] ?? todayFuelingStatus.fuel_type}
+              </p>
+            </div>
+            <div>
+              <span className="text-emerald-700">Литры</span>
+              <p className="font-medium text-emerald-950">{todayFuelingStatus.liters}</p>
+            </div>
+            <div>
+              <span className="text-emerald-700">Время</span>
+              <p className="flex items-center gap-1.5 font-medium text-emerald-950">
+                <Clock className="size-4 text-emerald-700" aria-hidden="true" />
+                {formatDateTime(todayFuelingStatus.fueled_at)}
+              </p>
+            </div>
           </CardContent>
         </Card>
       ) : null}

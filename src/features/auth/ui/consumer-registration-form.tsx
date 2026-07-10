@@ -1,13 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, UserPlus } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import {
+  AUTH_RATE_LIMIT_MESSAGE,
   consumerRegisterSchema,
   type ConsumerRegisterFormInput,
   type ConsumerRegisterFormValues,
+  isAuthRateLimitError,
   useRegisterConsumer,
+  useResendSignupConfirmation,
 } from '@/features/auth'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
@@ -16,9 +19,13 @@ import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { useHcaptchaToken } from '@/shared/ui/hcaptcha'
 import { Input } from '@/shared/ui/input'
 
+const EMAIL_RESEND_COOLDOWN_SECONDS = 60
+
 export function ConsumerRegistrationForm() {
   const registerMutation = useRegisterConsumer()
+  const resendMutation = useResendSignupConfirmation()
   const hcaptcha = useHcaptchaToken()
+  const [resendCooldown, setResendCooldown] = useState(0)
   const form = useForm<ConsumerRegisterFormInput, unknown, ConsumerRegisterFormValues>({
     resolver: zodResolver(consumerRegisterSchema),
     defaultValues: {
@@ -32,12 +39,36 @@ export function ConsumerRegistrationForm() {
       captchaToken: '',
     },
   })
+  const isResendDisabled =
+    resendMutation.isPending || hcaptcha.isLoading || resendCooldown > 0
 
   useEffect(() => {
     if (hcaptcha.token) {
       form.clearErrors('captchaToken')
     }
   }, [form, hcaptcha.token])
+
+  useEffect(() => {
+    if (!registerMutation.isSuccess) {
+      return
+    }
+
+    hcaptcha.reset()
+    form.setValue('captchaToken', '')
+    setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
+  }, [form, hcaptcha.reset, registerMutation.isSuccess])
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setResendCooldown((current) => Math.max(0, current - 1))
+    }, 1000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [resendCooldown])
 
   async function handleSubmit(values: ConsumerRegisterFormValues) {
     try {
@@ -58,12 +89,42 @@ export function ConsumerRegistrationForm() {
         captchaToken: hcaptcha.token,
       })
     } catch (error) {
+      if (isAuthRateLimitError(error)) {
+        setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
+      }
+
       hcaptcha.reset()
       form.setValue('captchaToken', '')
 
       if (error instanceof Error && error.message.includes('hCaptcha')) {
         form.setError('captchaToken', { message: error.message })
       }
+    }
+  }
+
+  async function handleResendConfirmationEmail() {
+    resendMutation.reset()
+
+    if (!hcaptcha.token) {
+      form.setError('captchaToken', { message: hcaptcha.error ?? 'Подтвердите hCaptcha.' })
+      return
+    }
+
+    try {
+      await resendMutation.mutateAsync({
+        email: form.getValues('email'),
+        captchaToken: hcaptcha.token,
+      })
+      hcaptcha.reset()
+      form.setValue('captchaToken', '')
+      setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
+    } catch (error) {
+      if (isAuthRateLimitError(error)) {
+        setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
+      }
+
+      hcaptcha.reset()
+      form.setValue('captchaToken', '')
     }
   }
 
@@ -186,8 +247,31 @@ export function ConsumerRegistrationForm() {
               <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
                 <AlertTitle>Регистрация отправлена</AlertTitle>
                 <AlertDescription>
-                  Проверьте почту и подтвердите email. После этого можно будет войти и добавить
-                  автомобиль.
+                  Проверьте почту и подтвердите email. Если письма нет во входящих, проверьте
+                  папку «Спам». После этого можно будет войти и добавить автомобиль.
+                  <div className="mt-3 space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 w-full border-emerald-300 bg-white text-emerald-950 hover:bg-emerald-100"
+                      disabled={isResendDisabled}
+                      onClick={handleResendConfirmationEmail}
+                    >
+                      {resendMutation.isPending ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                          Отправляем...
+                        </>
+                      ) : resendCooldown > 0 ? (
+                        `Повторно через ${resendCooldown} сек.`
+                      ) : (
+                        'Отправить письмо повторно'
+                      )}
+                    </Button>
+                    {resendMutation.isSuccess ? (
+                      <p className="text-sm font-medium">Письмо отправлено повторно.</p>
+                    ) : null}
+                  </div>
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -204,7 +288,22 @@ export function ConsumerRegistrationForm() {
             {registerMutation.error ? (
               <Alert variant="destructive">
                 <AlertTitle>Регистрация не выполнена</AlertTitle>
-                <AlertDescription>{registerMutation.error.message}</AlertDescription>
+                <AlertDescription>
+                  {isAuthRateLimitError(registerMutation.error)
+                    ? AUTH_RATE_LIMIT_MESSAGE
+                    : registerMutation.error.message}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {resendMutation.error ? (
+              <Alert variant="destructive">
+                <AlertTitle>Письмо не отправлено</AlertTitle>
+                <AlertDescription>
+                  {isAuthRateLimitError(resendMutation.error)
+                    ? AUTH_RATE_LIMIT_MESSAGE
+                    : resendMutation.error.message}
+                </AlertDescription>
               </Alert>
             ) : null}
           </form>

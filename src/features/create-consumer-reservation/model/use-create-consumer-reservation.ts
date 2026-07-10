@@ -2,15 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   createConsumerReservation,
+  getMyTodayFuelingStatus,
   getMyQueueStatus,
+  type ConsumerTodayFuelingStatus,
   type ConsumerReservation,
   type CreateConsumerReservationParams,
 } from '@/shared/api/rpc'
 import { useOnlineStatus } from '@/shared/lib/sync'
 
 export type { ConsumerReservation, CreateConsumerReservationParams }
+export type { ConsumerTodayFuelingStatus }
 
 export const myQueueStatusQueryKey = ['my-queue-status'] as const
+export const myTodayFuelingStatusQueryKey = ['my-today-fueling-status'] as const
 
 const createConsumerReservationErrorMessages: Record<string, string> = {
   ACTIVE_RESERVATION_ALREADY_EXISTS: 'Этот автомобиль уже есть в очереди.',
@@ -35,6 +39,14 @@ export function useMyQueueStatus() {
   return useQuery({
     queryKey: myQueueStatusQueryKey,
     queryFn: getMyQueueStatus,
+    staleTime: 30_000,
+  })
+}
+
+export function useMyTodayFuelingStatus() {
+  return useQuery({
+    queryKey: myTodayFuelingStatusQueryKey,
+    queryFn: getMyTodayFuelingStatus,
     staleTime: 30_000,
   })
 }

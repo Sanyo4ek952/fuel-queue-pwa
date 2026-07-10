@@ -1,9 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
 
-import {
-  signUpConsumerWithPassword,
-  type SignUpConsumerWithPasswordParams,
-} from '@/shared/api/auth'
+import { signUpConsumerWithPassword, type SignUpConsumerWithPasswordParams } from '@/shared/api/auth'
+
+import { AuthMutationError } from './auth-error'
 
 export type { SignUpConsumerWithPasswordParams }
 
@@ -13,7 +12,7 @@ export function useRegisterConsumer() {
       const result = await signUpConsumerWithPassword(params)
 
       if (result.error) {
-        throw new Error(result.error)
+        throw new AuthMutationError(result)
       }
 
       return result.data

@@ -13,6 +13,7 @@ export type DailyFuelTypeLimitInput = {
 
 export type CreateDailyLimitParams = {
   targetDate: string
+  stationId: string
   fuelTypeLimits: DailyFuelTypeLimitInput[]
   clientMutationId: string
 }
@@ -84,6 +85,7 @@ function toDailyLimitResult(value: unknown): CreateDailyLimitResult | null {
 
 export async function createDailyLimit({
   targetDate,
+  stationId,
   fuelTypeLimits,
   clientMutationId,
 }: CreateDailyLimitParams): Promise<RpcResult<CreateDailyLimitResult>> {
@@ -96,6 +98,7 @@ export async function createDailyLimit({
 
   const { data, error } = await supabase.rpc('create_daily_limit', {
     target_date: targetDate,
+    target_station_id: stationId,
     fuel_type_limits: fuelTypeLimits.map((item) => ({
       fuel_type: item.fuelType,
       limit_mode: item.limitMode,

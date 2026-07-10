@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CalendarDays, Save } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, type FieldPath } from 'react-hook-form'
 
+import { useCurrentProfile } from '@/entities/profile'
 import {
   type CreateDailyLimitFormInput,
   type CreateDailyLimitFormValues,
@@ -16,6 +17,7 @@ import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { StationSelectField } from '@/shared/ui/station-select-field'
 import {
   Select,
   SelectContent,
@@ -43,6 +45,7 @@ const defaultFuelTypeLimits = [
 type FuelTypeLimitField = 'fuelType' | 'limitMode' | 'vehicleLimit' | 'litersLimit'
 
 export function CreateDailyLimitForm() {
+  const currentProfileQuery = useCurrentProfile()
   const createDailyLimitMutation = useCreateDailyLimit()
   const [savingFuelType, setSavingFuelType] = useState<QueueFuelType | null>(null)
   const [savedFuelType, setSavedFuelType] = useState<QueueFuelType | null>(null)
@@ -51,10 +54,25 @@ export function CreateDailyLimitForm() {
     resolver: zodResolver(createDailyLimitSchema),
     defaultValues: {
       targetDate: getTodayDateInputValue(),
+      stationId: '',
       fuelTypeLimits: defaultFuelTypeLimits,
     },
   })
   const fuelTypeLimits = form.watch('fuelTypeLimits')
+  const stations = useMemo(
+    () => currentProfileQuery.data?.stations ?? [],
+    [currentProfileQuery.data?.stations],
+  )
+
+  useEffect(() => {
+    const currentStationId = form.getValues('stationId')
+
+    if (stations.some((station) => station.id === currentStationId)) {
+      return
+    }
+
+    form.setValue('stationId', stations[0]?.id ?? '', { shouldValidate: true })
+  }, [form, stations])
 
   async function handleFuelTypeSubmit(index: number) {
     const fuelTypeLimit = form.getValues(`fuelTypeLimits.${index}`)
@@ -66,6 +84,7 @@ export function CreateDailyLimitForm() {
 
     const parsed = saveDailyFuelTypeLimitSchema.safeParse({
       targetDate: form.getValues('targetDate'),
+      stationId: form.getValues('stationId'),
       fuelTypeLimit,
     })
 
@@ -73,6 +92,10 @@ export function CreateDailyLimitForm() {
       for (const issue of parsed.error.issues) {
         if (issue.path[0] === 'targetDate') {
           form.setError('targetDate', { message: issue.message })
+        }
+
+        if (issue.path[0] === 'stationId') {
+          form.setError('stationId', { message: issue.message })
         }
 
         if (issue.path[0] === 'fuelTypeLimit' && typeof issue.path[1] === 'string') {
@@ -91,6 +114,7 @@ export function CreateDailyLimitForm() {
     try {
       await createDailyLimitMutation.mutateAsync({
         targetDate: parsed.data.targetDate,
+        stationId: parsed.data.stationId,
         fuelTypeLimits: [parsed.data.fuelTypeLimit],
         clientMutationId: crypto.randomUUID(),
       })
@@ -123,6 +147,18 @@ export function CreateDailyLimitForm() {
                 <FormMessage>{form.formState.errors.targetDate.message}</FormMessage>
               ) : null}
             </FormItem>
+
+            <StationSelectField
+              id="dailyLimitStation"
+              value={form.watch('stationId')}
+              stations={stations}
+              onValueChange={(stationId) =>
+                form.setValue('stationId', stationId, { shouldValidate: true })
+              }
+            />
+            {form.formState.errors.stationId ? (
+              <FormMessage>{form.formState.errors.stationId.message}</FormMessage>
+            ) : null}
 
             <div className="grid gap-3">
               {fuelTypeLimits.map((item, index) => {

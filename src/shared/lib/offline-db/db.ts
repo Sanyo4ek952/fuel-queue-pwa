@@ -28,6 +28,8 @@ export type LocalVehicle = LocalRecord & {
 
 export type LocalReservation = LocalRecord & {
   station_id?: string | null
+  station_name?: string | null
+  station_address?: string | null
   vehicle_id: string
   driver_id?: string | null
   created_by_profile_id?: string | null
@@ -85,8 +87,37 @@ export type LocalQueueEntry = LocalRecord & {
   status: string
 }
 
+export type LocalDailyLimitCategoryOverview = {
+  fuel_type?: FuelType | string
+  fuel_category: string
+  label: string
+  limit_mode: string
+  vehicle_limit: number
+  liters_limit: number | null
+  queue_count: number
+  queued_liters: number
+  covered_vehicle_count: number
+  covered_liters: number
+  remaining_vehicle_count: number | null
+  remaining_liters: number | null
+  projected_queue_number: number | null
+}
+
+export type LocalDailyLimitStationOverview = {
+  id: string | null
+  date: string
+  station_id: string | null
+  station_name: string | null
+  station_address: string | null
+  status: string | null
+  category_overviews: LocalDailyLimitCategoryOverview[]
+  updated_at: string | null
+}
+
 export type LocalDailyLimit = LocalRecord & {
   station_id?: string | null
+  station_name?: string | null
+  station_address?: string | null
   date: string
   status: string
   total_vehicle_limit?: number | null
@@ -103,21 +134,8 @@ export type LocalDailyLimit = LocalRecord & {
     reserved_liters: number
     remaining_liters: number | null
   }>
-  category_overviews?: Array<{
-    fuel_type?: FuelType | string
-    fuel_category: string
-    label: string
-    limit_mode: string
-    vehicle_limit: number
-    liters_limit: number | null
-    queue_count: number
-    queued_liters: number
-    covered_vehicle_count: number
-    covered_liters: number
-    remaining_vehicle_count: number | null
-    remaining_liters: number | null
-    projected_queue_number: number | null
-  }>
+  category_overviews?: LocalDailyLimitCategoryOverview[]
+  station_overviews?: LocalDailyLimitStationOverview[]
   cached_at?: string
 }
 

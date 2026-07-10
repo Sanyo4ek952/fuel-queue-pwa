@@ -11,10 +11,25 @@ import { CreateDailyLimitForm } from './create-daily-limit-form'
 
 const mocks = vi.hoisted(() => ({
   createDailyLimit: vi.fn(),
+  stations: [
+    {
+      id: 'station-id',
+      name: 'АЗС №1',
+      address: 'Адрес 1',
+    },
+  ],
 }))
 
 vi.mock('@/shared/api/rpc', () => ({
   createDailyLimit: mocks.createDailyLimit,
+}))
+
+vi.mock('@/entities/profile', () => ({
+  useCurrentProfile: () => ({
+    data: {
+      stations: mocks.stations,
+    },
+  }),
 }))
 
 vi.mock('@/entities/reservation', () => ({
@@ -45,7 +60,7 @@ function mockSuccessfulDailyLimit() {
     data: {
       id: 'limit-id',
       date: '2026-07-05',
-      station_id: null,
+      station_id: 'station-id',
       status: 'OPEN',
       client_mutation_id: 'mutation-id',
       fuel_type_limits: [],
@@ -58,6 +73,13 @@ function mockSuccessfulDailyLimit() {
 describe('CreateDailyLimitForm', () => {
   beforeEach(() => {
     mocks.createDailyLimit.mockReset()
+    mocks.stations = [
+      {
+        id: 'station-id',
+        name: 'АЗС №1',
+        address: 'Адрес 1',
+      },
+    ]
   })
 
   afterEach(() => {
@@ -93,6 +115,7 @@ describe('CreateDailyLimitForm', () => {
               litersLimit: 400,
             }),
           ],
+          stationId: 'station-id',
         }),
       )
     })
@@ -136,5 +159,16 @@ describe('CreateDailyLimitForm', () => {
 
     expect(mocks.createDailyLimit).not.toHaveBeenCalled()
     expect(await screen.findByText('Выберите дату')).toBeInTheDocument()
+  })
+
+  it('does not submit without a selected station', async () => {
+    mocks.stations = []
+    mockSuccessfulDailyLimit()
+
+    renderWithQueryClient(<CreateDailyLimitForm />)
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить АИ-95' }))
+
+    expect(mocks.createDailyLimit).not.toHaveBeenCalled()
+    expect(await screen.findByText('Выберите АЗС')).toBeInTheDocument()
   })
 })

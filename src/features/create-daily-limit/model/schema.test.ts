@@ -39,6 +39,7 @@ describe('createDailyLimitSchema', () => {
   it('coerces fuel type limit numeric fields', () => {
     const result = createDailyLimitSchema.parse({
       targetDate: '2026-07-05',
+      stationId: 'station-id',
       fuelTypeLimits: validFuelTypeLimits,
     })
 
@@ -58,6 +59,7 @@ describe('createDailyLimitSchema', () => {
   it('rejects missing liters in fuel_liters mode', () => {
     const result = createDailyLimitSchema.safeParse({
       targetDate: '2026-07-05',
+      stationId: 'station-id',
       fuelTypeLimits: [
         { fuelType: 'AI_92', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: '' },
         { fuelType: 'AI_95', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 400 },
@@ -73,6 +75,7 @@ describe('createDailyLimitSchema', () => {
   it('rejects zero vehicles in vehicle_count mode', () => {
     const result = createDailyLimitSchema.safeParse({
       targetDate: '2026-07-05',
+      stationId: 'station-id',
       fuelTypeLimits: [
         { fuelType: 'AI_92', limitMode: 'vehicle_count', vehicleLimit: 0, litersLimit: '' },
         { fuelType: 'AI_95', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 400 },
@@ -80,6 +83,16 @@ describe('createDailyLimitSchema', () => {
         { fuelType: 'DIESEL', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
         { fuelType: 'GAS', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
       ],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects missing station', () => {
+    const result = createDailyLimitSchema.safeParse({
+      targetDate: '2026-07-05',
+      stationId: '',
+      fuelTypeLimits: validFuelTypeLimits,
     })
 
     expect(result.success).toBe(false)

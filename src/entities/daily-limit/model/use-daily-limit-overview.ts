@@ -6,6 +6,7 @@ import {
   getDailyLimitOverview,
   type DailyLimitCategoryOverview,
   type DailyLimitOverview,
+  type DailyLimitStationOverview,
 } from '@/shared/api/rpc'
 import {
   getFuelQueueCategory,
@@ -49,10 +50,13 @@ function toLocalDailyLimit(overview: DailyLimitOverview): LocalDailyLimit | null
 
   return {
     id: overview.id,
-    station_id: null,
+    station_id: overview.station_id,
+    station_name: overview.station_name,
+    station_address: overview.station_address,
     date: overview.date,
     status: overview.status,
     category_overviews: overview.category_overviews,
+    station_overviews: overview.station_overviews,
     cached_at: new Date().toISOString(),
     updated_at: overview.updated_at ?? undefined,
   }
@@ -64,6 +68,8 @@ function fromLocalDailyLimit(row: LocalDailyLimit): DailyLimitOverview {
     id: row.id,
     date: row.date,
     station_id: row.station_id ?? null,
+    station_name: row.station_name ?? null,
+    station_address: row.station_address ?? null,
     status: row.status as DailyLimitOverview['status'],
     category_overviews: (row.category_overviews ?? []).map((item) => ({
       fuel_type: item.fuel_type as DailyLimitCategoryOverview['fuel_type'],
@@ -80,6 +86,31 @@ function fromLocalDailyLimit(row: LocalDailyLimit): DailyLimitOverview {
       remaining_liters: item.remaining_liters,
       projected_queue_number: item.projected_queue_number,
     })),
+    station_overviews: (row.station_overviews ?? []).map((station) => ({
+      exists: true,
+      id: station.id,
+      date: station.date,
+      station_id: station.station_id,
+      station_name: station.station_name,
+      station_address: station.station_address,
+      status: station.status as DailyLimitOverview['status'],
+      category_overviews: station.category_overviews.map((item) => ({
+        fuel_type: item.fuel_type as DailyLimitCategoryOverview['fuel_type'],
+        fuel_category: item.fuel_category as FuelQueueCategory,
+        label: item.label,
+        limit_mode: item.limit_mode as DailyLimitMode,
+        vehicle_limit: item.vehicle_limit,
+        liters_limit: item.liters_limit,
+        queue_count: item.queue_count,
+        queued_liters: item.queued_liters,
+        covered_vehicle_count: item.covered_vehicle_count,
+        covered_liters: item.covered_liters,
+        remaining_vehicle_count: item.remaining_vehicle_count,
+        remaining_liters: item.remaining_liters,
+        projected_queue_number: item.projected_queue_number,
+      })),
+      updated_at: station.updated_at,
+    })),
     updated_at: row.updated_at ?? row.cached_at ?? null,
   }
 }
@@ -90,8 +121,11 @@ function makeMissingOverview(date: string): DailyLimitOverview {
     id: null,
     date,
     station_id: null,
+    station_name: null,
+    station_address: null,
     status: null,
     category_overviews: [],
+    station_overviews: [],
     updated_at: null,
   }
 }
@@ -131,21 +165,70 @@ export function applyUnsyncedReservationEstimate(
   source: DailyLimitOverviewSource,
 ): DailyLimitOverviewResult {
   const unsyncedReservations = getUnsyncedActiveReservations(reservations)
+  const stationOverviews =
+    overview.station_overviews.length > 0
+      ? overview.station_overviews.map((station) =>
+          applyUnsyncedReservationEstimateToStation(station, unsyncedReservations),
+        )
+      : []
 
   if (!overview.exists || unsyncedReservations.length === 0) {
     return {
       ...overview,
+      station_overviews: stationOverviews,
       source,
       is_estimated: source === 'offline',
       unsynced_reservation_count: unsyncedReservations.length,
     }
   }
 
+  const baseOverview =
+    stationOverviews.length > 0
+      ? {
+          ...overview,
+          category_overviews: stationOverviews[0]?.category_overviews ?? overview.category_overviews,
+          station_overviews: stationOverviews,
+        }
+      : overview
+
+  if (stationOverviews.length > 0) {
+    return {
+      ...baseOverview,
+      source,
+      is_estimated: true,
+      unsynced_reservation_count: unsyncedReservations.length,
+    }
+  }
+
+  return {
+    ...applyUnsyncedReservationEstimateToStation(baseOverview, unsyncedReservations),
+    station_overviews: [],
+    source,
+    is_estimated: true,
+    unsynced_reservation_count: unsyncedReservations.length,
+  }
+}
+
+function applyUnsyncedReservationEstimateToStation(
+  overview: DailyLimitStationOverview,
+  unsyncedReservations: LocalReservation[],
+): DailyLimitStationOverview {
+  const stationReservations =
+    overview.station_id === null
+      ? unsyncedReservations
+      : unsyncedReservations.filter(
+          (reservation) => reservation.station_id === overview.station_id,
+        )
+
+  if (!overview.exists || stationReservations.length === 0) {
+    return overview
+  }
+
   const overviewsByFuel = new Map(
     overview.category_overviews.map((item) => [item.fuel_type ?? item.fuel_category, { ...item }]),
   )
 
-  for (const reservation of unsyncedReservations) {
+  for (const reservation of stationReservations) {
     const fuelType = reservation.fuel_type as QueueFuelType
     const fuelCategory = getFuelQueueCategory(fuelType)
 
@@ -192,9 +275,6 @@ export function applyUnsyncedReservationEstimate(
   return {
     ...overview,
     category_overviews: Array.from(overviewsByFuel.values()),
-    source,
-    is_estimated: true,
-    unsynced_reservation_count: unsyncedReservations.length,
   }
 }
 

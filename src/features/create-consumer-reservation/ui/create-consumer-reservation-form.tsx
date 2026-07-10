@@ -286,6 +286,10 @@ export function CreateConsumerReservationForm({
                   Номер записи №{createReservationMutation.data.ticket_number},{' '}
                   {createReservationMutation.data.normalized_plate_number},{' '}
                   {createReservationMutation.data.requested_liters} л.
+                  <br />
+                  {createReservationMutation.data.station_name
+                    ? `АЗС: ${createReservationMutation.data.station_name}.`
+                    : 'АЗС будет назначена.'}
                 </AlertDescription>
               </Alert>
             ) : null}

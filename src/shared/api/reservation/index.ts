@@ -33,6 +33,8 @@ type ReservationRow = {
   id: string
   date?: string | null
   station_id?: string | null
+  station_name?: string | null
+  station_address?: string | null
   vehicle_id: string
   driver_id?: string | null
   operator_id: string
@@ -78,6 +80,8 @@ export type TodayQueueRow = {
   id: string
   date: string | null
   station_id: string | null
+  station_name?: string | null
+  station_address?: string | null
   vehicle_id: string
   driver_id: string | null
   created_by_profile_id: string | null
@@ -266,6 +270,8 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     id: row.id,
     date: row.date ?? null,
     station_id: row.station_id ?? null,
+    station_name: row.station_name ?? null,
+    station_address: row.station_address ?? null,
     vehicle_id: row.vehicle_id,
     driver_id: row.driver_id ?? null,
     created_by_profile_id: row.operator_id,
@@ -314,6 +320,8 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     id: row.id,
     date: row.date ?? null,
     station_id: row.station_id ?? null,
+    station_name: row.station_name ?? null,
+    station_address: row.station_address ?? null,
     vehicle_id: row.vehicle_id,
     driver_id: row.driver_id ?? null,
     created_by_profile_id: row.created_by_profile_id ?? null,
@@ -632,6 +640,8 @@ export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
         id: row.id,
         date: row.date,
         station_id: row.station_id,
+        station_name: row.station_name,
+        station_address: row.station_address,
         vehicle_id: row.vehicle_id,
         driver_id: row.driver_id,
         created_by_profile_id: row.created_by_profile_id,

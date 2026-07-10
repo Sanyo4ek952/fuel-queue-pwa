@@ -9,6 +9,7 @@ vi.mock('@/shared/api/supabase', () => ({
 import {
   parseCancelMyReservationResult,
   parseConsumerReservation,
+  parseConsumerTodayFuelingStatus,
   parseConsumerVehicle,
 } from './consumer-cabinet'
 
@@ -44,7 +45,9 @@ describe('consumer cabinet RPC parsers', () => {
       parseConsumerReservation({
         id: 'reservation-id',
         date: null,
-        station_id: null,
+        station_id: 'station-id',
+        station_name: 'АЗС №1',
+        station_address: 'Адрес 1',
         vehicle_id: 'vehicle-id',
         driver_id: 'driver-id',
         normalized_plate_number: 'А123ВС777',
@@ -66,6 +69,8 @@ describe('consumer cabinet RPC parsers', () => {
     ).toMatchObject({
       id: 'reservation-id',
       vehicle_id: 'vehicle-id',
+      station_name: 'АЗС №1',
+      station_address: 'Адрес 1',
       fuel_type: 'DIESEL',
       queue_number: 10,
       ticket_number: 10,
@@ -77,6 +82,32 @@ describe('consumer cabinet RPC parsers', () => {
       is_fuel_preference_update_locked: true,
       requested_liters: 20.5,
       status: 'RESERVED',
+    })
+  })
+
+  it('keeps computed station context when reservation station id is still empty', () => {
+    expect(
+      parseConsumerReservation({
+        id: 'reservation-id',
+        date: '2026-07-10',
+        station_id: null,
+        station_name: 'АЗС №2',
+        station_address: 'Адрес 2',
+        vehicle_id: 'vehicle-id',
+        fuel_type: 'AI_95',
+        fuel_preference_mode: 'EXACT',
+        requested_liters: 20,
+        queue_number: 8,
+        is_within_today_limit: true,
+        status: 'RESERVED',
+        client_mutation_id: 'mutation-id',
+      }),
+    ).toMatchObject({
+      station_id: null,
+      station_name: 'АЗС №2',
+      station_address: 'Адрес 2',
+      is_within_today_limit: true,
+      ticket_number: 8,
     })
   })
 
@@ -102,6 +133,38 @@ describe('consumer cabinet RPC parsers', () => {
       status: 'CANCELLED',
       sync_status: 'SYNCED',
       cancel_reason: 'OWNER_CANCELLED',
+    })
+  })
+
+  it('parses a consumer today fueling status response', () => {
+    expect(
+      parseConsumerTodayFuelingStatus({
+        id: 'fueling-id',
+        date: '2026-07-10',
+        station_id: 'station-id',
+        station_name: 'АЗС №1',
+        station_address: 'Адрес 1',
+        vehicle_id: 'vehicle-id',
+        reservation_id: 'reservation-id',
+        normalized_plate_number: 'А123ВС777',
+        fuel_type: 'AI_95',
+        liters: '20.5',
+        fueled_at: '2026-07-10T10:00:00Z',
+        ticket_number: '7',
+      }),
+    ).toEqual({
+      id: 'fueling-id',
+      date: '2026-07-10',
+      station_id: 'station-id',
+      station_name: 'АЗС №1',
+      station_address: 'Адрес 1',
+      vehicle_id: 'vehicle-id',
+      reservation_id: 'reservation-id',
+      normalized_plate_number: 'А123ВС777',
+      fuel_type: 'AI_95',
+      liters: 20.5,
+      fueled_at: '2026-07-10T10:00:00Z',
+      ticket_number: 7,
     })
   })
 })

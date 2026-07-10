@@ -39,11 +39,13 @@ export const dailyFuelTypeLimitSchema = z
 
 export const createDailyLimitSchema = z.object({
   targetDate: targetDateSchema,
+  stationId: z.string().min(1, 'Выберите АЗС'),
   fuelTypeLimits: z.array(dailyFuelTypeLimitSchema),
 })
 
 export const saveDailyFuelTypeLimitSchema = z.object({
   targetDate: targetDateSchema,
+  stationId: z.string().min(1, 'Выберите АЗС'),
   fuelTypeLimit: dailyFuelTypeLimitSchema,
 })
 

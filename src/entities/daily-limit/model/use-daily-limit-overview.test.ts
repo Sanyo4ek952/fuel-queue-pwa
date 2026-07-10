@@ -14,6 +14,8 @@ const overview: DailyLimitOverview = {
   id: 'limit-id',
   date: '2026-07-05',
   station_id: null,
+  station_name: null,
+  station_address: null,
   status: 'OPEN',
   updated_at: '2026-07-05T10:00:00.000Z',
   category_overviews: [
@@ -33,6 +35,7 @@ const overview: DailyLimitOverview = {
       projected_queue_number: 2,
     },
   ],
+  station_overviews: [],
 }
 
 function makeReservation(overrides: Partial<LocalReservation>): LocalReservation {
@@ -88,6 +91,48 @@ describe('applyUnsyncedReservationEstimate', () => {
     expect(result.category_overviews[0]).toMatchObject({
       covered_vehicle_count: 2,
       remaining_liters: 120,
+    })
+  })
+
+  it('applies unsynced reservations only to their station section', () => {
+    const result = applyUnsyncedReservationEstimate(
+      {
+        ...overview,
+        station_overviews: [
+          {
+            ...overview,
+            id: 'limit-station-1',
+            station_id: 'station-1',
+            station_name: 'АЗС №1',
+            station_address: 'Адрес 1',
+          },
+          {
+            ...overview,
+            id: 'limit-station-2',
+            station_id: 'station-2',
+            station_name: 'АЗС №2',
+            station_address: 'Адрес 2',
+          },
+        ],
+      },
+      [
+        makeReservation({
+          id: 'pending-station-2',
+          station_id: 'station-2',
+          queue_number: 3,
+          requested_liters: 30,
+        }),
+      ],
+      'offline',
+    )
+
+    expect(result.station_overviews[0]?.category_overviews[0]).toMatchObject({
+      queue_count: 2,
+      queued_liters: 80,
+    })
+    expect(result.station_overviews[1]?.category_overviews[0]).toMatchObject({
+      queue_count: 3,
+      queued_liters: 110,
     })
   })
 })

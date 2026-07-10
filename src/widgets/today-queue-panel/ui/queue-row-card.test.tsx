@@ -27,6 +27,8 @@ function makeQueueRow(overrides: Partial<TodayQueueRow> = {}): TodayQueueRow {
     id: 'reservation-id',
     date: null,
     station_id: null,
+    station_name: null,
+    station_address: null,
     vehicle_id: 'vehicle-id',
     driver_id: null,
     created_by_profile_id: 'profile-id',
@@ -122,6 +124,28 @@ describe('QueueRowCard', () => {
     expect(within(article).getByText('Позиция в очереди топлива')).toBeInTheDocument()
     expect(within(article).getByText('Номер талона')).toBeInTheDocument()
     expect(within(article).getByText('№10')).toBeInTheDocument()
+  })
+
+  it('shows assigned station name and address', async () => {
+    renderCard(
+      makeQueueRow({
+        station_id: 'station-id',
+        station_name: 'АЗС №1',
+        station_address: 'Адрес 1',
+      }),
+    )
+
+    expect(screen.getByText('АЗС №1')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Открыть детали' }))
+
+    expect(screen.getByText('Адрес 1')).toBeInTheDocument()
+  })
+
+  it('shows station fallback when station is not assigned yet', () => {
+    renderCard()
+
+    expect(screen.getByText('АЗС будет назначена')).toBeInTheDocument()
   })
 
   it('cancels only the selected reservation row', async () => {

@@ -5,7 +5,7 @@ import {
   useDailyLimitOverview,
   type DailyLimitOverviewResult,
 } from '@/entities/daily-limit'
-import type { DailyLimitCategoryOverview } from '@/shared/api/rpc'
+import type { DailyLimitCategoryOverview, DailyLimitStationOverview } from '@/shared/api/rpc'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
@@ -43,7 +43,13 @@ function SummaryTile({ label, value }: { label: string; value: string | number }
   )
 }
 
-function CategoryCard({ row }: { row: DailyLimitCategoryOverview }) {
+function CategoryCard({
+  row,
+  stationName,
+}: {
+  row: DailyLimitCategoryOverview
+  stationName: string | null
+}) {
   const limitValue =
     row.limit_mode === 'vehicle_count'
       ? `${formatNumber(row.vehicle_limit)} машин`
@@ -58,6 +64,9 @@ function CategoryCard({ row }: { row: DailyLimitCategoryOverview }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-slate-950">{row.label}</h2>
+          {stationName ? (
+            <p className="mt-1 text-sm font-medium text-slate-700">{stationName}</p>
+          ) : null}
           <p className="mt-1 text-sm text-slate-500">
             {row.limit_mode === 'vehicle_count' ? 'Лимит по машинам' : 'Лимит по топливу'}
           </p>
@@ -81,7 +90,7 @@ function CategoryCard({ row }: { row: DailyLimitCategoryOverview }) {
   )
 }
 
-function LimitSummary({ overview }: { overview: DailyLimitOverviewResult }) {
+function LimitSummary({ overview }: { overview: DailyLimitStationOverview }) {
   if (!overview.exists || !overview.status) {
     return null
   }
@@ -106,7 +115,9 @@ function LimitSummary({ overview }: { overview: DailyLimitOverviewResult }) {
           </Badge>
         </CardTitle>
         <CardDescription>
+          {overview.station_name ? `${overview.station_name} · ` : ''}
           {overview.date}
+          {overview.station_address ? ` · ${overview.station_address}` : ''}
           {overview.updated_at
             ? ` · обновлено ${new Date(overview.updated_at).toLocaleString('ru-RU')}`
             : ''}
@@ -118,6 +129,26 @@ function LimitSummary({ overview }: { overview: DailyLimitOverviewResult }) {
       </CardContent>
     </Card>
   )
+}
+
+function getStationOverviews(overview: DailyLimitOverviewResult): DailyLimitStationOverview[] {
+  if ((overview.station_overviews ?? []).length > 0) {
+    return overview.station_overviews
+  }
+
+  return [
+    {
+      exists: overview.exists,
+      id: overview.id,
+      date: overview.date,
+      station_id: overview.station_id,
+      station_name: overview.station_name,
+      station_address: overview.station_address,
+      status: overview.status,
+      category_overviews: overview.category_overviews,
+      updated_at: overview.updated_at,
+    },
+  ]
 }
 
 export function DailyLimitOverviewPanel() {
@@ -194,14 +225,25 @@ export function DailyLimitOverviewPanel() {
       ) : null}
 
       {overview?.exists ? (
-        <>
-          <LimitSummary overview={overview} />
-          <div className="grid gap-3 lg:grid-cols-3">
-            {(overview.category_overviews ?? []).map((row) => (
-              <CategoryCard key={row.fuel_type ?? row.fuel_category} row={row} />
-            ))}
-          </div>
-        </>
+        <div className="space-y-4">
+          {getStationOverviews(overview).map((stationOverview) => (
+            <section
+              key={stationOverview.id ?? stationOverview.station_id ?? 'global'}
+              className="space-y-3"
+            >
+              <LimitSummary overview={stationOverview} />
+              <div className="grid gap-3 lg:grid-cols-3">
+                {(stationOverview.category_overviews ?? []).map((row) => (
+                  <CategoryCard
+                    key={`${stationOverview.id ?? stationOverview.station_id ?? 'global'}-${row.fuel_type ?? row.fuel_category}`}
+                    row={row}
+                    stationName={stationOverview.station_name}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       ) : null}
     </div>
   )

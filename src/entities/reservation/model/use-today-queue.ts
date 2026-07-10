@@ -19,7 +19,6 @@ import {
   getFuelQueueCategory,
   type FuelQueueCategory,
 } from '@/shared/constants'
-import { getTodayDateInputValue } from '@/shared/lib/date'
 import { offlineDb } from '@/shared/lib/offline-db'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import { useOnlineStatus } from '@/shared/lib/sync'
@@ -61,6 +60,10 @@ export type TodayQueueAuthorsParams = {
 
 function compareQueueRows(left: TodayQueueRow, right: TodayQueueRow) {
   return left.ticket_number - right.ticket_number || left.id.localeCompare(right.id)
+}
+
+export function isActiveLocalQueueRow(row: { status: string }) {
+  return activeReservationStatuses.has(row.status)
 }
 
 function mergeRows(onlineRows: TodayQueueRow[], localRows: TodayQueueRow[]) {
@@ -160,7 +163,6 @@ function useTodayQueueCategory(params: TodayQueueParams, fuelCategory: FuelQueue
 
 export function useTodayQueue(params: TodayQueueParams = {}) {
   const isOnline = useOnlineStatus()
-  const todayDate = getTodayDateInputValue()
   const [localRows, setLocalRows] = useState<TodayQueueRow[]>([])
   const [localError, setLocalError] = useState<Error | null>(null)
   const [isLocalReady, setIsLocalReady] = useState(false)
@@ -168,7 +170,7 @@ export function useTodayQueue(params: TodayQueueParams = {}) {
   useEffect(() => {
     const subscription = liveQuery(async () => {
       const rows = (await offlineDb.local_reservations.toArray())
-        .filter((row) => row.date === todayDate && activeReservationStatuses.has(row.status))
+        .filter(isActiveLocalQueueRow)
         .map(toTodayQueueRowFromLocal)
         .sort(compareQueueRows)
 
@@ -186,7 +188,7 @@ export function useTodayQueue(params: TodayQueueParams = {}) {
     })
 
     return () => subscription.unsubscribe()
-  }, [todayDate])
+  }, [])
 
   const gasolineQuery = useTodayQueueCategory(params, 'GASOLINE', isOnline)
   const dieselQuery = useTodayQueueCategory(params, 'DIESEL', isOnline)

@@ -26,6 +26,8 @@ export type ConsumerReservation = {
   id: string
   date: string | null
   station_id: string | null
+  station_name: string | null
+  station_address: string | null
   vehicle_id: string
   driver_id: string | null
   normalized_plate_number: string
@@ -46,6 +48,21 @@ export type ConsumerReservation = {
   client_mutation_id: string
   created_at?: string
   updated_at?: string
+}
+
+export type ConsumerTodayFuelingStatus = {
+  id: string
+  date: string
+  station_id: string
+  station_name: string | null
+  station_address: string | null
+  vehicle_id: string
+  reservation_id: string | null
+  normalized_plate_number: string
+  fuel_type: FuelType
+  liters: number
+  fueled_at: string
+  ticket_number: number | null
 }
 
 export type CreateConsumerReservationParams = {
@@ -166,6 +183,8 @@ export function parseConsumerReservation(value: unknown): ConsumerReservation | 
       id: row.id,
       date: row.date ?? null,
       station_id: row.station_id ?? null,
+      station_name: row.station_name ?? null,
+      station_address: row.station_address ?? null,
       vehicle_id: row.vehicle_id,
       driver_id: row.driver_id ?? null,
       normalized_plate_number: row.normalized_plate_number ?? '',
@@ -186,6 +205,42 @@ export function parseConsumerReservation(value: unknown): ConsumerReservation | 
       client_mutation_id: row.client_mutation_id,
       created_at: row.created_at,
       updated_at: row.updated_at,
+    }
+  }
+
+  return null
+}
+
+export function parseConsumerTodayFuelingStatus(
+  value: unknown,
+): ConsumerTodayFuelingStatus | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const row = value as Partial<ConsumerTodayFuelingStatus>
+
+  if (
+    typeof row.id === 'string' &&
+    typeof row.date === 'string' &&
+    typeof row.station_id === 'string' &&
+    typeof row.vehicle_id === 'string' &&
+    typeof row.fuel_type === 'string' &&
+    typeof row.fueled_at === 'string'
+  ) {
+    return {
+      id: row.id,
+      date: row.date,
+      station_id: row.station_id,
+      station_name: row.station_name ?? null,
+      station_address: row.station_address ?? null,
+      vehicle_id: row.vehicle_id,
+      reservation_id: row.reservation_id ?? null,
+      normalized_plate_number: row.normalized_plate_number ?? '',
+      fuel_type: row.fuel_type as FuelType,
+      liters: toNumber(row.liters),
+      fueled_at: row.fueled_at,
+      ticket_number: toNullableNumber(row.ticket_number),
     }
   }
 
@@ -304,6 +359,30 @@ export async function getMyQueueStatus(): Promise<ConsumerReservation | null> {
 
   if (!parsed) {
     throw new Error('Unexpected get_my_queue_status response.')
+  }
+
+  return parsed
+}
+
+export async function getMyTodayFuelingStatus(): Promise<ConsumerTodayFuelingStatus | null> {
+  if (!isSupabaseConfigured) {
+    return null
+  }
+
+  const { data, error } = await supabase.rpc('get_my_today_fueling_status')
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (data === null) {
+    return null
+  }
+
+  const parsed = parseConsumerTodayFuelingStatus(data)
+
+  if (!parsed) {
+    throw new Error('Unexpected get_my_today_fueling_status response.')
   }
 
   return parsed

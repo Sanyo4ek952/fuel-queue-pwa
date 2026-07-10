@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 
 import {
   CheckCircle2,
+  MapPin,
   Pencil,
   Phone,
   PhoneOff,
@@ -139,6 +140,7 @@ export function QueueRowCard({
   const callTime = formatCallTime(row.latest_called_at)
   const quickCallStatus: ReservationCallStatus = isContacted ? 'NOT_CALLED' : 'CONTACTED'
   const phoneActionDisabled = !callableNow
+  const stationLabel = row.station_name ?? 'АЗС будет назначена'
   const matchedFuelLabel = row.matched_fuel_type
     ? (fuelTypeLabels[row.matched_fuel_type as FuelType] ?? row.matched_fuel_type)
     : null
@@ -209,6 +211,10 @@ export function QueueRowCard({
                   </p>
                   <p className="mt-0.5 truncate text-xs text-slate-500">
                     В очереди {fuelCategoryLabel}: {row.current_position} · Талон №{row.ticket_number}
+                  </p>
+                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-500">
+                    <MapPin className="size-3 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{stationLabel}</span>
                   </p>
                   {estimatedArrivalTime ? (
                     <p className="mt-0.5 truncate text-xs font-medium text-slate-700">
@@ -411,6 +417,13 @@ export function QueueRowCard({
                   <dd className="font-medium text-slate-950">{estimatedArrivalTime}</dd>
                 </div>
               ) : null}
+              <div>
+                <dt className="text-slate-500">АЗС</dt>
+                <dd className="font-medium text-slate-950">{stationLabel}</dd>
+                {row.station_address ? (
+                  <dd className="text-xs text-slate-500">{row.station_address}</dd>
+                ) : null}
+              </div>
               <div>
                 <dt className="text-slate-500">Позиция в очереди топлива</dt>
                 <dd className="font-medium text-slate-950">{row.current_position}</dd>

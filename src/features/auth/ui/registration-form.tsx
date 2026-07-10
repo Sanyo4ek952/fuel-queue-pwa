@@ -1,14 +1,17 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Send } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import {
+  AUTH_RATE_LIMIT_MESSAGE,
   REGISTERABLE_ROLES,
   type RegisterFormInput,
   type RegisterFormValues,
+  isAuthRateLimitError,
   registerSchema,
   useRegister,
+  useResendSignupConfirmation,
 } from '@/features/auth'
 import { ROLE_LABELS } from '@/shared/config/roles'
 import { STATIONS } from '@/shared/config/stations'
@@ -26,9 +29,13 @@ import {
   SelectValue,
 } from '@/shared/ui/select'
 
+const EMAIL_RESEND_COOLDOWN_SECONDS = 60
+
 export function RegistrationForm() {
   const registerMutation = useRegister()
+  const resendMutation = useResendSignupConfirmation()
   const hcaptcha = useHcaptchaToken()
+  const [resendCooldown, setResendCooldown] = useState(0)
   const form = useForm<RegisterFormInput, unknown, RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -46,12 +53,36 @@ export function RegistrationForm() {
     },
   })
   const requestedRole = form.watch('requestedRole')
+  const isResendDisabled =
+    resendMutation.isPending || hcaptcha.isLoading || resendCooldown > 0
 
   useEffect(() => {
     if (hcaptcha.token) {
       form.clearErrors('captchaToken')
     }
   }, [form, hcaptcha.token])
+
+  useEffect(() => {
+    if (!registerMutation.isSuccess) {
+      return
+    }
+
+    hcaptcha.reset()
+    form.setValue('captchaToken', '')
+    setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
+  }, [form, hcaptcha.reset, registerMutation.isSuccess])
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setResendCooldown((current) => Math.max(0, current - 1))
+    }, 1000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [resendCooldown])
 
   async function handleSubmit(values: RegisterFormValues) {
     try {
@@ -75,12 +106,42 @@ export function RegistrationForm() {
         captchaToken: hcaptcha.token,
       })
     } catch (error) {
+      if (isAuthRateLimitError(error)) {
+        setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
+      }
+
       hcaptcha.reset()
       form.setValue('captchaToken', '')
 
       if (error instanceof Error && error.message.includes('hCaptcha')) {
         form.setError('captchaToken', { message: error.message })
       }
+    }
+  }
+
+  async function handleResendConfirmationEmail() {
+    resendMutation.reset()
+
+    if (!hcaptcha.token) {
+      form.setError('captchaToken', { message: hcaptcha.error ?? 'Подтвердите hCaptcha.' })
+      return
+    }
+
+    try {
+      await resendMutation.mutateAsync({
+        email: form.getValues('email'),
+        captchaToken: hcaptcha.token,
+      })
+      hcaptcha.reset()
+      form.setValue('captchaToken', '')
+      setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
+    } catch (error) {
+      if (isAuthRateLimitError(error)) {
+        setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
+      }
+
+      hcaptcha.reset()
+      form.setValue('captchaToken', '')
     }
   }
 
@@ -264,8 +325,32 @@ export function RegistrationForm() {
               <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
                 <AlertTitle>Заявка отправлена</AlertTitle>
                 <AlertDescription>
-                  Проверьте почту и подтвердите email. После подтверждения руководитель сможет
-                  проверить данные и назначить доступ.
+                  Проверьте почту и подтвердите email. Если письма нет во входящих, проверьте
+                  папку «Спам». После подтверждения руководитель сможет проверить данные и
+                  назначить доступ.
+                  <div className="mt-3 space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 w-full border-emerald-300 bg-white text-emerald-950 hover:bg-emerald-100"
+                      disabled={isResendDisabled}
+                      onClick={handleResendConfirmationEmail}
+                    >
+                      {resendMutation.isPending ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                          Отправляем...
+                        </>
+                      ) : resendCooldown > 0 ? (
+                        `Повторно через ${resendCooldown} сек.`
+                      ) : (
+                        'Отправить письмо повторно'
+                      )}
+                    </Button>
+                    {resendMutation.isSuccess ? (
+                      <p className="text-sm font-medium">Письмо отправлено повторно.</p>
+                    ) : null}
+                  </div>
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -282,7 +367,22 @@ export function RegistrationForm() {
             {registerMutation.error ? (
               <Alert variant="destructive">
                 <AlertTitle>Заявка не отправлена</AlertTitle>
-                <AlertDescription>{registerMutation.error.message}</AlertDescription>
+                <AlertDescription>
+                  {isAuthRateLimitError(registerMutation.error)
+                    ? AUTH_RATE_LIMIT_MESSAGE
+                    : registerMutation.error.message}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {resendMutation.error ? (
+              <Alert variant="destructive">
+                <AlertTitle>Письмо не отправлено</AlertTitle>
+                <AlertDescription>
+                  {isAuthRateLimitError(resendMutation.error)
+                    ? AUTH_RATE_LIMIT_MESSAGE
+                    : resendMutation.error.message}
+                </AlertDescription>
               </Alert>
             ) : null}
           </form>

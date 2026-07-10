@@ -6,6 +6,8 @@ import { supabase } from '@/shared/api/supabase'
 export type AuthResult<TData> = {
   data: TData | null
   error: string | null
+  status?: number
+  code?: string
 }
 
 export type LoginWithPasswordParams = {
@@ -34,6 +36,18 @@ export type SignUpConsumerWithPasswordParams = {
   middleName?: string
   phone?: string
   captchaToken?: string
+}
+
+export type ResendSignupConfirmationEmailParams = {
+  email: string
+  captchaToken?: string
+}
+
+function getAuthErrorMeta(error: { status?: number; code?: string } | null | undefined) {
+  return {
+    status: error?.status,
+    code: error?.code,
+  }
 }
 
 async function clearSignupSession(session: Session | null): Promise<AuthResult<Session>> {
@@ -142,6 +156,7 @@ export async function signUpWithPassword({
     return {
       data: null,
       error: error.message,
+      ...getAuthErrorMeta(error),
     }
   }
 
@@ -183,10 +198,42 @@ export async function signUpConsumerWithPassword({
     return {
       data: null,
       error: error.message,
+      ...getAuthErrorMeta(error),
     }
   }
 
   return clearSignupSession(data.session)
+}
+
+export async function resendSignupConfirmationEmail({
+  email,
+  captchaToken,
+}: ResendSignupConfirmationEmailParams): Promise<AuthResult<true>> {
+  if (!isSupabaseConfigured) {
+    return {
+      data: null,
+      error: 'Supabase is not configured.',
+    }
+  }
+
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: captchaToken ? { captchaToken } : undefined,
+  })
+
+  if (error) {
+    return {
+      data: null,
+      error: error.message,
+      ...getAuthErrorMeta(error),
+    }
+  }
+
+  return {
+    data: true,
+    error: null,
+  }
 }
 
 export async function signOut(): Promise<AuthResult<true>> {

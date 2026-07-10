@@ -22,14 +22,20 @@ export type DailyLimitCategoryOverview = {
   projected_queue_number: number | null
 }
 
-export type DailyLimitOverview = {
+export type DailyLimitStationOverview = {
   exists: boolean
   id: string | null
   date: string
   station_id: string | null
+  station_name: string | null
+  station_address: string | null
   status: DailyLimitStatus | null
   category_overviews: DailyLimitCategoryOverview[]
   updated_at: string | null
+}
+
+export type DailyLimitOverview = DailyLimitStationOverview & {
+  station_overviews: DailyLimitStationOverview[]
 }
 
 export type GetDailyLimitOverviewParams = {
@@ -72,6 +78,36 @@ function parseCategoryOverview(value: unknown): DailyLimitCategoryOverview | nul
   }
 }
 
+function parseStationOverview(
+  value: unknown,
+  fallbackDate: string,
+): DailyLimitStationOverview | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const result = value as Partial<DailyLimitStationOverview>
+  const categoryOverviews = Array.isArray(result.category_overviews)
+    ? result.category_overviews.map(parseCategoryOverview)
+    : []
+
+  if (categoryOverviews.some((item) => item === null)) {
+    return null
+  }
+
+  return {
+    exists: true,
+    id: result.id ?? null,
+    date: result.date ?? fallbackDate,
+    station_id: result.station_id ?? null,
+    station_name: result.station_name ?? null,
+    station_address: result.station_address ?? null,
+    status: result.status ?? null,
+    category_overviews: categoryOverviews as DailyLimitCategoryOverview[],
+    updated_at: result.updated_at ?? null,
+  }
+}
+
 export function parseDailyLimitOverview(value: unknown): DailyLimitOverview | null {
   if (!value || typeof value !== 'object') {
     return null
@@ -83,6 +119,7 @@ export function parseDailyLimitOverview(value: unknown): DailyLimitOverview | nu
     return null
   }
 
+  const date = result.date
   const categoryOverviews = Array.isArray(result.category_overviews)
     ? result.category_overviews.map(parseCategoryOverview)
     : []
@@ -91,13 +128,24 @@ export function parseDailyLimitOverview(value: unknown): DailyLimitOverview | nu
     return null
   }
 
+  const stationOverviews = Array.isArray(result.station_overviews)
+    ? result.station_overviews.map((item) => parseStationOverview(item, date))
+    : []
+
+  if (stationOverviews.some((item) => item === null)) {
+    return null
+  }
+
   return {
     exists: result.exists,
     id: result.id ?? null,
-    date: result.date,
+    date,
     station_id: result.station_id ?? null,
+    station_name: result.station_name ?? null,
+    station_address: result.station_address ?? null,
     status: result.status ?? null,
     category_overviews: categoryOverviews as DailyLimitCategoryOverview[],
+    station_overviews: stationOverviews as DailyLimitStationOverview[],
     updated_at: result.updated_at ?? null,
   }
 }
