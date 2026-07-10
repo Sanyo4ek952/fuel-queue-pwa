@@ -32,10 +32,10 @@ export function LoginPage() {
             <LoginForm onSuccess={() => navigate(from, { replace: true })} />
           </TabsContent>
           <TabsContent value="register">
-            <RegistrationForm onSuccess={() => navigate(ROUTES.dashboard, { replace: true })} />
+            <RegistrationForm />
           </TabsContent>
           <TabsContent value="consumer">
-            <ConsumerRegistrationForm onSuccess={() => navigate(ROUTES.dashboard, { replace: true })} />
+            <ConsumerRegistrationForm />
           </TabsContent>
         </Tabs>
         <Link

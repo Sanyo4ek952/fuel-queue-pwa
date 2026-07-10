@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Send } from 'lucide-react'
+import { Loader2, Send } from 'lucide-react'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 
 import {
@@ -15,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
+import { useHcaptchaToken } from '@/shared/ui/hcaptcha'
 import { Input } from '@/shared/ui/input'
 import {
   Select,
@@ -24,12 +26,9 @@ import {
   SelectValue,
 } from '@/shared/ui/select'
 
-type RegistrationFormProps = {
-  onSuccess?: () => void
-}
-
-export function RegistrationForm({ onSuccess }: RegistrationFormProps) {
+export function RegistrationForm() {
   const registerMutation = useRegister()
+  const hcaptcha = useHcaptchaToken()
   const form = useForm<RegisterFormInput, unknown, RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -43,24 +42,46 @@ export function RegistrationForm({ onSuccess }: RegistrationFormProps) {
       signatureName: '',
       requestedRole: 'cashier',
       requestedStationId: STATIONS[0]?.id ?? '',
+      captchaToken: '',
     },
   })
   const requestedRole = form.watch('requestedRole')
 
-  async function handleSubmit(values: RegisterFormValues) {
-    await registerMutation.mutateAsync({
-      email: values.email,
-      password: values.password,
-      firstName: values.firstName,
-      lastName: values.lastName,
-      middleName: values.middleName,
-      position: values.position,
-      signatureName: values.signatureName,
-      requestedRole: values.requestedRole,
-      requestedStationId: values.requestedRole === 'cashier' ? values.requestedStationId : undefined,
-    })
+  useEffect(() => {
+    if (hcaptcha.token) {
+      form.clearErrors('captchaToken')
+    }
+  }, [form, hcaptcha.token])
 
-    onSuccess?.()
+  async function handleSubmit(values: RegisterFormValues) {
+    try {
+      if (!hcaptcha.token) {
+        form.setError('captchaToken', { message: hcaptcha.error ?? 'Подтвердите hCaptcha.' })
+        return
+      }
+
+      form.setValue('captchaToken', hcaptcha.token, { shouldValidate: true })
+
+      await registerMutation.mutateAsync({
+        email: values.email,
+        password: values.password,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        middleName: values.middleName,
+        position: values.position,
+        signatureName: values.signatureName,
+        requestedRole: values.requestedRole,
+        requestedStationId: values.requestedRole === 'cashier' ? values.requestedStationId : undefined,
+        captchaToken: hcaptcha.token,
+      })
+    } catch (error) {
+      hcaptcha.reset()
+      form.setValue('captchaToken', '')
+
+      if (error instanceof Error && error.message.includes('hCaptcha')) {
+        form.setError('captchaToken', { message: error.message })
+      }
+    }
   }
 
   return (
@@ -71,7 +92,7 @@ export function RegistrationForm({ onSuccess }: RegistrationFormProps) {
           Заявка на регистрацию
         </CardTitle>
         <CardDescription>
-          Доступ появится только после подтверждения руководителем.
+          Доступ появится только после подтверждения email и проверки заявки руководителем.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -224,22 +245,44 @@ export function RegistrationForm({ onSuccess }: RegistrationFormProps) {
               </FormItem>
             </div>
 
-            <Button type="submit" className="h-11 w-full gap-2" disabled={registerMutation.isPending}>
+            <FormItem>
+              <div className="min-h-[78px]">
+                {hcaptcha.isLoading ? (
+                  <div className="flex min-h-[78px] items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600">
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    <span>Загружаем hCaptcha...</span>
+                  </div>
+                ) : null}
+                <div ref={hcaptcha.containerRef} />
+              </div>
+              {form.formState.errors.captchaToken || hcaptcha.error ? (
+                <FormMessage>{form.formState.errors.captchaToken?.message ?? hcaptcha.error}</FormMessage>
+              ) : null}
+            </FormItem>
+
+            {registerMutation.isSuccess ? (
+              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
+                <AlertTitle>Заявка отправлена</AlertTitle>
+                <AlertDescription>
+                  Проверьте почту и подтвердите email. После подтверждения руководитель сможет
+                  проверить данные и назначить доступ.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <Button
+              type="submit"
+              className="h-11 w-full gap-2"
+              disabled={registerMutation.isPending || hcaptcha.isLoading || registerMutation.isSuccess}
+            >
               <Send className="size-4" aria-hidden="true" />
-              {registerMutation.isPending ? 'Отправляем...' : 'Отправить заявку'}
+              {registerMutation.isPending || hcaptcha.isLoading ? 'Отправляем...' : 'Отправить заявку'}
             </Button>
 
             {registerMutation.error ? (
               <Alert variant="destructive">
                 <AlertTitle>Заявка не отправлена</AlertTitle>
                 <AlertDescription>{registerMutation.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            {registerMutation.isSuccess ? (
-              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
-                <AlertTitle>Заявка отправлена</AlertTitle>
-                <AlertDescription>Руководитель проверит данные и назначит доступ.</AlertDescription>
               </Alert>
             ) : null}
           </form>

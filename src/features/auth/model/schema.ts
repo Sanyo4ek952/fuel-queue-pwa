@@ -24,6 +24,7 @@ export const registerSchema = z
     signatureName: z.string().trim().min(2, 'Введите подпись для журналов.'),
     requestedRole: z.enum(REGISTERABLE_ROLES),
     requestedStationId: z.union([uuidLikeSchema, z.literal('')]).optional(),
+    captchaToken: z.string().optional(),
   })
   .refine((value) => value.password === value.passwordConfirmation, {
     path: ['passwordConfirmation'],
@@ -43,6 +44,7 @@ export const consumerRegisterSchema = z
     lastName: z.string().trim().min(2, 'Введите фамилию.'),
     middleName: z.string().trim().optional(),
     phone: z.string().trim().optional(),
+    captchaToken: z.string().optional(),
   })
   .refine((value) => value.password === value.passwordConfirmation, {
     path: ['passwordConfirmation'],

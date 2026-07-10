@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { UserPlus } from 'lucide-react'
+import { Loader2, UserPlus } from 'lucide-react'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 
 import {
@@ -12,14 +13,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
+import { useHcaptchaToken } from '@/shared/ui/hcaptcha'
 import { Input } from '@/shared/ui/input'
 
-type ConsumerRegistrationFormProps = {
-  onSuccess?: () => void
-}
-
-export function ConsumerRegistrationForm({ onSuccess }: ConsumerRegistrationFormProps) {
+export function ConsumerRegistrationForm() {
   const registerMutation = useRegisterConsumer()
+  const hcaptcha = useHcaptchaToken()
   const form = useForm<ConsumerRegisterFormInput, unknown, ConsumerRegisterFormValues>({
     resolver: zodResolver(consumerRegisterSchema),
     defaultValues: {
@@ -30,20 +29,42 @@ export function ConsumerRegistrationForm({ onSuccess }: ConsumerRegistrationForm
       lastName: '',
       middleName: '',
       phone: '',
+      captchaToken: '',
     },
   })
 
-  async function handleSubmit(values: ConsumerRegisterFormValues) {
-    await registerMutation.mutateAsync({
-      email: values.email,
-      password: values.password,
-      firstName: values.firstName,
-      lastName: values.lastName,
-      middleName: values.middleName,
-      phone: values.phone,
-    })
+  useEffect(() => {
+    if (hcaptcha.token) {
+      form.clearErrors('captchaToken')
+    }
+  }, [form, hcaptcha.token])
 
-    onSuccess?.()
+  async function handleSubmit(values: ConsumerRegisterFormValues) {
+    try {
+      if (!hcaptcha.token) {
+        form.setError('captchaToken', { message: hcaptcha.error ?? 'Подтвердите hCaptcha.' })
+        return
+      }
+
+      form.setValue('captchaToken', hcaptcha.token, { shouldValidate: true })
+
+      await registerMutation.mutateAsync({
+        email: values.email,
+        password: values.password,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        middleName: values.middleName,
+        phone: values.phone,
+        captchaToken: hcaptcha.token,
+      })
+    } catch (error) {
+      hcaptcha.reset()
+      form.setValue('captchaToken', '')
+
+      if (error instanceof Error && error.message.includes('hCaptcha')) {
+        form.setError('captchaToken', { message: error.message })
+      }
+    }
   }
 
   return (
@@ -54,7 +75,7 @@ export function ConsumerRegistrationForm({ onSuccess }: ConsumerRegistrationForm
           Регистрация жителя
         </CardTitle>
         <CardDescription>
-          После регистрации можно добавить до 3 автомобилей и встать в общую очередь.
+          После регистрации подтвердите email, затем можно будет войти и добавить до 3 автомобилей.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -146,22 +167,44 @@ export function ConsumerRegistrationForm({ onSuccess }: ConsumerRegistrationForm
               </FormItem>
             </div>
 
-            <Button type="submit" className="h-11 w-full gap-2" disabled={registerMutation.isPending}>
+            <FormItem>
+              <div className="min-h-[78px]">
+                {hcaptcha.isLoading ? (
+                  <div className="flex min-h-[78px] items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600">
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    <span>Загружаем hCaptcha...</span>
+                  </div>
+                ) : null}
+                <div ref={hcaptcha.containerRef} />
+              </div>
+              {form.formState.errors.captchaToken || hcaptcha.error ? (
+                <FormMessage>{form.formState.errors.captchaToken?.message ?? hcaptcha.error}</FormMessage>
+              ) : null}
+            </FormItem>
+
+            {registerMutation.isSuccess ? (
+              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
+                <AlertTitle>Регистрация отправлена</AlertTitle>
+                <AlertDescription>
+                  Проверьте почту и подтвердите email. После этого можно будет войти и добавить
+                  автомобиль.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <Button
+              type="submit"
+              className="h-11 w-full gap-2"
+              disabled={registerMutation.isPending || hcaptcha.isLoading || registerMutation.isSuccess}
+            >
               <UserPlus className="size-4" aria-hidden="true" />
-              {registerMutation.isPending ? 'Регистрируем...' : 'Зарегистрироваться'}
+              {registerMutation.isPending || hcaptcha.isLoading ? 'Регистрируем...' : 'Зарегистрироваться'}
             </Button>
 
             {registerMutation.error ? (
               <Alert variant="destructive">
                 <AlertTitle>Регистрация не выполнена</AlertTitle>
                 <AlertDescription>{registerMutation.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            {registerMutation.isSuccess ? (
-              <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
-                <AlertTitle>Регистрация выполнена</AlertTitle>
-                <AlertDescription>Теперь можно войти и добавить автомобиль.</AlertDescription>
               </Alert>
             ) : null}
           </form>

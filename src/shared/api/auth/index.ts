@@ -23,6 +23,7 @@ export type SignUpWithPasswordParams = {
   signatureName: string
   requestedRole: 'cashier' | 'mayor_assistant'
   requestedStationId?: string
+  captchaToken?: string
 }
 
 export type SignUpConsumerWithPasswordParams = {
@@ -32,6 +33,23 @@ export type SignUpConsumerWithPasswordParams = {
   lastName: string
   middleName?: string
   phone?: string
+  captchaToken?: string
+}
+
+async function clearSignupSession(session: Session | null): Promise<AuthResult<Session>> {
+  if (!session) {
+    return {
+      data: null,
+      error: null,
+    }
+  }
+
+  const { error } = await supabase.auth.signOut()
+
+  return {
+    data: null,
+    error: error?.message ?? null,
+  }
 }
 
 export async function getAuthSession(): Promise<AuthResult<Session>> {
@@ -94,6 +112,7 @@ export async function signUpWithPassword({
   signatureName,
   requestedRole,
   requestedStationId,
+  captchaToken,
 }: SignUpWithPasswordParams): Promise<AuthResult<Session>> {
   if (!isSupabaseConfigured) {
     return {
@@ -106,6 +125,7 @@ export async function signUpWithPassword({
     email,
     password,
     options: {
+      ...(captchaToken ? { captchaToken } : {}),
       data: {
         first_name: firstName,
         last_name: lastName,
@@ -118,10 +138,14 @@ export async function signUpWithPassword({
     },
   })
 
-  return {
-    data: data.session,
-    error: error?.message ?? null,
+  if (error) {
+    return {
+      data: null,
+      error: error.message,
+    }
   }
+
+  return clearSignupSession(data.session)
 }
 
 export async function signUpConsumerWithPassword({
@@ -131,6 +155,7 @@ export async function signUpConsumerWithPassword({
   lastName,
   middleName,
   phone,
+  captchaToken,
 }: SignUpConsumerWithPasswordParams): Promise<AuthResult<Session>> {
   if (!isSupabaseConfigured) {
     return {
@@ -143,6 +168,7 @@ export async function signUpConsumerWithPassword({
     email,
     password,
     options: {
+      ...(captchaToken ? { captchaToken } : {}),
       data: {
         first_name: firstName,
         last_name: lastName,
@@ -153,14 +179,14 @@ export async function signUpConsumerWithPassword({
     },
   })
 
-  if (!error && !data.session) {
-    return signInWithPassword({ email, password })
+  if (error) {
+    return {
+      data: null,
+      error: error.message,
+    }
   }
 
-  return {
-    data: data.session,
-    error: error?.message ?? null,
-  }
+  return clearSignupSession(data.session)
 }
 
 export async function signOut(): Promise<AuthResult<true>> {
