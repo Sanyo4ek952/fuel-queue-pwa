@@ -31,7 +31,6 @@ const mutationParams = {
   driverPhone: '+79991234567',
   fuelType: 'AI_95' as const,
   fuelPreferenceMode: 'EXACT' as const,
-  requestedLiters: 20,
   comment: '',
   clientMutationId: 'mutation-id',
 }

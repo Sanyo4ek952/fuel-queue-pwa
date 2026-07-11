@@ -10,6 +10,7 @@ import {
   type CreateConsumerReservationFormValues,
   useCreateConsumerReservation,
 } from '@/features/create-consumer-reservation'
+import { useResidentFuelNorm } from '@/features/manage-resident-fuel-norm'
 import type { ConsumerVehicle } from '@/shared/api/rpc'
 import {
   QUEUE_FUEL_TYPES,
@@ -61,6 +62,7 @@ export function CreateConsumerReservationForm({
 }: CreateConsumerReservationFormProps) {
   const currentProfileQuery = useCurrentProfile()
   const createReservationMutation = useCreateConsumerReservation()
+  const residentFuelNormQuery = useResidentFuelNorm()
   const form = useForm<
     CreateConsumerReservationFormInput,
     unknown,
@@ -74,7 +76,6 @@ export function CreateConsumerReservationForm({
       driverPhone: '',
       fuelType: 'AI_95',
       fuelPreferenceMode: 'EXACT',
-      requestedLiters: 20,
       comment: '',
     },
   })
@@ -108,7 +109,6 @@ export function CreateConsumerReservationForm({
       driverPhone: values.driverPhone,
       fuelType: values.fuelType,
       fuelPreferenceMode: values.fuelPreferenceMode,
-      requestedLiters: values.requestedLiters,
       comment: values.comment,
       clientMutationId: crypto.randomUUID(),
     })
@@ -242,20 +242,12 @@ export function CreateConsumerReservationForm({
               ) : null}
             </div>
 
-            <FormItem>
-              <FormLabel htmlFor="consumerRequestedLiters">Литры</FormLabel>
-              <Input
-                id="consumerRequestedLiters"
-                type="number"
-                min={1}
-                step="0.01"
-                inputMode="decimal"
-                {...form.register('requestedLiters')}
-              />
-              {form.formState.errors.requestedLiters ? (
-                <FormMessage>{form.formState.errors.requestedLiters.message}</FormMessage>
-              ) : null}
-            </FormItem>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Норма литров</p>
+              <p className="mt-1 text-xl font-semibold text-slate-950">
+                {residentFuelNormQuery.data?.liters ?? 20} л
+              </p>
+            </div>
 
             <FormItem>
               <FormLabel htmlFor="consumerComment">Комментарий</FormLabel>

@@ -13,6 +13,7 @@ vi.mock('@/shared/config/env', () => ({
 import { supabase } from '@/shared/api/supabase'
 
 import {
+  createConsumerReservation,
   getMyTodayFuelingStatus,
   parseCancelMyReservationResult,
   parseConsumerReservation,
@@ -246,6 +247,53 @@ describe('getMyTodayFuelingStatus', () => {
       id: 'fueling-id',
       vehicle_id: 'vehicle-id',
       ticket_number: 7,
+    })
+  })
+})
+
+describe('createConsumerReservation', () => {
+  it('keeps requested liters out of the public params and sends only a compatibility placeholder', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: {
+        id: 'reservation-id',
+        vehicle_id: 'vehicle-id',
+        fuel_type: 'AI_95',
+        fuel_preference_mode: 'EXACT',
+        requested_liters: 25,
+        permanent_number: 7,
+        queue_number: 7,
+        status: 'WAITING',
+        client_mutation_id: 'mutation-id',
+      },
+      error: null,
+    } as never)
+
+    await expect(
+      createConsumerReservation({
+        vehicleId: 'vehicle-id',
+        driverFullName: 'Иван Иванов',
+        driverPhone: '+79991234567',
+        fuelType: 'AI_95',
+        fuelPreferenceMode: 'EXACT',
+        comment: '',
+        clientMutationId: 'mutation-id',
+      }),
+    ).resolves.toMatchObject({
+      data: {
+        requested_liters: 25,
+      },
+      error: null,
+    })
+
+    expect(supabase.rpc).toHaveBeenCalledWith('create_consumer_reservation', {
+      vehicle_id: 'vehicle-id',
+      driver_full_name: 'Иван Иванов',
+      driver_phone: '+79991234567',
+      fuel_type: 'AI_95',
+      fuel_preference_mode: 'EXACT',
+      requested_liters: 20,
+      comment: '',
+      client_mutation_id: 'mutation-id',
     })
   })
 })

@@ -4,6 +4,7 @@ import type { DailyFuelingScheduleRow } from '@/shared/api/rpc/daily-fueling-sch
 
 const REFUEL_COOLDOWN_KEY = 'reservation_refuel_cooldown_days'
 const NO_SHOW_GRACE_KEY = 'reservation_no_show_grace_days'
+const RESIDENT_FUEL_NORM_KEY = 'resident_fuel_norm_liters'
 const CURRENT_PROFILE_KEY = 'current_profile'
 const DAILY_FUELING_SCHEDULE_KEY_PREFIX = 'daily_fueling_schedule:'
 
@@ -14,6 +15,15 @@ function parseDays(value: unknown) {
 
   const days = Number((value as { days?: unknown }).days)
   return Number.isFinite(days) && days > 0 ? Math.trunc(days) : 0
+}
+
+function parseLiters(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return 20
+  }
+
+  const liters = Number((value as { liters?: unknown }).liters)
+  return Number.isFinite(liters) && liters > 0 ? liters : 20
 }
 
 export async function cacheRefuelCooldownSetting(days: number) {
@@ -48,6 +58,23 @@ export async function cacheNoShowGraceSetting(days: number) {
 export async function getCachedNoShowGraceDays() {
   const setting = await offlineDb.local_app_settings.get(NO_SHOW_GRACE_KEY)
   return parseDays(setting?.value)
+}
+
+export async function cacheResidentFuelNormLiters(liters: number) {
+  const safeLiters = Number.isFinite(liters) && liters > 0 ? liters : 20
+  const now = new Date().toISOString()
+
+  await offlineDb.local_app_settings.put({
+    key: RESIDENT_FUEL_NORM_KEY,
+    value: { liters: safeLiters },
+    updated_at: now,
+    cached_at: now,
+  })
+}
+
+export async function getCachedResidentFuelNormLiters() {
+  const setting = await offlineDb.local_app_settings.get(RESIDENT_FUEL_NORM_KEY)
+  return parseLiters(setting?.value)
 }
 
 function isDailyFuelingScheduleRow(value: unknown): value is DailyFuelingScheduleRow {

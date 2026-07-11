@@ -18,6 +18,11 @@ The server validates:
 - duplicate active `WAITING` entry for the vehicle;
 - idempotency by `client_mutation_id`.
 
+`create_consumer_vehicle` rejects `VEHICLE_IN_ACTIVE_QUEUE` when a consumer tries to
+add a госномер that already has a `WAITING` queue entry and the vehicle was not linked
+to that consumer before the queue entry was created. The number can be added after the
+entry leaves the active queue (`FUELED`, `CANCELLED`, `NO_SHOW`, `ERROR`, `CONFLICT`).
+
 ## Allocation RPC
 
 `create_daily_limit` and `set_daily_fueling_schedule` save station/date configuration and then call the private allocator.
@@ -65,6 +70,11 @@ On success it writes `fueling_records`, marks the allocation `FUELED`, and marks
 ## Public and Consumer RPC
 
 `get_my_queue_status`, public queue check, reports, and backup return the permanent queue entry plus a nullable saved daily allocation.
+
+`get_my_queue_status` and `cancel_my_reservation` expose/modify a consumer queue entry
+only when the consumer created that entry or had the vehicle linked before the entry
+was created. A profile link created after a `WAITING` entry does not give access to
+view or cancel that queue entry.
 
 Public responses must not expose personal data.
 

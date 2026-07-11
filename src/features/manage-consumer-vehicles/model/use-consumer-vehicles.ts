@@ -15,6 +15,10 @@ export const consumerVehiclesQueryKey = ['consumer-vehicles'] as const
 const createConsumerVehicleErrorMessages: Record<string, string> = {
   CONSUMER_VEHICLE_LIMIT_EXCEEDED: 'Можно добавить не более 3 автомобилей.',
   VEHICLE_BLOCKED: 'Этот автомобиль заблокирован для записи.',
+  VEHICLE_ALREADY_ASSIGNED:
+    'Этот госномер уже добавлен другим жителем. Если это ваш номер, обратитесь в администрацию.',
+  VEHICLE_IN_ACTIVE_QUEUE:
+    'Этот номер уже стоит в очереди. Добавить его можно после заправки или выхода из очереди.',
   INVALID_PLATE_NUMBER: 'Введите корректный госномер.',
   FORBIDDEN: 'Регистрация автомобиля доступна только жителям.',
 }

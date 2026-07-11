@@ -22,7 +22,11 @@ const consumerCabinetErrorMessages: Record<string, string> = {
   RESERVATION_CANCEL_FORBIDDEN: 'Запись уже нельзя отменить самостоятельно.',
   RESERVATION_NOT_FOUND: 'Активная запись не найдена.',
   UPDATE_RESERVATION_FUEL_PREFERENCE_FAILED: 'Не удалось сохранить марку топлива.',
+  VEHICLE_ALREADY_ASSIGNED:
+    'Этот госномер уже добавлен другим жителем. Если это ваш номер, обратитесь в администрацию.',
   VEHICLE_BLOCKED: 'Этот автомобиль заблокирован для записи.',
+  VEHICLE_IN_ACTIVE_QUEUE:
+    'Этот номер уже стоит в очереди. Добавить его можно после заправки или выхода из очереди.',
   VEHICLE_NOT_OWNED: 'Выберите один из своих автомобилей.',
 }
 

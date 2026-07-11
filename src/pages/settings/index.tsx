@@ -2,6 +2,7 @@ import { useCurrentProfile } from '@/entities/profile'
 import { QueueBackupExportCard } from '@/features/export-queue-backup'
 import { FuelingScheduleSettingsCard } from '@/features/manage-fueling-schedule'
 import { RefuelCooldownSettingsCard } from '@/features/manage-refuel-cooldown'
+import { ResidentFuelNormSettingsCard } from '@/features/manage-resident-fuel-norm'
 
 export function SettingsPage() {
   const currentProfileQuery = useCurrentProfile()
@@ -16,6 +17,7 @@ export function SettingsPage() {
       </div>
       {canExportQueueBackup ? <QueueBackupExportCard /> : null}
       <FuelingScheduleSettingsCard canEdit={canEditCooldown} />
+      <ResidentFuelNormSettingsCard canEdit={canEditCooldown} />
       <RefuelCooldownSettingsCard canEdit={canEditCooldown} />
     </div>
   )

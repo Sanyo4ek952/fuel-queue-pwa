@@ -9,6 +9,18 @@ describe('getConsumerCabinetErrorMessage', () => {
     )
   })
 
+  it('explains active queue vehicle claim conflicts', () => {
+    expect(getConsumerCabinetErrorMessage('VEHICLE_IN_ACTIVE_QUEUE')).toBe(
+      'Этот номер уже стоит в очереди. Добавить его можно после заправки или выхода из очереди.',
+    )
+  })
+
+  it('explains duplicate vehicle assignment conflicts', () => {
+    expect(getConsumerCabinetErrorMessage('VEHICLE_ALREADY_ASSIGNED')).toBe(
+      'Этот госномер уже добавлен другим жителем. Если это ваш номер, обратитесь в администрацию.',
+    )
+  })
+
   it('shows a clear network error message', () => {
     expect(getConsumerCabinetErrorMessage(new Error('Failed to fetch'))).toBe(
       'Нет связи с сервером. Проверьте интернет и попробуйте снова.',

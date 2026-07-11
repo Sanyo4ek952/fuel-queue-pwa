@@ -17,7 +17,6 @@ export const createConsumerReservationSchema = z
     driverPhone: requiredRuPhoneNumberSchema,
     fuelType: z.enum(QUEUE_FUEL_TYPES),
     fuelPreferenceMode: z.enum(FUEL_PREFERENCE_MODES).default('EXACT'),
-    requestedLiters: z.coerce.number().positive('Литры должны быть больше нуля'),
     comment: z.string().trim().optional(),
   })
   .superRefine((value, context) => {

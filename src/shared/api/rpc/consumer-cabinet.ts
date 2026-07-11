@@ -96,7 +96,6 @@ export type CreateConsumerReservationParams = {
   driverPhone?: string
   fuelType: FuelType
   fuelPreferenceMode?: FuelPreferenceMode
-  requestedLiters: number
   comment?: string
   clientMutationId: string
 }
@@ -448,7 +447,6 @@ export async function createConsumerReservation({
   driverPhone,
   fuelType,
   fuelPreferenceMode,
-  requestedLiters,
   comment,
   clientMutationId,
 }: CreateConsumerReservationParams): Promise<RpcResult<ConsumerReservation>> {
@@ -465,7 +463,7 @@ export async function createConsumerReservation({
     driver_phone: driverPhone ?? null,
     fuel_type: fuelType,
     fuel_preference_mode: fuelPreferenceMode ?? 'EXACT',
-    requested_liters: requestedLiters,
+    requested_liters: 20,
     comment: comment ?? null,
     client_mutation_id: clientMutationId,
   })

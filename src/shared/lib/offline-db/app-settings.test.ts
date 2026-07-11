@@ -38,10 +38,12 @@ vi.mock('./db', () => ({
 import {
   cacheDailyFuelingSchedule,
   cacheNoShowGraceSetting,
+  cacheResidentFuelNormLiters,
   clearCachedCurrentProfile,
   getCachedDailyFuelingSchedule,
   getCachedCurrentProfile,
   getCachedNoShowGraceDays,
+  getCachedResidentFuelNormLiters,
   saveCachedCurrentProfile,
 } from './app-settings'
 
@@ -67,6 +69,16 @@ describe('no-show grace app setting cache', () => {
     await cacheNoShowGraceSetting(0)
 
     await expect(getCachedNoShowGraceDays()).resolves.toBe(0)
+  })
+
+  it('stores and reads resident fuel norm liters', async () => {
+    await cacheResidentFuelNormLiters(25.5)
+
+    await expect(getCachedResidentFuelNormLiters()).resolves.toBe(25.5)
+    expect(mocks.localAppSettings.rows[0]).toMatchObject({
+      key: 'resident_fuel_norm_liters',
+      value: { liters: 25.5 },
+    })
   })
 
   it('stores, reads, and clears the current profile cache', async () => {
