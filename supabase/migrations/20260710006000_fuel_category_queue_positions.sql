@@ -1,1 +1,0 @@
--- Superseded: positions are persisted in daily_queue_allocations.

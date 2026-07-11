@@ -3,6 +3,7 @@
 Run these commands against the local Supabase database:
 
 ```bash
+npx supabase db reset
 npx supabase db query --local --file supabase/local-dev-users.sql
 npx supabase db query --local --file supabase/local-queue-250.sql
 ```
@@ -28,7 +29,9 @@ Consumer accounts:
 local-consumer-0001@example.local ... local-consumer-0500@example.local
 ```
 
-The queue seed creates 250 active staff-created reservations for today.
+The queue seed creates 250 active city queue entries in `fuel_queue_entries`.
+It does not create `daily_limits`, `daily_fuel_type_limits`, `daily_queue_allocations`, or call `allocate_daily_queue`.
+Those rows are intentionally outside today's limit until limits are created separately.
 
 For the linked hosted Supabase project, run:
 

@@ -1,1 +1,0 @@
--- Superseded by the permanent city queue and saved daily allocations.

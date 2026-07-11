@@ -10,14 +10,15 @@ describe('today call list category pagination migration', () => {
         process.cwd(),
         'supabase',
         'migrations',
-        '20260710007000_paginate_today_call_list_by_fuel_category.sql',
+        '20260712000000_initial_city_queue.sql',
       ),
       'utf8',
     )
 
-    expect(migration).toContain('fuel_category_filter text default null')
-    expect(migration).toContain('public.get_fuel_queue_category(fuel_type) = effective_fuel_category_filter')
+    expect(migration).toContain('"fuel_category_filter" "text" DEFAULT NULL::"text"')
+    expect(migration).toContain('effective_fuel_category = fuel_category_filter')
     expect(migration).toContain("'category_counts', jsonb_build_object")
-    expect(migration).toContain('from filtered_base')
+    expect(migration).toContain('from filtered')
+    expect(migration).toContain("'total_count', (select count(*) from base)")
   })
 })

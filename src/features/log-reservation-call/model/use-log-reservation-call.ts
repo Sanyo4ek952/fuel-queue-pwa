@@ -82,7 +82,7 @@ async function cacheSyncedCallLog(result: CreateReservationCallLogResult) {
     updated_at: now,
   }
 
-  const allocationCallLogsTable = offlineDb.local_allocation_call_logs ?? offlineDb.local_reservation_call_logs
+  const allocationCallLogsTable = offlineDb.local_allocation_call_logs
   await offlineDb.transaction(
     'rw',
     [allocationCallLogsTable, offlineDb.local_reservations],
@@ -158,7 +158,7 @@ async function createOfflineReservationCallLog({
     retry_count: 0,
   }
 
-  const allocationCallLogsTable = offlineDb.local_allocation_call_logs ?? offlineDb.local_reservation_call_logs
+  const allocationCallLogsTable = offlineDb.local_allocation_call_logs
   await offlineDb.transaction(
     'rw',
     [allocationCallLogsTable, offlineDb.local_reservations, offlineDb.sync_outbox],

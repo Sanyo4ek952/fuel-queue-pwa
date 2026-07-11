@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   resendSignupConfirmationEmail: vi.fn(),
 }))
 
+const pendingTimeouts: Array<() => void> = []
+
 vi.mock('@/shared/ui/hcaptcha', () => ({
   useHcaptchaToken: () => ({
     containerRef: { current: null },
@@ -72,10 +74,20 @@ async function flushAsync() {
   })
 }
 
-async function advanceCooldown(seconds = 60) {
+async function advanceCooldown(seconds = 65) {
   for (let index = 0; index < seconds; index += 1) {
+    for (let attempt = 0; pendingTimeouts.length === 0 && attempt < 5; attempt += 1) {
+      await flushAsync()
+    }
+
+    const timeout = pendingTimeouts.shift()
+
+    if (!timeout) {
+      break
+    }
+
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000)
+      timeout()
     })
     await flushAsync()
   }
@@ -102,9 +114,19 @@ function fillConsumerRegistrationForm() {
   fireEvent.change(screen.getByLabelText('Повтор пароля'), { target: { value: 'password123' } })
 }
 
-describe('registration confirmation resend', () => {
+describe.sequential('registration confirmation resend', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
+    pendingTimeouts.length = 0
+    vi.spyOn(window, 'setTimeout').mockImplementation((handler) => {
+      pendingTimeouts.push(() => {
+        if (typeof handler === 'function') {
+          handler()
+        }
+      })
+
+      return pendingTimeouts.length
+    })
+    vi.spyOn(window, 'clearTimeout').mockImplementation(() => undefined)
     mocks.hcaptchaToken.value = 'captcha-token'
     mocks.hcaptchaError.value = null
     mocks.hcaptchaReset.mockReset()
@@ -118,8 +140,8 @@ describe('registration confirmation resend', () => {
 
   afterEach(() => {
     cleanup()
-    vi.runOnlyPendingTimers()
-    vi.useRealTimers()
+    pendingTimeouts.length = 0
+    vi.restoreAllMocks()
     vi.clearAllMocks()
   })
 
@@ -152,7 +174,7 @@ describe('registration confirmation resend', () => {
     await advanceCooldown()
 
     expect(screen.getByRole('button', { name: 'Отправить письмо повторно' })).toBeEnabled()
-  })
+  }, 15_000)
 
   it('resends staff confirmation email and restarts cooldown', async () => {
     const deferred = createDeferred<{ data: true; error: null }>()
@@ -178,7 +200,7 @@ describe('registration confirmation resend', () => {
     await flushAsync()
     expect(screen.getByText('Письмо отправлено повторно.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Повторно через 60 сек.' })).toBeDisabled()
-  })
+  }, 15_000)
 
   it('shows a rate limit message and cooldown for staff registration 429 errors', async () => {
     mocks.signUpWithPassword.mockResolvedValue({

@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => {
     },
     isOnline: true,
     offlineDb: {
-      local_reservation_call_logs: makeTable(),
+      local_allocation_call_logs: makeTable(),
       local_reservations: makeTable(),
       sync_outbox: makeTable(),
       transaction: vi.fn(async (_mode: string, _tables: unknown[], callback: () => Promise<void>) =>
@@ -117,7 +117,7 @@ function makeWrapper() {
 describe('useLogReservationCall', () => {
   beforeEach(() => {
     mocks.createReservationCallLog.mockReset()
-    mocks.offlineDb.local_reservation_call_logs.put.mockClear()
+    mocks.offlineDb.local_allocation_call_logs.put.mockClear()
     mocks.offlineDb.local_reservations.update.mockClear()
     mocks.offlineDb.sync_outbox.put.mockClear()
     mocks.offlineDb.transaction.mockClear()
@@ -205,7 +205,7 @@ describe('useLogReservationCall', () => {
     await waitFor(() => expect(result.current.isError).toBe(true))
 
     expect(result.current.error).toMatchObject({ message: 'NO_OPEN_DAILY_LIMIT' })
-    expect(mocks.offlineDb.local_reservation_call_logs.put).not.toHaveBeenCalled()
+    expect(mocks.offlineDb.local_allocation_call_logs.put).not.toHaveBeenCalled()
     expect(mocks.offlineDb.sync_outbox.put).not.toHaveBeenCalled()
   })
 
@@ -224,7 +224,7 @@ describe('useLogReservationCall', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(mocks.offlineDb.local_reservation_call_logs.put).toHaveBeenCalledWith(
+    expect(mocks.offlineDb.local_allocation_call_logs.put).toHaveBeenCalledWith(
       expect.objectContaining({
         reservation_id: 'reservation-id',
         status: 'NOT_CALLED',

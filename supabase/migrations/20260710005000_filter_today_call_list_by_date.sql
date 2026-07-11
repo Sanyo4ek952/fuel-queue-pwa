@@ -1,1 +1,0 @@
--- Superseded by the complete get_today_call_list definition in the city queue migration.

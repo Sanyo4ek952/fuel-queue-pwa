@@ -1,7 +1,6 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
 import type { FuelType, SyncStatus } from '@/shared/constants'
-import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
 
@@ -101,24 +100,25 @@ export async function createFuelingRecord({
     }
   }
 
-  const { data, error } = allocationId
-    ? await supabase.rpc('create_fueling_record_for_allocation', {
-        allocation_id: allocationId,
-        liters,
-        fueled_at: fueledAt,
-        comment: comment ?? null,
-        client_mutation_id: clientMutationId,
-      })
-    : await supabase.rpc('create_fueling_record', {
-        target_station_id: stationId,
-        plate_number: normalizePlateNumber(plateNumber),
-        liters,
-        fuel_type: fuelType ?? null,
-        target_date: targetDate,
-        fueled_at: fueledAt,
-        comment: comment ?? null,
-        client_mutation_id: clientMutationId,
-      })
+  void stationId
+  void plateNumber
+  void fuelType
+  void targetDate
+
+  if (!allocationId) {
+    return {
+      data: null,
+      error: 'Active daily allocation is required for fueling.',
+    }
+  }
+
+  const { data, error } = await supabase.rpc('create_fueling_record_for_allocation', {
+    allocation_id: allocationId,
+    liters,
+    fueled_at: fueledAt,
+    comment: comment ?? null,
+    client_mutation_id: clientMutationId,
+  })
 
   if (error) {
     return {

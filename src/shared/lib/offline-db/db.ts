@@ -259,7 +259,6 @@ export class FuelQueueOfflineDb extends Dexie {
   local_vehicles!: Table<LocalVehicle, string>
   local_daily_limits!: Table<LocalDailyLimit, string>
   local_reservations!: Table<LocalReservation, string>
-  local_reservation_call_logs!: Table<LocalReservationCallLog, string>
   local_queue_entries!: Table<LocalQueueEntry, string>
   local_daily_queue_allocations!: Table<LocalDailyQueueAllocation, string>
   local_allocation_call_logs!: Table<LocalReservationCallLog, string>
@@ -482,8 +481,6 @@ export class FuelQueueOfflineDb extends Dexie {
       local_daily_limits: 'id, date, status, cached_at, updated_at',
       local_reservations:
         'id, client_mutation_id, vehicle_id, queue_number, status, sync_status, updated_at',
-      local_reservation_call_logs:
-        'id, client_mutation_id, reservation_id, status, called_at, sync_status, updated_at',
       local_queue_entries: 'id, [station_id+date], date, status, updated_at',
       local_fueling_records:
         'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',
@@ -502,8 +499,6 @@ export class FuelQueueOfflineDb extends Dexie {
       local_daily_limits: 'id, date, status, cached_at, updated_at',
       local_reservations:
         'id, client_mutation_id, vehicle_id, queue_number, status, sync_status, updated_at',
-      local_reservation_call_logs:
-        'id, client_mutation_id, reservation_id, status, called_at, sync_status, updated_at',
       local_queue_entries: 'id, [station_id+date], date, status, updated_at',
       local_fueling_records:
         'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',
@@ -536,8 +531,6 @@ export class FuelQueueOfflineDb extends Dexie {
         local_daily_limits: 'id, date, status, cached_at, updated_at',
         local_reservations:
           'id, client_mutation_id, vehicle_id, queue_number, status, sync_status, updated_at',
-        local_reservation_call_logs:
-          'id, client_mutation_id, reservation_id, status, called_at, sync_status, updated_at',
         local_queue_entries:
           'id, client_mutation_id, permanent_number, vehicle_id, status, sync_status, updated_at',
         local_daily_queue_allocations:
@@ -555,7 +548,6 @@ export class FuelQueueOfflineDb extends Dexie {
       })
       .upgrade(async (transaction) => {
         await transaction.table('local_reservations').clear()
-        await transaction.table('local_reservation_call_logs').clear()
         await transaction.table('local_app_settings').filter((setting: LocalAppSetting) =>
           setting.key.startsWith('daily_fueling_schedule:'),
         ).delete()

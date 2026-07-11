@@ -1,76 +1,167 @@
--- Local persistent city queue plus saved allocations for today.
+-- Local persistent city queue seed without daily limits or allocations.
+-- Run after supabase/local-dev-users.sql.
 
 do $$
 declare
+  seed_comment text := 'Local 250 city queue seed';
   operator_profile_id uuid;
-  station_row record;
-  vehicle_id_value uuid;
+  consumer_row record;
   driver_id_value uuid;
-  n integer;
+  queue_entry_id_value uuid;
+  fuel_type_value text;
+  preference_mode_value text;
+  n integer := 0;
 begin
   perform set_config('search_path', 'public, extensions', true);
 
-  select id into operator_profile_id
+  select id
+  into operator_profile_id
   from public.profiles
-  where role in ('mayor', 'mayor_assistant', 'station_manager') and is_active
-  order by case role when 'mayor' then 0 else 1 end
+  where role in ('mayor', 'mayor_assistant', 'station_manager')
+    and is_active
+    and approval_status = 'approved'
+  order by case role when 'mayor' then 0 when 'station_manager' then 1 else 2 end, id
   limit 1;
+
   if operator_profile_id is null then
     raise exception 'Run local-dev-users.sql first.';
   end if;
 
-  delete from public.daily_queue_allocation_call_logs;
-  delete from public.daily_queue_allocations;
-  delete from public.fuel_queue_entries where comment = 'Local 250 city queue seed';
-  delete from public.daily_limits dl
-  using public.stations s
-  where dl.station_id = s.id
-    and dl.date = (now() at time zone 'Europe/Moscow')::date
-    and s.is_active;
+  delete from public.daily_queue_allocation_call_logs call_log
+  using public.daily_queue_allocations allocation
+  join public.fuel_queue_entries queue_entry on queue_entry.id = allocation.queue_entry_id
+  where call_log.allocation_id = allocation.id
+    and queue_entry.comment = seed_comment;
 
-  for station_row in select * from public.stations where is_active order by allocation_order
+  delete from public.fueling_records fueling_record
+  using public.fuel_queue_entries queue_entry
+  where fueling_record.queue_entry_id = queue_entry.id
+    and queue_entry.comment = seed_comment;
+
+  delete from public.refusal_records refusal_record
+  using public.fuel_queue_entries queue_entry
+  where refusal_record.queue_entry_id = queue_entry.id
+    and queue_entry.comment = seed_comment;
+
+  delete from public.daily_queue_allocations allocation
+  using public.fuel_queue_entries queue_entry
+  where allocation.queue_entry_id = queue_entry.id
+    and queue_entry.comment = seed_comment;
+
+  delete from public.fuel_queue_entries
+  where comment = seed_comment;
+
+  for consumer_row in
+    select
+      p.id as profile_id,
+      p.full_name,
+      p.phone,
+      v.id as vehicle_id
+    from public.profiles p
+    join auth.users u on u.id = p.auth_user_id
+    join public.profile_vehicles pv on pv.profile_id = p.id and pv.status = 'ACTIVE'
+    join public.vehicles v on v.id = pv.vehicle_id
+    where p.role = 'consumer'
+      and p.is_active
+      and p.approval_status = 'approved'
+      and u.email like 'local-consumer-%@example.local'
+    order by u.email
+    limit 250
   loop
-    insert into public.daily_fueling_schedules (
-      date, station_id, fuel_category, start_time, interval_minutes,
-      vehicles_per_interval, updated_by
-    ) values
-      ((now() at time zone 'Europe/Moscow')::date, station_row.id, 'GASOLINE', '13:00', 5, 5, operator_profile_id),
-      ((now() at time zone 'Europe/Moscow')::date, station_row.id, 'DIESEL', '13:00', 5, 5, operator_profile_id),
-      ((now() at time zone 'Europe/Moscow')::date, station_row.id, 'GAS', '13:00', 5, 5, operator_profile_id)
-    on conflict (date, station_id, fuel_category) do update
-    set start_time = excluded.start_time,
-        interval_minutes = excluded.interval_minutes,
-        vehicles_per_interval = excluded.vehicles_per_interval;
-  end loop;
+    n := n + 1;
 
-  for n in 1..250 loop
-    insert into public.vehicles (plate_number, normalized_plate_number)
+    fuel_type_value := (array['AI_92', 'AI_95', 'AI_100', 'DIESEL', 'GAS'])[((n - 1) % 5) + 1];
+    preference_mode_value := case
+      when fuel_type_value in ('AI_92', 'AI_95', 'AI_100') and n % 7 = 0 then 'ANY_GASOLINE'
+      else 'EXACT'
+    end;
+    driver_id_value := (
+      substr(md5('local-queue-250-driver-' || n::text), 1, 8) || '-' ||
+      substr(md5('local-queue-250-driver-' || n::text), 9, 4) || '-' ||
+      substr(md5('local-queue-250-driver-' || n::text), 13, 4) || '-' ||
+      substr(md5('local-queue-250-driver-' || n::text), 17, 4) || '-' ||
+      substr(md5('local-queue-250-driver-' || n::text), 21, 12)
+    )::uuid;
+    queue_entry_id_value := (
+      substr(md5('local-queue-250-entry-' || n::text), 1, 8) || '-' ||
+      substr(md5('local-queue-250-entry-' || n::text), 9, 4) || '-' ||
+      substr(md5('local-queue-250-entry-' || n::text), 13, 4) || '-' ||
+      substr(md5('local-queue-250-entry-' || n::text), 17, 4) || '-' ||
+      substr(md5('local-queue-250-entry-' || n::text), 21, 12)
+    )::uuid;
+
+    insert into public.drivers (id, full_name, phone)
     values (
-      U&'\0422' || lpad((n % 1000)::text, 3, '0') || U&'\0421\0422' || (100 + n)::text,
-      U&'\0422' || lpad((n % 1000)::text, 3, '0') || U&'\0421\0422' || (100 + n)::text
-    )
-    on conflict (normalized_plate_number) do update set plate_number = excluded.plate_number
-    returning id into vehicle_id_value;
-    insert into public.drivers (full_name, phone)
-    values (
-      format(U&'\0422\0435\0441\0442\043E\0432\044B\0439 \0432\043E\0434\0438\0442\0435\043B\044C %s', n),
-      format('+7978000%04s', n)
-    )
-    returning id into driver_id_value;
-    insert into public.fuel_queue_entries (
-      vehicle_id, driver_id, preferred_fuel_type, fuel_preference_mode,
-      requested_liters, operator_id, comment
-    ) values (
-      vehicle_id_value,
       driver_id_value,
-      (array['AI_92', 'AI_95', 'AI_100', 'DIESEL', 'GAS'])[(n % 5) + 1],
-      case when n % 7 = 0 and n % 5 < 3 then 'ANY_GASOLINE' else 'EXACT' end,
+      consumer_row.full_name,
+      coalesce(consumer_row.phone, format('+7978000%04s', n))
+    )
+    on conflict (id) do update
+    set
+      full_name = excluded.full_name,
+      phone = excluded.phone,
+      updated_at = now();
+
+    insert into public.fuel_queue_entries (
+      id,
+      permanent_number,
+      vehicle_id,
+      driver_id,
+      preferred_fuel_type,
+      fuel_preference_mode,
+      requested_liters,
+      status,
+      operator_id,
+      comment,
+      client_mutation_id,
+      sync_status
+    )
+    values (
+      queue_entry_id_value,
+      n,
+      consumer_row.vehicle_id,
+      driver_id_value,
+      fuel_type_value,
+      preference_mode_value,
       40,
+      'WAITING',
       operator_profile_id,
-      'Local 250 city queue seed'
-    );
+      seed_comment,
+      (
+        substr(md5('local-queue-250-mutation-' || n::text), 1, 8) || '-' ||
+        substr(md5('local-queue-250-mutation-' || n::text), 9, 4) || '-' ||
+        substr(md5('local-queue-250-mutation-' || n::text), 13, 4) || '-' ||
+        substr(md5('local-queue-250-mutation-' || n::text), 17, 4) || '-' ||
+        substr(md5('local-queue-250-mutation-' || n::text), 21, 12)
+      )::uuid,
+      'SYNCED'
+    )
+    on conflict (id) do update
+    set
+      permanent_number = excluded.permanent_number,
+      vehicle_id = excluded.vehicle_id,
+      driver_id = excluded.driver_id,
+      preferred_fuel_type = excluded.preferred_fuel_type,
+      fuel_preference_mode = excluded.fuel_preference_mode,
+      requested_liters = excluded.requested_liters,
+      status = excluded.status,
+      operator_id = excluded.operator_id,
+      comment = excluded.comment,
+      client_mutation_id = excluded.client_mutation_id,
+      sync_status = excluded.sync_status,
+      updated_at = now();
   end loop;
 
-  perform public.allocate_daily_queue((now() at time zone 'Europe/Moscow')::date);
+  if n <> 250 then
+    raise exception 'Expected 250 local consumers for queue seed, got %.', n;
+  end if;
+
+  perform setval(
+    'public.fuel_queue_permanent_number_seq',
+    greatest((select coalesce(max(permanent_number), 0) from public.fuel_queue_entries), 1),
+    true
+  );
+
+  raise notice 'local-queue-250-ready: waiting_seed_entries=%, daily_limits_created=0, daily_allocations_created=0', n;
 end;
 $$;

@@ -134,7 +134,7 @@ async function markReservationCallLogSynced(operation: SyncOutboxOperation, data
   const parsed = parseCreateReservationCallLogResult(data)
   const syncedAt = new Date().toISOString()
 
-  const allocationCallLogsTable = offlineDb.local_allocation_call_logs ?? offlineDb.local_reservation_call_logs
+  const allocationCallLogsTable = offlineDb.local_allocation_call_logs
   await offlineDb.transaction(
     'rw',
     [offlineDb.sync_outbox, allocationCallLogsTable, offlineDb.local_reservations],
@@ -182,7 +182,7 @@ async function markReservationCallLogSynced(operation: SyncOutboxOperation, data
 async function markOperationConflict(operation: SyncOutboxOperation, reason: string, payload: unknown) {
   const createdAt = new Date().toISOString()
 
-  const allocationCallLogsTable = offlineDb.local_allocation_call_logs ?? offlineDb.local_reservation_call_logs
+  const allocationCallLogsTable = offlineDb.local_allocation_call_logs
   await offlineDb.transaction(
     'rw',
     [

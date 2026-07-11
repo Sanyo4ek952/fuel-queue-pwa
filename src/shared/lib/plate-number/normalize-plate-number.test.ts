@@ -8,28 +8,28 @@ import {
 
 describe('plate number helpers', () => {
   it.each([
-    ['а123вс777', 'А123ВС777'],
-    ['a123bc777', 'А123ВС777'],
-    ['А 123 ВС 777', 'А123ВС777'],
-    ['A-123-BC-777', 'А123ВС777'],
+    ['\u0430123\u0432\u0441777', '\u0410123\u0412\u0421777'],
+    ['a123bc777', '\u0410123\u0412\u0421777'],
+    ['\u0410 123 \u0412\u0421 777', '\u0410123\u0412\u0421777'],
+    ['A-123-BC-777', '\u0410123\u0412\u0421777'],
   ])('normalizes %s to cyrillic storage value', (input, expected) => {
     expect(normalizePlateNumber(input)).toBe(expected)
   })
 
   it('formats a normalized plate for display', () => {
-    expect(formatPlateNumber('a123bc777')).toBe('А 123 ВС 777')
+    expect(formatPlateNumber('a123bc777')).toBe('\u0410 123 \u0412\u0421 777')
   })
 
   it('removes unsupported characters', () => {
-    expect(normalizePlateNumber('A 123 BC № 77')).toBe('А123ВС77')
+    expect(normalizePlateNumber('A 123 BC \u2116 77')).toBe('\u0410123\u0412\u042177')
   })
 
   it('validates only russian plate numbers with a region', () => {
-    expect(isValidPlateNumber('а123вс77')).toBe(true)
-    expect(isValidPlateNumber('А123ВС777')).toBe(true)
+    expect(isValidPlateNumber('\u0430123\u0432\u044177')).toBe(true)
+    expect(isValidPlateNumber('\u0410123\u0412\u0421777')).toBe(true)
     expect(isValidPlateNumber('D123ZZ777')).toBe(false)
-    expect(isValidPlateNumber('А12ВС777')).toBe(false)
-    expect(isValidPlateNumber('А123ВС7')).toBe(false)
+    expect(isValidPlateNumber('\u041012\u0412\u0421777')).toBe(false)
+    expect(isValidPlateNumber('\u0410123\u0412\u04217')).toBe(false)
   })
 
   it('returns an empty string for empty input', () => {

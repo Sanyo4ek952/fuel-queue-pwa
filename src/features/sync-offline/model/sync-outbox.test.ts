@@ -59,7 +59,7 @@ const mocks = vi.hoisted(() => {
   const tables = {
     local_fueling_records: makeTable(),
     local_manual_overrides: makeTable(),
-    local_reservation_call_logs: makeTable(),
+    local_allocation_call_logs: makeTable(),
     local_reservations: makeTable(),
     sync_outbox: makeTable(),
     sync_conflicts: makeTable(),

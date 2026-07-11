@@ -22,24 +22,23 @@ declare
   first_name_value text;
   phone_value text;
   plate_value text;
-  role_value text;
-  position_value text;
-  requested_station_id_value uuid;
-  is_active_value boolean;
-  approval_status_value text;
   generated_count integer;
   documented_count integer;
 begin
-  insert into public.stations (id, name, address, is_active)
+  perform set_config('search_path', 'public, extensions', true);
+
+  insert into public.stations (id, name, address, is_active, allocation_order)
   values
-    (station_ids[1], 'AZS #1', 'Main station #1', true),
-    (station_ids[2], 'AZS #2', 'Main station #2', true),
-    (station_ids[3], 'AZS #3', 'Main station #3', true)
+    (station_ids[1], 'AZS #1', 'Main station #1', true, 1),
+    (station_ids[2], 'AZS #2', 'Main station #2', true, 2),
+    (station_ids[3], 'AZS #3', 'Main station #3', true, 3)
   on conflict (id) do update
   set
     name = excluded.name,
     address = excluded.address,
-    is_active = excluded.is_active;
+    is_active = excluded.is_active,
+    allocation_order = excluded.allocation_order,
+    updated_at = now();
 
   for row_data in
     select *
@@ -51,6 +50,7 @@ begin
           'mayor@example.local',
           'Dev Mayor',
           'Mayor',
+          'Dev',
           'mayor',
           'Mayor',
           null::uuid,
@@ -63,6 +63,7 @@ begin
           'cashier@example.local',
           'Dev Cashier',
           'Cashier',
+          'Dev',
           'cashier',
           'Cashier',
           station_ids[1],
@@ -75,6 +76,7 @@ begin
           'station-manager-2@example.local',
           'Dev Station Manager 2',
           'Station Manager 2',
+          'Dev',
           'station_manager',
           'Station Manager',
           station_ids[2],
@@ -87,6 +89,7 @@ begin
           'station-manager@example.local',
           'Dev Station Manager',
           'Station Manager',
+          'Dev',
           'station_manager',
           'Station Manager',
           null::uuid,
@@ -99,6 +102,7 @@ begin
           'mayor-assistant@example.local',
           'Dev Mayor Assistant',
           'Mayor Assistant',
+          'Dev',
           'mayor_assistant',
           'Mayor Assistant',
           null::uuid,
@@ -111,6 +115,7 @@ begin
           'cashier-2@example.local',
           'Dev Cashier 2',
           'Cashier 2',
+          'Dev',
           'cashier',
           'Cashier',
           station_ids[2],
@@ -123,6 +128,7 @@ begin
           'pending-cashier@example.local',
           'Pending Cashier',
           'Pending',
+          'Cashier',
           'cashier',
           'Cashier',
           station_ids[1],
@@ -135,6 +141,7 @@ begin
           'rejected-cashier@example.local',
           'Rejected Cashier',
           'Rejected',
+          'Cashier',
           'cashier',
           'Cashier',
           station_ids[2],
@@ -147,6 +154,7 @@ begin
       email,
       full_name,
       first_name,
+      last_name,
       profile_role,
       position,
       requested_station_id,
@@ -258,7 +266,7 @@ begin
       row_data.full_name,
       row_data.email,
       row_data.first_name,
-      'Dev',
+      row_data.last_name,
       row_data.position,
       row_data.full_name,
       'email',
@@ -285,14 +293,12 @@ begin
       approval_status = excluded.approval_status,
       approved_at = excluded.approved_at,
       rejected_at = excluded.rejected_at,
-      rejection_reason = excluded.rejection_reason;
+      rejection_reason = excluded.rejection_reason,
+      updated_at = now();
   end loop;
 
   delete from auth.users
-  where email like 'local-consumer-%@example.local'
-    or email like 'local-cashier-%@example.local'
-    or email like 'local-station-manager-%@example.local'
-    or email like 'local-mayor-assistant-%@example.local';
+  where email like 'local-consumer-%@example.local';
 
   for n in 1..500 loop
     auth_user_id_value := (
@@ -317,17 +323,11 @@ begin
       substr(md5('local-dev-consumer-vehicle-' || n::text), 21, 12)
     )::uuid;
 
-    role_value := 'consumer';
     email_value := 'local-consumer-' || lpad(n::text, 4, '0') || '@example.local';
     full_name_value := 'Local Consumer ' || lpad(n::text, 4, '0');
     first_name_value := 'Consumer ' || lpad(n::text, 4, '0');
     phone_value := '+7910' || lpad(n::text, 7, '0');
     plate_value := 'K' || lpad(n::text, 3, '0') || 'MM777';
-    position_value := null;
-    requested_station_id_value := null;
-
-    is_active_value := true;
-    approval_status_value := 'approved';
 
     insert into auth.users (
       id,
@@ -355,7 +355,7 @@ begin
       extensions.crypt('password123', extensions.gen_salt('bf')),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
-      jsonb_build_object('requested_role', role_value),
+      '{"requested_role":"consumer"}'::jsonb,
       now(),
       now(),
       '',
@@ -417,10 +417,8 @@ begin
       first_name,
       last_name,
       phone,
-      position,
       signature_name,
       auth_provider,
-      requested_station_id,
       role,
       is_active,
       approval_status,
@@ -434,13 +432,11 @@ begin
       first_name_value,
       'Local',
       phone_value,
-      position_value,
       full_name_value,
       'email',
-      requested_station_id_value,
-      role_value,
-      is_active_value,
-      approval_status_value,
+      'consumer',
+      true,
+      'approved',
       now()
     )
     on conflict (auth_user_id) do update
@@ -450,14 +446,13 @@ begin
       first_name = excluded.first_name,
       last_name = excluded.last_name,
       phone = excluded.phone,
-      position = excluded.position,
       signature_name = excluded.signature_name,
       auth_provider = excluded.auth_provider,
-      requested_station_id = excluded.requested_station_id,
       role = excluded.role,
       is_active = excluded.is_active,
       approval_status = excluded.approval_status,
-      approved_at = coalesce(public.profiles.approved_at, excluded.approved_at);
+      approved_at = coalesce(public.profiles.approved_at, excluded.approved_at),
+      updated_at = now();
 
     select id
     into profile_id_value
@@ -514,6 +509,8 @@ begin
         when p.role in ('mayor', 'mayor_assistant') then station_ids
         when p.role in ('station_manager', 'cashier') and p.requested_station_id is not null
           then array[p.requested_station_id]
+        when p.role = 'station_manager' and p.requested_station_id is null
+          then station_ids
         else array[]::uuid[]
       end) as station_id
     from public.profiles p
