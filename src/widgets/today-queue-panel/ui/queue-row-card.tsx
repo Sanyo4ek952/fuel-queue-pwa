@@ -148,6 +148,8 @@ export function QueueRowCard({
   const fuelPreferenceLabel =
     fuelPreferenceLabels[row.fuel_preference_mode as FuelPreferenceMode] ??
     fuelPreferenceLabels.EXACT
+  const fuelQueuePosition = row.fuel_queue_position ?? row.current_position
+  const permanentQueueNumber = row.permanent_number ?? row.ticket_number ?? row.queue_number
   const watchedFuelType = fuelPreferenceForm.watch('fuelType')
   const watchedCancelReason = cancelForm.watch('reason')
   const isGasolineSelected = isGasolineFuelType(watchedFuelType)
@@ -192,10 +194,10 @@ export function QueueRowCard({
               <div className="flex items-center gap-2">
                 <div
                   className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-md bg-slate-900 text-white"
-                  aria-label={`Позиция в очереди топлива ${row.current_position}`}
+                  aria-label={`Позиция в очереди топлива ${fuelQueuePosition}`}
                 >
                   <span className="text-sm font-semibold leading-tight">
-                    {row.current_position}
+                    {fuelQueuePosition}
                   </span>
                 </div>
                 <div className="min-w-0">
@@ -206,7 +208,7 @@ export function QueueRowCard({
                     {row.driver_full_name || 'Водитель не указан'}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-slate-500">
-                    Дневная позиция: {row.daily_position ?? row.current_position} · Постоянный №{row.permanent_number ?? row.ticket_number}
+                    Постоянный №{permanentQueueNumber}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-500">
                     <MapPin className="size-3 shrink-0" aria-hidden="true" />
@@ -422,11 +424,15 @@ export function QueueRowCard({
               </div>
               <div>
                 <dt className="text-slate-500">Позиция в очереди топлива</dt>
+                <dd className="font-medium text-slate-950">{fuelQueuePosition}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">Дневная позиция</dt>
                 <dd className="font-medium text-slate-950">{row.current_position}</dd>
               </div>
               <div>
-                <dt className="text-slate-500">Номер талона</dt>
-                <dd className="font-medium text-slate-950">№{row.ticket_number}</dd>
+                <dt className="text-slate-500">Постоянный номер</dt>
+                <dd className="font-medium text-slate-950">№{permanentQueueNumber}</dd>
               </div>
               <div>
                 <dt className="text-slate-500">Топливо</dt>

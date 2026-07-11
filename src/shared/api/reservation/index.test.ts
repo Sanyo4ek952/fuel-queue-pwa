@@ -18,7 +18,7 @@ const allocationRow = {
   vehicle_id: 'vehicle-id', driver_id: 'driver-id', operator_id: 'profile-id',
   fuel_type: 'AI_95', assigned_fuel_type: 'AI_92', preferred_fuel_type: 'AI_95',
   fuel_preference_mode: 'ANY_GASOLINE', requested_liters: 40,
-  daily_position: 7, current_position: 7, people_ahead: 6,
+  fuel_queue_position: 3, daily_position: 7, current_position: 7, people_ahead: 6,
   station_position: 3, station_fuel_position: 2,
   arrival_at: '2026-07-08T10:05:00.000Z', allocation_status: 'ACTIVE',
   status: 'WAITING', sync_status: 'SYNCED', comment: null, client_mutation_id: 'mutation-id',
@@ -51,6 +51,7 @@ describe('daily allocation queue API', () => {
     expect(page.rows[0]).toMatchObject({
       allocation_id: 'allocation-id', queue_entry_id: 'entry-id', permanent_number: 2847,
       daily_position: 7, station_position: 3, station_fuel_position: 2,
+      fuel_queue_position: 3,
       arrival_at: '2026-07-08T10:05:00.000Z', assigned_fuel_type: 'AI_92',
     })
     expect(page.summary.total_count).toBe(1)

@@ -28,6 +28,10 @@ function canLogReservationCall(reservation: TodayQueueRow, status: ReservationCa
   )
 }
 
+function getAllocationId(reservation: TodayQueueRow) {
+  return reservation.allocation_id ?? reservation.id
+}
+
 function applyCallToReservation({
   reservationId,
   status,
@@ -129,9 +133,10 @@ async function createOfflineReservationCallLog({
 
   const now = new Date().toISOString()
   const trimmedComment = comment?.trim() || null
+  const allocationId = getAllocationId(reservation)
   const localCallLog: LocalReservationCallLog = {
     id: `local-call-${clientMutationId}`,
-    reservation_id: reservation.id,
+    reservation_id: allocationId,
     status,
     called_by_profile_id: profile.id,
     called_by_full_name: profile.full_name,
@@ -148,7 +153,7 @@ async function createOfflineReservationCallLog({
     client_mutation_id: clientMutationId,
     type: 'CREATE_ALLOCATION_CALL_LOG',
     payload: buildCreateReservationCallLogPayload({
-      reservationId: reservation.id,
+      allocationId,
       status,
       comment: trimmedComment ?? undefined,
       clientMutationId,
@@ -166,7 +171,7 @@ async function createOfflineReservationCallLog({
       await allocationCallLogsTable.put(localCallLog)
       await offlineDb.sync_outbox.put(syncOutboxOperation)
       await applyCallToReservation({
-        reservationId: reservation.id,
+        reservationId: allocationId,
         status,
         calledByProfileId: profile.id,
         calledByFullName: profile.full_name,
@@ -182,8 +187,8 @@ async function createOfflineReservationCallLog({
 
   return {
     id: localCallLog.id,
-    allocation_id: reservation.id,
-    reservation_id: reservation.id,
+    allocation_id: allocationId,
+    reservation_id: allocationId,
     status,
     called_by_profile_id: profile.id,
     called_by_full_name: profile.full_name,
@@ -225,7 +230,7 @@ export function useLogReservationCall() {
       }
 
       const result = await createReservationCallLog({
-        reservationId: reservation.id,
+        allocationId: getAllocationId(reservation),
         status,
         comment,
         clientMutationId,

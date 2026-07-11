@@ -6,7 +6,8 @@ import { supabase } from '@/shared/api/supabase'
 import type { RpcResult } from './index'
 
 export type CreateReservationCallLogParams = {
-  reservationId: string
+  allocationId?: string
+  reservationId?: string
   status: ReservationCallStatus
   comment?: string
   clientMutationId: string
@@ -33,13 +34,24 @@ export type CreateReservationCallLogPayload = {
   comment?: string
 }
 
+function resolveAllocationId(params: Pick<CreateReservationCallLogParams, 'allocationId' | 'reservationId'>) {
+  return params.allocationId ?? params.reservationId
+}
+
 export function buildCreateReservationCallLogPayload({
+  allocationId,
   reservationId,
   status,
   comment,
 }: CreateReservationCallLogParams): CreateReservationCallLogPayload {
+  const resolvedAllocationId = resolveAllocationId({ allocationId, reservationId })
+
+  if (!resolvedAllocationId) {
+    throw new Error('ALLOCATION_ID_REQUIRED')
+  }
+
   return {
-    allocation_id: reservationId,
+    allocation_id: resolvedAllocationId,
     status,
     comment: comment || undefined,
   }
@@ -82,6 +94,7 @@ export function parseCreateReservationCallLogResult(
 }
 
 export async function createReservationCallLog({
+  allocationId,
   reservationId,
   status,
   comment,
@@ -94,8 +107,17 @@ export async function createReservationCallLog({
     }
   }
 
+  const resolvedAllocationId = resolveAllocationId({ allocationId, reservationId })
+
+  if (!resolvedAllocationId) {
+    return {
+      data: null,
+      error: 'ALLOCATION_ID_REQUIRED',
+    }
+  }
+
   const { data, error } = await supabase.rpc('create_reservation_call_log', {
-    reservation_id: reservationId,
+    reservation_id: resolvedAllocationId,
     status,
     comment: comment ?? null,
     client_mutation_id: clientMutationId,

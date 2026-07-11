@@ -1,0 +1,1 @@
+Get-Content supabase\migrations\20260712003000_fix_call_log_status_parameter.sql | npx supabase db psql

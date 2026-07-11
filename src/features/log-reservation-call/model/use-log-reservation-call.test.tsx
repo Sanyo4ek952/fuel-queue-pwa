@@ -176,7 +176,7 @@ describe('useLogReservationCall', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(mocks.createReservationCallLog).toHaveBeenCalledWith({
-      reservationId: 'reservation-id',
+      allocationId: 'reservation-id',
       status: 'NOT_CALLED',
       comment: undefined,
       clientMutationId: '00000000-0000-4000-8000-000000000001',
@@ -187,6 +187,76 @@ describe('useLogReservationCall', () => {
         latest_call_status: 'NOT_CALLED',
         latest_call_sync_status: 'SYNCED',
       }),
+    )
+  })
+
+  it('sends the allocation id to the call log RPC', async () => {
+    mocks.createReservationCallLog.mockResolvedValue({
+      data: {
+        id: 'call-id',
+        allocation_id: 'allocation-id',
+        reservation_id: 'allocation-id',
+        status: 'CONTACTED',
+        called_by_profile_id: 'profile-id',
+        called_by_full_name: 'РњР°СЂРёСЏ РџРµС‚СЂРѕРІР°',
+        called_by_role: 'cashier',
+        called_by_signature_name: 'РџРµС‚СЂРѕРІР° Рњ.',
+        called_at: '2026-07-07T10:30:00.000Z',
+        comment: null,
+        client_mutation_id: '00000000-0000-4000-8000-000000000001',
+        sync_status: 'SYNCED',
+      },
+      error: null,
+    })
+    const { result } = renderHook(() => useLogReservationCall(), { wrapper: makeWrapper() })
+
+    result.current.mutate({
+      reservation: makeQueueRow({
+        id: 'queue-entry-id',
+        allocation_id: 'allocation-id',
+        queue_entry_id: 'queue-entry-id',
+      }),
+      status: 'CONTACTED',
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(mocks.createReservationCallLog).toHaveBeenCalledWith({
+      allocationId: 'allocation-id',
+      status: 'CONTACTED',
+      comment: undefined,
+      clientMutationId: '00000000-0000-4000-8000-000000000001',
+    })
+    expect(mocks.offlineDb.local_reservations.update).toHaveBeenCalledWith(
+      'allocation-id',
+      expect.objectContaining({
+        latest_call_status: 'CONTACTED',
+        latest_call_sync_status: 'SYNCED',
+      }),
+    )
+  })
+
+  it('surfaces an inactive allocation error from the RPC', async () => {
+    mocks.createReservationCallLog.mockResolvedValue({
+      data: null,
+      error: 'ALLOCATION_NOT_ACTIVE',
+    })
+    const { result } = renderHook(() => useLogReservationCall(), { wrapper: makeWrapper() })
+
+    result.current.mutate({
+      reservation: makeQueueRow({
+        id: 'queue-entry-id',
+        allocation_id: 'allocation-id',
+        queue_entry_id: 'queue-entry-id',
+      }),
+      status: 'CONTACTED',
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+
+    expect(result.current.error).toMatchObject({ message: 'ALLOCATION_NOT_ACTIVE' })
+    expect(mocks.createReservationCallLog).toHaveBeenCalledWith(
+      expect.objectContaining({ allocationId: 'allocation-id' }),
     )
   })
 

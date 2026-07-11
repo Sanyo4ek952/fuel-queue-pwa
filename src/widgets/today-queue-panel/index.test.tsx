@@ -445,6 +445,59 @@ describe('TodayQueuePanel', () => {
     })
   })
 
+  it('disables call actions only for the row with a pending call mutation', () => {
+    const pendingRow = makeQueueRow({
+      id: 'pending-allocation-id',
+      allocation_id: 'pending-allocation-id',
+      queue_entry_id: 'pending-queue-entry-id',
+      normalized_plate_number: 'PENDING-001',
+    })
+    const availableRow = makeQueueRow({
+      id: 'available-allocation-id',
+      allocation_id: 'available-allocation-id',
+      queue_entry_id: 'available-queue-entry-id',
+      queue_number: 2,
+      ticket_number: 2,
+      current_position: 2,
+      normalized_plate_number: 'READY-002',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [pendingRow, availableRow],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useLogReservationCall.mockReturnValue({
+      mutate: mocks.mutateCall,
+      isPending: true,
+      error: null,
+      variables: {
+        reservation: pendingRow,
+        status: 'CONTACTED',
+      },
+    })
+
+    render(<TodayQueuePanel />)
+
+    const pendingArticle = screen.getByText('PENDING-001').closest('article')
+    const availableArticle = screen.getByText('READY-002').closest('article')
+
+    expect(pendingArticle).not.toBeNull()
+    expect(availableArticle).not.toBeNull()
+    expect(
+      within(pendingArticle as HTMLElement).getByRole('button', {
+        name: 'Дозвонились',
+      }),
+    ).toBeDisabled()
+    expect(
+      within(availableArticle as HTMLElement).getByRole('button', {
+        name: 'Дозвонились',
+      }),
+    ).toBeEnabled()
+  })
+
   it('resets a contacted call from the active quick action', async () => {
     const row = makeQueueRow({
       latest_call_status: 'CONTACTED',
@@ -945,6 +998,72 @@ describe('TodayQueuePanel', () => {
     })
   })
 
+  it('keeps fuel preference pending state scoped to the queue entry id', async () => {
+    const user = userEvent.setup()
+    const pendingRow = makeQueueRow({
+      id: 'pending-allocation-id',
+      allocation_id: 'pending-allocation-id',
+      queue_entry_id: 'pending-queue-entry-id',
+      normalized_plate_number: 'PENDING-001',
+    })
+    const availableRow = makeQueueRow({
+      id: 'available-allocation-id',
+      allocation_id: 'available-allocation-id',
+      queue_entry_id: 'available-queue-entry-id',
+      queue_number: 2,
+      ticket_number: 2,
+      current_position: 2,
+      normalized_plate_number: 'READY-002',
+    })
+
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [pendingRow, availableRow],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useUpdateReservationFuelPreference.mockReturnValue({
+      mutate: mocks.mutateFuelPreference,
+      isPending: true,
+      error: null,
+      variables: {
+        reservationId: 'pending-queue-entry-id',
+        fuelType: 'AI_95',
+        fuelPreferenceMode: 'EXACT',
+        clientMutationId: 'mutation-id',
+      },
+    })
+
+    render(<TodayQueuePanel />)
+
+    const pendingArticle = screen.getByText('PENDING-001').closest('article')
+    const availableArticle = screen.getByText('READY-002').closest('article')
+
+    expect(pendingArticle).not.toBeNull()
+    expect(availableArticle).not.toBeNull()
+
+    await user.click(
+      within(pendingArticle as HTMLElement).getByRole('button', { name: DETAILS_BUTTON_NAME }),
+    )
+    await user.click(
+      within(availableArticle as HTMLElement).getByRole('button', {
+        name: DETAILS_BUTTON_NAME,
+      }),
+    )
+
+    expect(
+      within(pendingArticle as HTMLElement).getByRole('button', {
+        name: /Изменить марку топлива/,
+      }),
+    ).toBeDisabled()
+    expect(
+      within(availableArticle as HTMLElement).getByRole('button', {
+        name: /Изменить марку топлива/,
+      }),
+    ).toBeEnabled()
+  })
+
   it('cancels only the selected queue row by reservation id', async () => {
     const user = userEvent.setup()
     const selectedRow = makeQueueRow({
@@ -999,6 +1118,66 @@ describe('TodayQueuePanel', () => {
       comment: null,
       clientMutationId: expect.any(String),
     })
+  })
+
+  it('keeps cancel pending state scoped to the queue entry id', () => {
+    const pendingRow = makeQueueRow({
+      id: 'pending-allocation-id',
+      allocation_id: 'pending-allocation-id',
+      queue_entry_id: 'pending-queue-entry-id',
+      normalized_plate_number: 'PENDING-001',
+    })
+    const availableRow = makeQueueRow({
+      id: 'available-allocation-id',
+      allocation_id: 'available-allocation-id',
+      queue_entry_id: 'available-queue-entry-id',
+      queue_number: 2,
+      ticket_number: 2,
+      current_position: 2,
+      normalized_plate_number: 'READY-002',
+    })
+
+    mocks.useCurrentProfile.mockReturnValue({
+      data: {
+        role: 'mayor_assistant',
+      },
+    })
+    mocks.useTodayQueue.mockReturnValue({
+      rows: [pendingRow, availableRow],
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+    mocks.useCancelReservation.mockReturnValue({
+      mutate: mocks.mutateCancel,
+      isPending: true,
+      error: null,
+      variables: {
+        reservationId: 'pending-queue-entry-id',
+        reason: 'OWNER_CANCELLED',
+        comment: null,
+        clientMutationId: 'mutation-id',
+      },
+    })
+
+    render(<TodayQueuePanel />)
+
+    const pendingArticle = screen.getByText('PENDING-001').closest('article')
+    const availableArticle = screen.getByText('READY-002').closest('article')
+
+    expect(pendingArticle).not.toBeNull()
+    expect(availableArticle).not.toBeNull()
+    expect(
+      within(pendingArticle as HTMLElement).getByRole('button', {
+        name: 'Удалить из очереди',
+      }),
+    ).toBeDisabled()
+    expect(
+      within(availableArticle as HTMLElement).getByRole('button', {
+        name: 'Удалить из очереди',
+      }),
+    ).toBeEnabled()
   })
 
   it('disables fuel preference editing while gasoline vehicle limit is greater than zero', async () => {

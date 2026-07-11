@@ -49,6 +49,26 @@ import { QueueFilters } from './queue-filters'
 import { QueueRowCard } from './queue-row-card'
 import { SummaryTile } from './summary-tile'
 
+function getCallMutationRowId(row: Pick<TodayQueueRow, 'allocation_id' | 'id'>) {
+  return row.allocation_id ?? row.id
+}
+
+function getReservationMutationRowId(row: Pick<TodayQueueRow, 'queue_entry_id' | 'id'>) {
+  return row.queue_entry_id ?? row.id
+}
+
+function getQueueActionErrorMessage(error: Error) {
+  if (error.message === 'ALLOCATION_NOT_ACTIVE') {
+    return 'Назначение уже не активно или недоступно для вашей АЗС. Обновите очередь и попробуйте ещё раз.'
+  }
+
+  if (error.message === 'Failed to fetch') {
+    return 'Нет связи с сервером. Проверьте подключение или дождитесь офлайн-синхронизации.'
+  }
+
+  return error.message
+}
+
 export function TodayQueuePanel() {
   const todayDate = getTodayDateInputValue()
   const [plateSearch, setPlateSearch] = useState('')
@@ -208,21 +228,25 @@ export function TodayQueuePanel() {
       {logReservationCall.error ? (
         <Alert variant="destructive">
           <AlertTitle>Отметка звонка не сохранена</AlertTitle>
-          <AlertDescription>{logReservationCall.error.message}</AlertDescription>
+          <AlertDescription>
+            {getQueueActionErrorMessage(logReservationCall.error)}
+          </AlertDescription>
         </Alert>
       ) : null}
 
       {updateReservationFuelPreference.error ? (
         <Alert variant="destructive">
           <AlertTitle>Марка топлива не сохранена</AlertTitle>
-          <AlertDescription>{updateReservationFuelPreference.error.message}</AlertDescription>
+          <AlertDescription>
+            {getQueueActionErrorMessage(updateReservationFuelPreference.error)}
+          </AlertDescription>
         </Alert>
       ) : null}
 
       {cancelReservation.error ? (
         <Alert variant="destructive">
           <AlertTitle>Запись не удалена</AlertTitle>
-          <AlertDescription>{cancelReservation.error.message}</AlertDescription>
+          <AlertDescription>{getQueueActionErrorMessage(cancelReservation.error)}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -270,10 +294,17 @@ export function TodayQueuePanel() {
                         key={row.id}
                         row={row}
                         estimatedArrivalTime={formatArrivalAt(row.arrival_at)}
-                        isLoggingCall={logReservationCall.isPending}
+                        isLoggingCall={
+                          logReservationCall.isPending &&
+                          (logReservationCall.variables?.reservation
+                            ? getCallMutationRowId(logReservationCall.variables.reservation) ===
+                              getCallMutationRowId(row)
+                            : false)
+                        }
                         isUpdatingFuelPreference={
                           updateReservationFuelPreference.isPending &&
-                          updateReservationFuelPreference.variables?.reservationId === row.id
+                          updateReservationFuelPreference.variables?.reservationId ===
+                            getReservationMutationRowId(row)
                         }
                         isFuelPreferenceUpdateUnavailable={!queue.isOnline}
                         isFuelPreferenceLockedByGasolineLimit={
@@ -282,7 +313,8 @@ export function TodayQueuePanel() {
                         canCancel={canCancelQueueRows}
                         isCancelling={
                           cancelReservation.isPending &&
-                          cancelReservation.variables?.reservationId === row.id
+                          cancelReservation.variables?.reservationId ===
+                            getReservationMutationRowId(row)
                         }
                         onLogCall={handleLogCall}
                         onUpdateFuelPreference={handleUpdateFuelPreference}

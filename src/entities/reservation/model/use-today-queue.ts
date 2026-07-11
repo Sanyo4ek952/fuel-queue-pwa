@@ -57,15 +57,11 @@ export type TodayQueueAuthorsParams = {
   gasolineFuelFilter?: QueueGasolineFuelFilter
 }
 
-function compareQueueRows(left: TodayQueueRow, right: TodayQueueRow) {
-  return left.ticket_number - right.ticket_number || left.id.localeCompare(right.id)
-}
-
 export function isActiveLocalQueueRow(row: { status: string }) {
   return activeReservationStatuses.has(row.status)
 }
 
-function mergeRows(onlineRows: TodayQueueRow[], localRows: TodayQueueRow[]) {
+export function mergeTodayQueueRows(onlineRows: TodayQueueRow[], localRows: TodayQueueRow[]) {
   const byClientMutationId = new Set(
     onlineRows.map((row) => row.client_mutation_id).filter(Boolean),
   )
@@ -97,7 +93,7 @@ function mergeRows(onlineRows: TodayQueueRow[], localRows: TodayQueueRow[]) {
     (row) => row.sync_status !== 'SYNCED' && !byClientMutationId.has(row.client_mutation_id),
   )
 
-  return [...onlineRowsWithPendingCallState, ...unsyncedLocalRows].sort(compareQueueRows)
+  return [...onlineRowsWithPendingCallState, ...unsyncedLocalRows]
 }
 
 function buildLocalSummary(rows: TodayQueueRow[]): TodayQueueSummary {
@@ -171,7 +167,6 @@ export function useTodayQueue(params: TodayQueueParams = {}) {
       const rows = (await offlineDb.local_reservations.toArray())
         .filter(isActiveLocalQueueRow)
         .map(toTodayQueueRowFromLocal)
-        .sort(compareQueueRows)
 
       return rows
     }).subscribe({
@@ -201,7 +196,7 @@ export function useTodayQueue(params: TodayQueueParams = {}) {
     [dieselQuery.data, gasQuery.data, gasolineQuery.data],
   )
   const rows = useMemo(
-    () => (isOnline && (gasolineQuery.data || dieselQuery.data || gasQuery.data) ? mergeRows(onlineRows, localRows) : localRows),
+    () => (isOnline && (gasolineQuery.data || dieselQuery.data || gasQuery.data) ? mergeTodayQueueRows(onlineRows, localRows) : localRows),
     [dieselQuery.data, gasQuery.data, gasolineQuery.data, isOnline, localRows, onlineRows],
   )
   const summary = useMemo(

@@ -55,6 +55,7 @@ type ReservationRow = {
   ticket_number?: number | string | null
   current_position?: number | string | null
   people_ahead?: number | string | null
+  fuel_queue_position?: number | string | null
   daily_position?: number | string | null
   station_position?: number | string | null
   station_fuel_position?: number | string | null
@@ -110,6 +111,7 @@ export type TodayQueueRow = {
   ticket_number: number
   current_position: number
   people_ahead: number
+  fuel_queue_position?: number
   daily_position?: number
   station_position?: number
   station_fuel_position?: number
@@ -289,6 +291,7 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
   const ticketNumber = toNullableNumber(row.ticket_number) ?? toNumber(row.queue_number)
   const dailyPosition = toNullableNumber(row.daily_position) ?? ticketNumber
   const currentPosition = toNullableNumber(row.current_position)
+  const fuelQueuePosition = toNullableNumber(row.fuel_queue_position)
   const peopleAhead = toNullableNumber(row.people_ahead)
 
   return {
@@ -310,6 +313,7 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     ticket_number: ticketNumber,
     current_position: currentPosition ?? dailyPosition,
     people_ahead: peopleAhead ?? Math.max(dailyPosition - 1, 0),
+    fuel_queue_position: fuelQueuePosition ?? currentPosition ?? dailyPosition,
     daily_position: dailyPosition,
     station_position: toNullableNumber(row.station_position) ?? undefined,
     station_fuel_position: toNullableNumber(row.station_fuel_position) ?? undefined,

@@ -97,6 +97,16 @@ describe('QueueRowCard', () => {
     expect(onLogCall).toHaveBeenCalledWith(row, 'CONTACTED')
   })
 
+  it('logs contacted status from the expanded call action', async () => {
+    const row = makeQueueRow()
+    const { onLogCall } = renderCard(row)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Открыть детали' }))
+    await userEvent.click(screen.getAllByRole('button', { name: 'Дозвонились' })[1])
+
+    expect(onLogCall).toHaveBeenCalledWith(row, 'CONTACTED')
+  })
+
   it('disables mutation actions for offline rows', () => {
     renderCard(makeQueueRow({ is_offline: true }))
 
@@ -104,25 +114,30 @@ describe('QueueRowCard', () => {
     expect(screen.getByRole('button', { name: 'Удалить из очереди' })).toBeDisabled()
   })
 
-  it('shows current position separately from ticket number for diesel rows', async () => {
+  it('shows fuel queue position separately from permanent and daily positions', async () => {
     renderCard(
       makeQueueRow({
         fuel_type: 'DIESEL',
         ticket_number: 10,
+        permanent_number: 10,
+        fuel_queue_position: 9,
         current_position: 3,
+        daily_position: 3,
         people_ahead: 2,
       }),
     )
 
-    expect(screen.getByLabelText('Позиция в очереди топлива 3')).toBeInTheDocument()
-    expect(screen.getByText('Дневная позиция: 3 · Постоянный №10')).toBeInTheDocument()
+    expect(screen.getByLabelText('Позиция в очереди топлива 9')).toBeInTheDocument()
+    expect(screen.getByText('Постоянный №10')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Открыть детали' }))
 
     const article = screen.getByRole('article')
 
     expect(within(article).getByText('Позиция в очереди топлива')).toBeInTheDocument()
-    expect(within(article).getByText('Номер талона')).toBeInTheDocument()
+    expect(within(article).getByText('Дневная позиция')).toBeInTheDocument()
+    expect(within(article).getByText('Постоянный номер')).toBeInTheDocument()
+    expect(within(article).getAllByText('9')).toHaveLength(2)
     expect(within(article).getByText('№10')).toBeInTheDocument()
   })
 
