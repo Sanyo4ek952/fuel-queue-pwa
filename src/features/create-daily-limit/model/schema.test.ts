@@ -3,16 +3,16 @@ import { describe, expect, it } from 'vitest'
 import { createDailyLimitSchema } from './schema'
 
 describe('createDailyLimitSchema', () => {
-  it('accepts simultaneous vehicle and optional liter constraints', () => {
+  it('accepts an open fuel with a positive liter limit', () => {
     const result = createDailyLimitSchema.parse({
       targetDate: '2026-07-05',
       stationId: 'station-id',
       fuelTypeLimits: [{
-        fuelType: 'AI_95', status: 'OPEN', vehicleLimit: '10', litersLimit: '400',
+        fuelType: 'AI_95', status: 'OPEN', vehicleLimit: '0', litersLimit: '400',
       }],
     })
     expect(result.fuelTypeLimits[0]).toEqual({
-      fuelType: 'AI_95', status: 'OPEN', vehicleLimit: 10, litersLimit: 400,
+      fuelType: 'AI_95', status: 'OPEN', vehicleLimit: 0, litersLimit: 400,
     })
   })
 
@@ -23,10 +23,12 @@ describe('createDailyLimitSchema', () => {
     }).success).toBe(true)
   })
 
-  it('allows an open fuel with zero capacity', () => {
-    expect(createDailyLimitSchema.safeParse({
+  it('rejects an open fuel without liters', () => {
+    const result = createDailyLimitSchema.safeParse({
       targetDate: '2026-07-05', stationId: 'station-id',
-      fuelTypeLimits: [{ fuelType: 'AI_92', status: 'OPEN', vehicleLimit: 0, litersLimit: 100 }],
-    }).success).toBe(true)
+      fuelTypeLimits: [{ fuelType: 'AI_92', status: 'OPEN', vehicleLimit: 0, litersLimit: '' }],
+    })
+
+    expect(result.success).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarDays, Save } from 'lucide-react'
+import { CalendarDays, Info, Save } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type FieldPath } from 'react-hook-form'
 
@@ -36,10 +36,10 @@ const fuelTypeLabels: Record<QueueFuelType, string> = {
 
 const defaultFuelTypeLimits = [
   { fuelType: 'AI_92' as const, status: 'PAUSED' as const, vehicleLimit: 0, litersLimit: null },
-  { fuelType: 'AI_95' as const, status: 'OPEN' as const, vehicleLimit: 20, litersLimit: 400 },
+  { fuelType: 'AI_95' as const, status: 'OPEN' as const, vehicleLimit: 0, litersLimit: 400 },
   { fuelType: 'AI_100' as const, status: 'PAUSED' as const, vehicleLimit: 0, litersLimit: null },
-  { fuelType: 'DIESEL' as const, status: 'OPEN' as const, vehicleLimit: 20, litersLimit: 400 },
-  { fuelType: 'GAS' as const, status: 'OPEN' as const, vehicleLimit: 20, litersLimit: 400 },
+  { fuelType: 'DIESEL' as const, status: 'OPEN' as const, vehicleLimit: 0, litersLimit: 400 },
+  { fuelType: 'GAS' as const, status: 'OPEN' as const, vehicleLimit: 0, litersLimit: 400 },
 ]
 
 type FuelTypeLimitField = 'fuelType' | 'status' | 'vehicleLimit' | 'litersLimit'
@@ -161,6 +161,15 @@ export function CreateDailyLimitForm() {
               <FormMessage>{form.formState.errors.stationId.message}</FormMessage>
             ) : null}
 
+            <div className="flex gap-2 rounded-lg border border-sky-100 bg-sky-50 p-3 text-sm text-sky-950">
+              <Info className="mt-0.5 size-4 shrink-0 text-sky-600" aria-hidden="true" />
+              <p>
+                Если расписание розлива для даты и АЗС ещё не задано, очередь будет рассчитана по
+                расписанию по умолчанию: начало 13:00, 5 машин каждые 5 минут. Точное время можно
+                изменить в настройках розлива.
+              </p>
+            </div>
+
             <div className="grid gap-3">
               {fuelTypeLimits.map((item, index) => {
                 const fuelType = item.fuelType as QueueFuelType
@@ -181,6 +190,11 @@ export function CreateDailyLimitForm() {
                         type="hidden"
                         value={fuelType}
                         {...form.register(`fuelTypeLimits.${index}.fuelType`)}
+                      />
+                      <input
+                        type="hidden"
+                        value={0}
+                        {...form.register(`fuelTypeLimits.${index}.vehicleLimit`)}
                       />
                     </div>
 
@@ -204,21 +218,6 @@ export function CreateDailyLimitForm() {
                       </Select>
                     </FormItem>
 
-                    <FormItem>
-                        <FormLabel htmlFor={`vehicleLimit-${fuelType}`}>Машин</FormLabel>
-                        <Input
-                          id={`vehicleLimit-${fuelType}`}
-                          type="number"
-                          min={0}
-                          inputMode="numeric"
-                          {...form.register(`fuelTypeLimits.${index}.vehicleLimit`)}
-                        />
-                        {form.formState.errors.fuelTypeLimits?.[index]?.vehicleLimit ? (
-                          <FormMessage>
-                            {form.formState.errors.fuelTypeLimits[index]?.vehicleLimit?.message}
-                          </FormMessage>
-                        ) : null}
-                    </FormItem>
                     <FormItem>
                         <FormLabel htmlFor={`litersLimit-${fuelType}`}>Литров</FormLabel>
                         <Input

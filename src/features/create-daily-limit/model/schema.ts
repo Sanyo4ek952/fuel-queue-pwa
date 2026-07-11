@@ -19,6 +19,15 @@ export const dailyFuelTypeLimitSchema = z
       .min(0, 'Лимит машин не может быть отрицательным'),
     litersLimit: optionalPositiveNumber,
   })
+  .superRefine((value, ctx) => {
+    if (value.status === 'OPEN' && (value.litersLimit == null || value.litersLimit <= 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['litersLimit'],
+        message: 'Укажите лимит литров больше нуля',
+      })
+    }
+  })
 
 export const createDailyLimitSchema = z.object({
   targetDate: targetDateSchema,

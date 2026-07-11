@@ -112,6 +112,7 @@ describe('CreateDailyLimitForm', () => {
     expect(screen.getByText('Дизель')).toBeInTheDocument()
     expect(screen.getByText('Газ')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /^Сохранить / })).toHaveLength(5)
+    expect(screen.queryByText('Машин')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Сохранить лимит/i })).not.toBeInTheDocument()
   })
 
@@ -128,7 +129,7 @@ describe('CreateDailyLimitForm', () => {
             expect.objectContaining({
               fuelType: 'AI_95',
               status: 'OPEN',
-              vehicleLimit: 20,
+              vehicleLimit: 0,
               litersLimit: 400,
             }),
           ],
