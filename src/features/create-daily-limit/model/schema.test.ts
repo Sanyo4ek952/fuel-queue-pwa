@@ -2,99 +2,31 @@ import { describe, expect, it } from 'vitest'
 
 import { createDailyLimitSchema } from './schema'
 
-const validFuelTypeLimits = [
-  {
-    fuelType: 'AI_92',
-    limitMode: 'fuel_liters',
-    vehicleLimit: 0,
-    litersLimit: '0',
-  },
-  {
-    fuelType: 'AI_95',
-    limitMode: 'fuel_liters',
-    vehicleLimit: 0,
-    litersLimit: '400',
-  },
-  {
-    fuelType: 'AI_100',
-    limitMode: 'fuel_liters',
-    vehicleLimit: 0,
-    litersLimit: '0',
-  },
-  {
-    fuelType: 'DIESEL',
-    limitMode: 'vehicle_count',
-    vehicleLimit: '10',
-    litersLimit: '',
-  },
-  {
-    fuelType: 'GAS',
-    limitMode: 'fuel_liters',
-    vehicleLimit: 0,
-    litersLimit: '200',
-  },
-]
-
 describe('createDailyLimitSchema', () => {
-  it('coerces fuel type limit numeric fields', () => {
+  it('accepts simultaneous vehicle and optional liter constraints', () => {
     const result = createDailyLimitSchema.parse({
       targetDate: '2026-07-05',
       stationId: 'station-id',
-      fuelTypeLimits: validFuelTypeLimits,
+      fuelTypeLimits: [{
+        fuelType: 'AI_95', status: 'OPEN', vehicleLimit: '10', litersLimit: '400',
+      }],
     })
-
-    expect(result.fuelTypeLimits[1]).toMatchObject({
-      fuelType: 'AI_95',
-      limitMode: 'fuel_liters',
-      litersLimit: 400,
-    })
-    expect(result.fuelTypeLimits[3]).toMatchObject({
-      fuelType: 'DIESEL',
-      limitMode: 'vehicle_count',
-      vehicleLimit: 10,
-      litersLimit: null,
+    expect(result.fuelTypeLimits[0]).toEqual({
+      fuelType: 'AI_95', status: 'OPEN', vehicleLimit: 10, litersLimit: 400,
     })
   })
 
-  it('rejects missing liters in fuel_liters mode', () => {
-    const result = createDailyLimitSchema.safeParse({
-      targetDate: '2026-07-05',
-      stationId: 'station-id',
-      fuelTypeLimits: [
-        { fuelType: 'AI_92', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: '' },
-        { fuelType: 'AI_95', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 400 },
-        { fuelType: 'AI_100', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 0 },
-        { fuelType: 'DIESEL', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
-        { fuelType: 'GAS', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
-      ],
-    })
-
-    expect(result.success).toBe(false)
+  it('allows a paused fuel with zero capacity', () => {
+    expect(createDailyLimitSchema.safeParse({
+      targetDate: '2026-07-05', stationId: 'station-id',
+      fuelTypeLimits: [{ fuelType: 'AI_92', status: 'PAUSED', vehicleLimit: 0, litersLimit: '' }],
+    }).success).toBe(true)
   })
 
-  it('rejects zero vehicles in vehicle_count mode', () => {
-    const result = createDailyLimitSchema.safeParse({
-      targetDate: '2026-07-05',
-      stationId: 'station-id',
-      fuelTypeLimits: [
-        { fuelType: 'AI_92', limitMode: 'vehicle_count', vehicleLimit: 0, litersLimit: '' },
-        { fuelType: 'AI_95', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 400 },
-        { fuelType: 'AI_100', limitMode: 'fuel_liters', vehicleLimit: 0, litersLimit: 0 },
-        { fuelType: 'DIESEL', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
-        { fuelType: 'GAS', limitMode: 'vehicle_count', vehicleLimit: 10, litersLimit: '' },
-      ],
-    })
-
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects missing station', () => {
-    const result = createDailyLimitSchema.safeParse({
-      targetDate: '2026-07-05',
-      stationId: '',
-      fuelTypeLimits: validFuelTypeLimits,
-    })
-
-    expect(result.success).toBe(false)
+  it('allows an open fuel with zero capacity', () => {
+    expect(createDailyLimitSchema.safeParse({
+      targetDate: '2026-07-05', stationId: 'station-id',
+      fuelTypeLimits: [{ fuelType: 'AI_92', status: 'OPEN', vehicleLimit: 0, litersLimit: 100 }],
+    }).success).toBe(true)
   })
 })

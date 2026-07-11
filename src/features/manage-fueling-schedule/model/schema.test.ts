@@ -7,6 +7,7 @@ describe('fuelingScheduleFormSchema', () => {
     expect(
       fuelingScheduleFormSchema.parse({
         targetDate: '2026-07-09',
+        stationId: '00000000-0000-4000-8000-000000000001',
         schedules: [
           {
             fuelCategory: 'GASOLINE',
@@ -18,6 +19,7 @@ describe('fuelingScheduleFormSchema', () => {
       }),
     ).toEqual({
       targetDate: '2026-07-09',
+      stationId: '00000000-0000-4000-8000-000000000001',
       schedules: [
         {
           fuelCategory: 'GASOLINE',
@@ -33,6 +35,7 @@ describe('fuelingScheduleFormSchema', () => {
     expect(() =>
       fuelingScheduleFormSchema.parse({
         targetDate: '2026-07-09',
+        stationId: '00000000-0000-4000-8000-000000000001',
         schedules: [
           {
             fuelCategory: 'GASOLINE',

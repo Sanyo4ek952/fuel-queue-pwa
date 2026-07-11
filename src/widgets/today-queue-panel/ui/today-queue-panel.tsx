@@ -12,17 +12,12 @@ import {
 import type { CancelReservationFormValues } from '@/features/cancel-reservation'
 import { useCancelReservation } from '@/features/cancel-reservation'
 import { useLogReservationCall } from '@/features/log-reservation-call'
-import { useDailyFuelingSchedule } from '@/features/manage-fueling-schedule'
 import {
   type UpdateReservationFuelPreferenceFormValues,
   useUpdateReservationFuelPreference,
 } from '@/features/update-reservation-fuel-preference'
 import type { FuelQueueCategory, ReservationCallStatus } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
-import {
-  buildFuelingScheduleEta,
-  buildFuelingScheduleSummary,
-} from '@/shared/lib/fueling-schedule'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import { canCancelReservation } from '@/shared/lib/permissions'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
@@ -41,9 +36,8 @@ import {
   getCallFilterCounts,
   groupRowsByFuelCategory,
   hasActiveGasolineLimit,
-  toFuelingScheduleConfigs,
-  toFuelingScheduleRows,
 } from '../model/queue-model'
+import { formatArrivalAt } from '../model/format'
 import {
   ALL_AUTHORS_FILTER,
   ALL_GASOLINE_FILTER,
@@ -51,7 +45,6 @@ import {
   type CallFilter,
   type GasolineFuelFilter,
 } from '../model/types'
-import { FuelingScheduleSummaryPanel } from './fueling-schedule-summary-panel'
 import { QueueFilters } from './queue-filters'
 import { QueueRowCard } from './queue-row-card'
 import { SummaryTile } from './summary-tile'
@@ -77,7 +70,6 @@ export function TodayQueuePanel() {
     gasolineFuelFilter,
   })
   const dailyLimitOverview = useDailyLimitOverview({ date: todayDate })
-  const fuelingSchedule = useDailyFuelingSchedule(todayDate)
   const logReservationCall = useLogReservationCall()
   const updateReservationFuelPreference = useUpdateReservationFuelPreference()
   const cancelReservation = useCancelReservation()
@@ -88,28 +80,6 @@ export function TodayQueuePanel() {
   )
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
   const authorOptions = authorsQuery.data ?? []
-  const scheduleConfigs = useMemo(
-    () => toFuelingScheduleConfigs(fuelingSchedule.data),
-    [fuelingSchedule.data],
-  )
-  const fuelingScheduleRows = useMemo(
-    () => toFuelingScheduleRows(queue.rows),
-    [queue.rows],
-  )
-  const etaByReservationId = useMemo(
-    () => buildFuelingScheduleEta(fuelingScheduleRows, scheduleConfigs),
-    [fuelingScheduleRows, scheduleConfigs],
-  )
-  const fuelingScheduleSummaries = useMemo(
-    () =>
-      buildFuelingScheduleSummary(
-        fuelingScheduleRows,
-        scheduleConfigs,
-        categoryOrder,
-        queue.isOnline ? queue.summary?.callable_category_counts : undefined,
-      ),
-    [fuelingScheduleRows, queue.isOnline, queue.summary?.callable_category_counts, scheduleConfigs],
-  )
   const rowsMatchingBaseFilters = queue.rows
   const filteredRows = queue.rows
   const callFilterCounts = useMemo(
@@ -160,7 +130,7 @@ export function TodayQueuePanel() {
     values: UpdateReservationFuelPreferenceFormValues,
   ) {
     updateReservationFuelPreference.mutate({
-      reservationId: row.id,
+      reservationId: row.queue_entry_id ?? row.id,
       fuelType: values.fuelType,
       fuelPreferenceMode: values.fuelPreferenceMode,
       clientMutationId: crypto.randomUUID(),
@@ -169,7 +139,7 @@ export function TodayQueuePanel() {
 
   function handleCancelReservation(row: TodayQueueRow, values: CancelReservationFormValues) {
     cancelReservation.mutate({
-      reservationId: row.id,
+      reservationId: row.queue_entry_id ?? row.id,
       reason: values.reason,
       comment: values.reason === 'OTHER' ? (values.comment ?? '').trim() : null,
       clientMutationId: crypto.randomUUID(),
@@ -182,10 +152,10 @@ export function TodayQueuePanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ListChecks className="size-5 text-slate-500" aria-hidden="true" />
-            Общая очередь
+            Дневные назначения
           </CardTitle>
           <CardDescription>
-            Единая очередь по всем АЗС, разложенная на бензин, дизель и газ.
+            Сохранённое сервером распределение по АЗС, топливу, позициям и времени.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -205,15 +175,6 @@ export function TodayQueuePanel() {
             <SummaryTile label="Обзвон" value={callRowsCount} />
             <SummaryTile label="Позвонили" value={contactedRowsCount} />
           </div>
-
-          <FuelingScheduleSummaryPanel summaries={fuelingScheduleSummaries} />
-
-          {fuelingSchedule.error ? (
-            <Alert variant="destructive">
-              <AlertTitle>Расписание розлива не загружено</AlertTitle>
-              <AlertDescription>{fuelingSchedule.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
 
           <QueueFilters
             callFilter={callFilter}
@@ -308,9 +269,7 @@ export function TodayQueuePanel() {
                       <QueueRowCard
                         key={row.id}
                         row={row}
-                        estimatedArrivalTime={
-                          etaByReservationId.get(row.id)?.arrivalTime ?? null
-                        }
+                        estimatedArrivalTime={formatArrivalAt(row.arrival_at)}
                         isLoggingCall={logReservationCall.isPending}
                         isUpdatingFuelPreference={
                           updateReservationFuelPreference.isPending &&

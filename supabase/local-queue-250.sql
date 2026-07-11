@@ -1,254 +1,76 @@
--- Local development queue with 250 active staff-created reservations for today.
--- Run only against the local Supabase database after local-dev-users.sql:
---   npx supabase db query --local --file supabase/local-queue-250.sql
+-- Local persistent city queue plus saved allocations for today.
 
 do $$
 declare
-  station_id_value uuid := '10000000-0000-0000-0000-000000000001';
-  daily_limit_id_value uuid := '61000000-0000-0000-0000-000000000250';
   operator_profile_id uuid;
-  consumer_profile_id_value uuid;
-  n integer;
-  reservation_id_value uuid;
+  station_row record;
   vehicle_id_value uuid;
   driver_id_value uuid;
-  driver_full_name_value text;
-  driver_phone_value text;
-  plate_value text;
-  queue_start integer;
-  inserted_count integer;
+  n integer;
 begin
-  select p.id
-  into operator_profile_id
-  from public.profiles p
-  join auth.users u on u.id = p.auth_user_id
-  where u.email = 'mayor-assistant@example.local'
+  perform set_config('search_path', 'public, extensions', true);
+
+  select id into operator_profile_id
+  from public.profiles
+  where role in ('mayor', 'mayor_assistant', 'station_manager') and is_active
+  order by case role when 'mayor' then 0 else 1 end
   limit 1;
-
   if operator_profile_id is null then
-    select p.id
-    into operator_profile_id
-    from public.profiles p
-    where p.role in ('mayor', 'station_manager', 'mayor_assistant')
-      and p.is_active = true
-      and p.approval_status = 'approved'
-    order by case p.role when 'mayor_assistant' then 0 when 'mayor' then 1 else 2 end
-    limit 1;
+    raise exception 'Run local-dev-users.sql first.';
   end if;
 
-  if operator_profile_id is null then
-    raise exception 'Create local dev users before local-queue-250.sql.';
-  end if;
+  delete from public.daily_queue_allocation_call_logs;
+  delete from public.daily_queue_allocations;
+  delete from public.fuel_queue_entries where comment = 'Local 250 city queue seed';
+  delete from public.daily_limits dl
+  using public.stations s
+  where dl.station_id = s.id
+    and dl.date = (now() at time zone 'Europe/Moscow')::date
+    and s.is_active;
 
-  insert into public.stations (id, name, address, is_active)
-  values (station_id_value, 'AZS #1', 'Main station #1', true)
-  on conflict (id) do update
-  set
-    name = excluded.name,
-    address = excluded.address,
-    is_active = excluded.is_active;
-
-  delete from public.fuel_reservations
-  where comment in ('Local 500 queue seed', 'Local 250 staff queue seed');
-
-  insert into public.daily_limits (
-    id,
-    date,
-    station_id,
-    total_vehicle_limit,
-    max_liters_per_vehicle,
-    status,
-    created_by
-  )
-  values (
-    daily_limit_id_value,
-    current_date,
-    station_id_value,
-    300,
-    60,
-    'OPEN',
-    operator_profile_id
-  )
-  on conflict (date, station_id) do update
-  set
-    total_vehicle_limit = greatest(public.daily_limits.total_vehicle_limit, excluded.total_vehicle_limit),
-    max_liters_per_vehicle = greatest(public.daily_limits.max_liters_per_vehicle, excluded.max_liters_per_vehicle),
-    status = 'OPEN',
-    created_by = excluded.created_by,
-    updated_at = now();
-
-  select id
-  into daily_limit_id_value
-  from public.daily_limits
-  where date = current_date
-    and station_id = station_id_value;
-
-  insert into public.daily_fuel_type_limits (
-    daily_limit_id,
-    fuel_type,
-    vehicle_limit,
-    liters_limit,
-    fuel_category,
-    limit_mode
-  )
-  values
-    (daily_limit_id_value, 'AI_92', 75, 4500, 'GASOLINE', 'vehicle_count'),
-    (daily_limit_id_value, 'AI_95', 250, 15000, 'GASOLINE', 'vehicle_count'),
-    (daily_limit_id_value, 'AI_100', 50, 3000, 'GASOLINE', 'vehicle_count'),
-    (daily_limit_id_value, 'DIESEL', 50, 3000, 'DIESEL', 'vehicle_count'),
-    (daily_limit_id_value, 'GAS', 50, 3000, 'GAS', 'vehicle_count')
-  on conflict (daily_limit_id, fuel_type) do update
-  set
-    vehicle_limit = excluded.vehicle_limit,
-    liters_limit = excluded.liters_limit,
-    fuel_category = excluded.fuel_category,
-    limit_mode = excluded.limit_mode,
-    updated_at = now();
-
-  select coalesce(max(queue_number), 0) + 1
-  into queue_start
-  from public.fuel_reservations;
+  for station_row in select * from public.stations where is_active order by allocation_order
+  loop
+    insert into public.daily_fueling_schedules (
+      date, station_id, fuel_category, start_time, interval_minutes,
+      vehicles_per_interval, updated_by
+    ) values
+      ((now() at time zone 'Europe/Moscow')::date, station_row.id, 'GASOLINE', '13:00', 5, 5, operator_profile_id),
+      ((now() at time zone 'Europe/Moscow')::date, station_row.id, 'DIESEL', '13:00', 5, 5, operator_profile_id),
+      ((now() at time zone 'Europe/Moscow')::date, station_row.id, 'GAS', '13:00', 5, 5, operator_profile_id)
+    on conflict (date, station_id, fuel_category) do update
+    set start_time = excluded.start_time,
+        interval_minutes = excluded.interval_minutes,
+        vehicles_per_interval = excluded.vehicles_per_interval;
+  end loop;
 
   for n in 1..250 loop
-    consumer_profile_id_value := (
-      substr(md5('local-dev-profile-' || n::text), 1, 8) || '-' ||
-      substr(md5('local-dev-profile-' || n::text), 9, 4) || '-' ||
-      substr(md5('local-dev-profile-' || n::text), 13, 4) || '-' ||
-      substr(md5('local-dev-profile-' || n::text), 17, 4) || '-' ||
-      substr(md5('local-dev-profile-' || n::text), 21, 12)
-    )::uuid;
-    reservation_id_value := (
-      substr(md5('local-queue-reservation-' || n::text), 1, 8) || '-' ||
-      substr(md5('local-queue-reservation-' || n::text), 9, 4) || '-' ||
-      substr(md5('local-queue-reservation-' || n::text), 13, 4) || '-' ||
-      substr(md5('local-queue-reservation-' || n::text), 17, 4) || '-' ||
-      substr(md5('local-queue-reservation-' || n::text), 21, 12)
-    )::uuid;
-    vehicle_id_value := (
-      substr(md5('local-dev-consumer-vehicle-' || n::text), 1, 8) || '-' ||
-      substr(md5('local-dev-consumer-vehicle-' || n::text), 9, 4) || '-' ||
-      substr(md5('local-dev-consumer-vehicle-' || n::text), 13, 4) || '-' ||
-      substr(md5('local-dev-consumer-vehicle-' || n::text), 17, 4) || '-' ||
-      substr(md5('local-dev-consumer-vehicle-' || n::text), 21, 12)
-    )::uuid;
-    driver_id_value := (
-      substr(md5('local-queue-driver-' || n::text), 1, 8) || '-' ||
-      substr(md5('local-queue-driver-' || n::text), 9, 4) || '-' ||
-      substr(md5('local-queue-driver-' || n::text), 13, 4) || '-' ||
-      substr(md5('local-queue-driver-' || n::text), 17, 4) || '-' ||
-      substr(md5('local-queue-driver-' || n::text), 21, 12)
-    )::uuid;
-
-    select
-      p.full_name,
-      p.phone,
-      v.plate_number
-    into
-      driver_full_name_value,
-      driver_phone_value,
-      plate_value
-    from public.profiles p
-    join public.profile_vehicles pv on pv.profile_id = p.id
-    join public.vehicles v on v.id = pv.vehicle_id
-    where p.id = consumer_profile_id_value
-      and p.role = 'consumer'
-      and pv.vehicle_id = vehicle_id_value
-      and pv.status = 'ACTIVE'
-    limit 1;
-
-    if plate_value is null then
-      raise exception 'Create local consumer users and vehicles before local-queue-250.sql. Missing consumer %.', n;
-    end if;
-
-    insert into public.vehicles (
-      id,
-      plate_number,
-      normalized_plate_number,
-      is_blocked,
-      block_reason
-    )
+    insert into public.vehicles (plate_number, normalized_plate_number)
     values (
-      vehicle_id_value,
-      plate_value,
-      plate_value,
-      false,
-      null
+      U&'\0422' || lpad((n % 1000)::text, 3, '0') || U&'\0421\0422' || (100 + n)::text,
+      U&'\0422' || lpad((n % 1000)::text, 3, '0') || U&'\0421\0422' || (100 + n)::text
     )
-    on conflict (normalized_plate_number) do update
-    set
-      plate_number = excluded.plate_number,
-      is_blocked = false,
-      block_reason = null,
-      updated_at = now();
-
-    insert into public.drivers (id, full_name, phone)
+    on conflict (normalized_plate_number) do update set plate_number = excluded.plate_number
+    returning id into vehicle_id_value;
+    insert into public.drivers (full_name, phone)
     values (
-      driver_id_value,
-      driver_full_name_value,
-      driver_phone_value
+      format(U&'\0422\0435\0441\0442\043E\0432\044B\0439 \0432\043E\0434\0438\0442\0435\043B\044C %s', n),
+      format('+7978000%04s', n)
     )
-    on conflict (id) do update
-    set
-      full_name = excluded.full_name,
-      phone = excluded.phone,
-      updated_at = now();
-
-    insert into public.fuel_reservations (
-      id,
-      date,
-      station_id,
-      vehicle_id,
-      driver_id,
-      fuel_type,
-      requested_liters,
-      queue_number,
-      status,
-      operator_id,
-      comment,
-      client_mutation_id,
-      sync_status,
-      fuel_preference_mode,
-      created_at,
-      updated_at
-    )
-    values (
-      reservation_id_value,
-      current_date,
-      station_id_value,
+    returning id into driver_id_value;
+    insert into public.fuel_queue_entries (
+      vehicle_id, driver_id, preferred_fuel_type, fuel_preference_mode,
+      requested_liters, operator_id, comment
+    ) values (
       vehicle_id_value,
       driver_id_value,
-      case
-        when n % 10 = 0 then 'DIESEL'
-        when n % 15 = 0 then 'GAS'
-        when n % 7 = 0 then 'AI_92'
-        when n % 11 = 0 then 'AI_100'
-        else 'AI_95'
-      end,
-      20 + (n % 31),
-      queue_start + n - 1,
-      'RESERVED',
+      (array['AI_92', 'AI_95', 'AI_100', 'DIESEL', 'GAS'])[(n % 5) + 1],
+      case when n % 7 = 0 and n % 5 < 3 then 'ANY_GASOLINE' else 'EXACT' end,
+      40,
       operator_profile_id,
-      'Local 250 staff queue seed',
-      (
-        substr(md5('local-queue-mutation-' || n::text), 1, 8) || '-' ||
-        substr(md5('local-queue-mutation-' || n::text), 9, 4) || '-' ||
-        substr(md5('local-queue-mutation-' || n::text), 13, 4) || '-' ||
-        substr(md5('local-queue-mutation-' || n::text), 17, 4) || '-' ||
-        substr(md5('local-queue-mutation-' || n::text), 21, 12)
-      )::uuid,
-      'SYNCED',
-      case when n % 13 = 0 then 'ANY_GASOLINE' else 'EXACT' end,
-      now() + make_interval(secs => n),
-      now() + make_interval(secs => n)
+      'Local 250 city queue seed'
     );
   end loop;
 
-  select count(*)
-  into inserted_count
-  from public.fuel_reservations
-  where comment = 'Local 250 staff queue seed'
-    and date = current_date
-    and status in ('RESERVED', 'ARRIVED', 'APPROVED', 'FUELING');
-
-  raise notice 'local-queue-250-ready: active_staff_seed_reservations=%', inserted_count;
-end $$;
+  perform public.allocate_daily_queue((now() at time zone 'Europe/Moscow')::date);
+end;
+$$;

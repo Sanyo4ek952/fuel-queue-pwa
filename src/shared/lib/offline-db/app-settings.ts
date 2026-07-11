@@ -59,6 +59,7 @@ function isDailyFuelingScheduleRow(value: unknown): value is DailyFuelingSchedul
 
   return (
     typeof row.date === 'string' &&
+    typeof row.station_id === 'string' &&
     (row.fuel_category === 'GASOLINE' ||
       row.fuel_category === 'DIESEL' ||
       row.fuel_category === 'GAS') &&
@@ -71,20 +72,21 @@ function isDailyFuelingScheduleRow(value: unknown): value is DailyFuelingSchedul
 export async function cacheDailyFuelingSchedule(
   targetDate: string,
   rows: DailyFuelingScheduleRow[],
+  stationId?: string | null,
 ) {
   const now = new Date().toISOString()
 
   await offlineDb.local_app_settings.put({
-    key: `${DAILY_FUELING_SCHEDULE_KEY_PREFIX}${targetDate}`,
+    key: `${DAILY_FUELING_SCHEDULE_KEY_PREFIX}${targetDate}:${stationId ?? 'all'}`,
     value: { rows },
     updated_at: now,
     cached_at: now,
   })
 }
 
-export async function getCachedDailyFuelingSchedule(targetDate: string) {
+export async function getCachedDailyFuelingSchedule(targetDate: string, stationId?: string | null) {
   const setting = await offlineDb.local_app_settings.get(
-    `${DAILY_FUELING_SCHEDULE_KEY_PREFIX}${targetDate}`,
+    `${DAILY_FUELING_SCHEDULE_KEY_PREFIX}${targetDate}:${stationId ?? 'all'}`,
   )
 
   if (!setting?.value || typeof setting.value !== 'object' || Array.isArray(setting.value)) {

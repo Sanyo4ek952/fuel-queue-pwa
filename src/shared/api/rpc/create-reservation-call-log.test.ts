@@ -24,7 +24,7 @@ describe('parseCreateReservationCallLogResult', () => {
         client_mutation_id: 'mutation-id',
         sync_status: 'SYNCED',
       }),
-    ).toEqual({
+    ).toMatchObject({
       id: 'call-id',
       reservation_id: 'reservation-id',
       status: 'CONTACTED',

@@ -20,7 +20,8 @@ begin
   if to_regclass('public.stations') is null
     or to_regclass('public.profiles') is null
     or to_regclass('public.daily_limits') is null
-    or to_regclass('public.fuel_reservations') is null
+    or to_regclass('public.fuel_queue_entries') is null
+    or to_regclass('public.daily_queue_allocations') is null
     or to_regclass('public.fueling_records') is null
     or to_regclass('auth.users') is null then
     raise exception 'Run Supabase migrations before hosted-test-data.sql.';
@@ -55,28 +56,11 @@ begin
 
   select count(*)
   into conflicting_rows
-  from public.daily_limits
-  where date = any(target_dates)
-    and station_id = any(seed_station_ids)
-    and id not in (
-      '60000000-0000-0000-0000-000000000101',
-      '60000000-0000-0000-0000-000000000102',
-      '60000000-0000-0000-0000-000000000103',
-      '60000000-0000-0000-0000-000000000201',
-      '60000000-0000-0000-0000-000000000202',
-      '60000000-0000-0000-0000-000000000203'
-    );
-
-  if conflicting_rows > 0 then
-    raise exception 'Non-seed daily_limits already exist for current/tomorrow test dates.';
-  end if;
-
-  select count(*)
-  into conflicting_rows
-  from public.fuel_reservations
-  where date = any(target_dates)
-    and station_id = any(seed_station_ids)
-    and id not in (
+  from public.daily_queue_allocations dqa
+  join public.fuel_queue_entries fqe on fqe.id = dqa.queue_entry_id
+  where dqa.allocation_date = any(target_dates)
+    and dqa.station_id = any(seed_station_ids)
+    and fqe.id not in (
       '70000000-0000-0000-0000-000000000101',
       '70000000-0000-0000-0000-000000000102',
       '70000000-0000-0000-0000-000000000103',
@@ -86,7 +70,7 @@ begin
     );
 
   if conflicting_rows > 0 then
-    raise exception 'Non-seed fuel_reservations already exist for current/tomorrow test dates.';
+    raise exception 'Non-seed daily_queue_allocations already exist for current/tomorrow test dates.';
   end if;
 
   select count(*)
@@ -103,16 +87,27 @@ begin
   end if;
 end $$;
 
-insert into public.stations (id, name, address, is_active)
+delete from public.daily_limits
+where id in (
+  '60000000-0000-0000-0000-000000000101',
+  '60000000-0000-0000-0000-000000000102',
+  '60000000-0000-0000-0000-000000000103',
+  '60000000-0000-0000-0000-000000000201',
+  '60000000-0000-0000-0000-000000000202',
+  '60000000-0000-0000-0000-000000000203'
+);
+
+insert into public.stations (id, name, address, is_active, allocation_order)
 values
-  ('10000000-0000-0000-0000-000000000001', 'AZS #1', 'Main station #1', true),
-  ('10000000-0000-0000-0000-000000000002', 'AZS #2', 'Main station #2', true),
-  ('10000000-0000-0000-0000-000000000003', 'AZS #3', 'Main station #3', true)
+  ('10000000-0000-0000-0000-000000000001', 'AZS #1', 'Main station #1', true, 1),
+  ('10000000-0000-0000-0000-000000000002', 'AZS #2', 'Main station #2', true, 2),
+  ('10000000-0000-0000-0000-000000000003', 'AZS #3', 'Main station #3', true, 3)
 on conflict (id) do update
 set
   name = excluded.name,
   address = excluded.address,
-  is_active = excluded.is_active;
+  is_active = excluded.is_active,
+  allocation_order = excluded.allocation_order;
 
 insert into auth.users (
   id,
@@ -342,99 +337,106 @@ set
   full_name = excluded.full_name,
   phone = excluded.phone;
 
-insert into public.daily_limits (
-  id,
+insert into public.daily_fueling_schedules (
   date,
   station_id,
-  total_vehicle_limit,
-  max_liters_per_vehicle,
-  status,
-  created_by,
+  fuel_category,
+  start_time,
+  interval_minutes,
+  vehicles_per_interval,
+  updated_by,
   client_mutation_id
 )
-values
-  ('60000000-0000-0000-0000-000000000101', current_date, '10000000-0000-0000-0000-000000000001', 12, 50, 'OPEN', '30000000-0000-0000-0000-000000000004', '61000000-0000-0000-0000-000000000101'),
-  ('60000000-0000-0000-0000-000000000102', current_date, '10000000-0000-0000-0000-000000000002', 12, 50, 'OPEN', '30000000-0000-0000-0000-000000000003', '61000000-0000-0000-0000-000000000102'),
-  ('60000000-0000-0000-0000-000000000103', current_date, '10000000-0000-0000-0000-000000000003', 8, 45, 'OPEN', '30000000-0000-0000-0000-000000000004', '61000000-0000-0000-0000-000000000103'),
-  ('60000000-0000-0000-0000-000000000201', current_date + 1, '10000000-0000-0000-0000-000000000001', 20, 50, 'OPEN', '30000000-0000-0000-0000-000000000004', '61000000-0000-0000-0000-000000000201'),
-  ('60000000-0000-0000-0000-000000000202', current_date + 1, '10000000-0000-0000-0000-000000000002', 20, 50, 'OPEN', '30000000-0000-0000-0000-000000000003', '61000000-0000-0000-0000-000000000202'),
-  ('60000000-0000-0000-0000-000000000203', current_date + 1, '10000000-0000-0000-0000-000000000003', 15, 45, 'OPEN', '30000000-0000-0000-0000-000000000004', '61000000-0000-0000-0000-000000000203')
-on conflict (id) do update
+select d.day_value, s.station_id, c.fuel_category, c.start_time, 10, 2, '30000000-0000-0000-0000-000000000004'::uuid, gen_random_uuid()
+from unnest(array[current_date, current_date + 1]) as d(day_value)
+cross join unnest(array[
+  '10000000-0000-0000-0000-000000000001'::uuid,
+  '10000000-0000-0000-0000-000000000002'::uuid,
+  '10000000-0000-0000-0000-000000000003'::uuid
+]) as s(station_id)
+cross join (
+  values
+    ('GASOLINE', '09:00'::time),
+    ('DIESEL', '10:00'::time),
+    ('GAS', '11:00'::time)
+) as c(fuel_category, start_time)
+on conflict (date, station_id, fuel_category) do update
 set
-  date = excluded.date,
-  station_id = excluded.station_id,
-  total_vehicle_limit = excluded.total_vehicle_limit,
-  max_liters_per_vehicle = excluded.max_liters_per_vehicle,
-  status = excluded.status,
-  created_by = excluded.created_by,
-  client_mutation_id = excluded.client_mutation_id;
+  start_time = excluded.start_time,
+  interval_minutes = excluded.interval_minutes,
+  vehicles_per_interval = excluded.vehicles_per_interval,
+  updated_by = excluded.updated_by;
 
-insert into public.daily_fuel_type_limits (
-  daily_limit_id,
-  fuel_type,
-  vehicle_limit,
-  liters_limit
-)
-values
-  ('60000000-0000-0000-0000-000000000101', 'AI_92', 4, 200),
-  ('60000000-0000-0000-0000-000000000101', 'AI_95', 5, 250),
-  ('60000000-0000-0000-0000-000000000101', 'DIESEL', 3, 180),
-  ('60000000-0000-0000-0000-000000000102', 'AI_92', 4, 200),
-  ('60000000-0000-0000-0000-000000000102', 'AI_95', 5, 250),
-  ('60000000-0000-0000-0000-000000000102', 'DIESEL', 3, 180),
-  ('60000000-0000-0000-0000-000000000103', 'AI_95', 4, 180),
-  ('60000000-0000-0000-0000-000000000103', 'DIESEL', 4, 180),
-  ('60000000-0000-0000-0000-000000000201', 'AI_92', 6, 300),
-  ('60000000-0000-0000-0000-000000000201', 'AI_95', 8, 400),
-  ('60000000-0000-0000-0000-000000000201', 'DIESEL', 6, 300),
-  ('60000000-0000-0000-0000-000000000202', 'AI_92', 6, 300),
-  ('60000000-0000-0000-0000-000000000202', 'AI_95', 8, 400),
-  ('60000000-0000-0000-0000-000000000202', 'DIESEL', 6, 300),
-  ('60000000-0000-0000-0000-000000000203', 'AI_95', 8, 360),
-  ('60000000-0000-0000-0000-000000000203', 'DIESEL', 7, 315)
-on conflict (daily_limit_id, fuel_type) do update
-set
-  vehicle_limit = excluded.vehicle_limit,
-  liters_limit = excluded.liters_limit;
-
-insert into public.fuel_reservations (
+insert into public.fuel_queue_entries (
   id,
-  date,
-  station_id,
+  permanent_number,
   vehicle_id,
   driver_id,
-  fuel_type,
+  preferred_fuel_type,
+  fuel_preference_mode,
   requested_liters,
-  queue_number,
   status,
   operator_id,
-  approved_by,
   comment,
   client_mutation_id,
   sync_status
 )
 values
-  ('70000000-0000-0000-0000-000000000101', current_date, '10000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'AI_95', 40, 101, 'RESERVED', '30000000-0000-0000-0000-000000000004', null, 'Seed: allowed today on station 1', '71000000-0000-0000-0000-000000000101', 'SYNCED'),
-  ('70000000-0000-0000-0000-000000000102', current_date, '10000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000002', 'DIESEL', 45, 102, 'RESERVED', '30000000-0000-0000-0000-000000000003', null, 'Seed: reserved at station 2', '71000000-0000-0000-0000-000000000102', 'SYNCED'),
-  ('70000000-0000-0000-0000-000000000103', current_date, '10000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000003', 'AI_92', 35, 103, 'FUELED', '30000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000002', 'Seed: already fueled today', '71000000-0000-0000-0000-000000000103', 'SYNCED'),
-  ('70000000-0000-0000-0000-000000000104', current_date, '10000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000007', '50000000-0000-0000-0000-000000000007', 'AI_95', 90, 104, 'RESERVED', '30000000-0000-0000-0000-000000000004', null, 'Seed: liters exceed max per vehicle', '71000000-0000-0000-0000-000000000104', 'SYNCED'),
-  ('70000000-0000-0000-0000-000000000201', current_date + 1, '10000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000008', '50000000-0000-0000-0000-000000000008', 'AI_95', 40, 201, 'RESERVED', '30000000-0000-0000-0000-000000000005', null, 'Seed: tomorrow station 1', '71000000-0000-0000-0000-000000000201', 'SYNCED'),
-  ('70000000-0000-0000-0000-000000000202', current_date + 1, '10000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000009', '50000000-0000-0000-0000-000000000009', 'DIESEL', 45, 202, 'RESERVED', '30000000-0000-0000-0000-000000000003', null, 'Seed: tomorrow station 2', '71000000-0000-0000-0000-000000000202', 'SYNCED')
+  ('70000000-0000-0000-0000-000000000101', 101, '40000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'AI_95', 'EXACT', 40, 'WAITING', '30000000-0000-0000-0000-000000000004', 'Seed: allowed today on station 1', '71000000-0000-0000-0000-000000000101', 'SYNCED'),
+  ('70000000-0000-0000-0000-000000000102', 102, '40000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000002', 'DIESEL', 'EXACT', 45, 'WAITING', '30000000-0000-0000-0000-000000000003', 'Seed: reserved at station 2', '71000000-0000-0000-0000-000000000102', 'SYNCED'),
+  ('70000000-0000-0000-0000-000000000103', 103, '40000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000003', 'AI_92', 'EXACT', 35, 'FUELED', '30000000-0000-0000-0000-000000000004', 'Seed: already fueled today', '71000000-0000-0000-0000-000000000103', 'SYNCED'),
+  ('70000000-0000-0000-0000-000000000104', 104, '40000000-0000-0000-0000-000000000007', '50000000-0000-0000-0000-000000000007', 'AI_95', 'EXACT', 90, 'WAITING', '30000000-0000-0000-0000-000000000004', 'Seed: paused by limit', '71000000-0000-0000-0000-000000000104', 'SYNCED'),
+  ('70000000-0000-0000-0000-000000000201', 201, '40000000-0000-0000-0000-000000000008', '50000000-0000-0000-0000-000000000008', 'AI_95', 'ANY_GASOLINE', 40, 'WAITING', '30000000-0000-0000-0000-000000000005', 'Seed: tomorrow station 1', '71000000-0000-0000-0000-000000000201', 'SYNCED'),
+  ('70000000-0000-0000-0000-000000000202', 202, '40000000-0000-0000-0000-000000000009', '50000000-0000-0000-0000-000000000009', 'DIESEL', 'EXACT', 45, 'WAITING', '30000000-0000-0000-0000-000000000003', 'Seed: tomorrow station 2', '71000000-0000-0000-0000-000000000202', 'SYNCED')
 on conflict (id) do update
 set
-  date = excluded.date,
-  station_id = excluded.station_id,
   vehicle_id = excluded.vehicle_id,
   driver_id = excluded.driver_id,
-  fuel_type = excluded.fuel_type,
+  preferred_fuel_type = excluded.preferred_fuel_type,
+  fuel_preference_mode = excluded.fuel_preference_mode,
   requested_liters = excluded.requested_liters,
-  queue_number = excluded.queue_number,
   status = excluded.status,
   operator_id = excluded.operator_id,
-  approved_by = excluded.approved_by,
   comment = excluded.comment,
   client_mutation_id = excluded.client_mutation_id,
   sync_status = excluded.sync_status;
+
+select setval('public.fuel_queue_permanent_number_seq', greatest((select max(permanent_number) from public.fuel_queue_entries), 1), true);
+
+insert into public.daily_queue_allocations (
+  id,
+  allocation_date,
+  queue_entry_id,
+  station_id,
+  assigned_fuel_type,
+  allocated_liters,
+  daily_position,
+  station_position,
+  station_fuel_position,
+  arrival_at,
+  status,
+  call_status,
+  fueled_at
+)
+values
+  ('72000000-0000-0000-0000-000000000101', current_date, '70000000-0000-0000-0000-000000000101', '10000000-0000-0000-0000-000000000001', 'AI_95', 40, 1, 1, 1, current_date + time '09:00', 'ACTIVE', 'NOT_CALLED', null),
+  ('72000000-0000-0000-0000-000000000102', current_date, '70000000-0000-0000-0000-000000000102', '10000000-0000-0000-0000-000000000002', 'DIESEL', 45, 2, 1, 1, current_date + time '10:00', 'ACTIVE', 'CONTACTED', null),
+  ('72000000-0000-0000-0000-000000000103', current_date, '70000000-0000-0000-0000-000000000103', '10000000-0000-0000-0000-000000000001', 'AI_92', 35, 3, 2, 1, current_date + time '09:10', 'FUELED', 'CONTACTED', now() - interval '1 hour'),
+  ('72000000-0000-0000-0000-000000000104', current_date, '70000000-0000-0000-0000-000000000104', '10000000-0000-0000-0000-000000000001', 'AI_95', 90, 4, 3, 2, current_date + time '09:10', 'PAUSED_BY_LIMIT', 'NO_ANSWER', null),
+  ('72000000-0000-0000-0000-000000000201', current_date + 1, '70000000-0000-0000-0000-000000000201', '10000000-0000-0000-0000-000000000001', 'AI_95', 40, 1, 1, 1, current_date + 1 + time '09:00', 'ACTIVE', 'NOT_CALLED', null),
+  ('72000000-0000-0000-0000-000000000202', current_date + 1, '70000000-0000-0000-0000-000000000202', '10000000-0000-0000-0000-000000000002', 'DIESEL', 45, 2, 1, 1, current_date + 1 + time '10:00', 'ACTIVE', 'NOT_CALLED', null)
+on conflict (allocation_date, queue_entry_id) do update
+set
+  station_id = excluded.station_id,
+  assigned_fuel_type = excluded.assigned_fuel_type,
+  allocated_liters = excluded.allocated_liters,
+  daily_position = excluded.daily_position,
+  station_position = excluded.station_position,
+  station_fuel_position = excluded.station_fuel_position,
+  arrival_at = excluded.arrival_at,
+  status = excluded.status,
+  call_status = excluded.call_status,
+  fueled_at = excluded.fueled_at;
 
 insert into public.fueling_records (
   id,
@@ -443,6 +445,8 @@ insert into public.fueling_records (
   vehicle_id,
   driver_id,
   reservation_id,
+  allocation_id,
+  queue_entry_id,
   fuel_type,
   liters,
   cashier_id,
@@ -454,7 +458,7 @@ insert into public.fueling_records (
   fueled_at
 )
 values
-  ('80000000-0000-0000-0000-000000000101', current_date, '10000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000103', 'AI_92', 35, '30000000-0000-0000-0000-000000000002', false, null, 'Seed: already fueled today', '81000000-0000-0000-0000-000000000101', 'SYNCED', now() - interval '1 hour')
+  ('80000000-0000-0000-0000-000000000101', current_date, '10000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000003', null, '72000000-0000-0000-0000-000000000103', '70000000-0000-0000-0000-000000000103', 'AI_92', 35, '30000000-0000-0000-0000-000000000002', false, null, 'Seed: already fueled today', '81000000-0000-0000-0000-000000000101', 'SYNCED', now() - interval '1 hour')
 on conflict (id) do update
 set
   date = excluded.date,
@@ -462,6 +466,8 @@ set
   vehicle_id = excluded.vehicle_id,
   driver_id = excluded.driver_id,
   reservation_id = excluded.reservation_id,
+  allocation_id = excluded.allocation_id,
+  queue_entry_id = excluded.queue_entry_id,
   fuel_type = excluded.fuel_type,
   liters = excluded.liters,
   cashier_id = excluded.cashier_id,
@@ -561,5 +567,6 @@ select
     '20000000-0000-0000-0000-000000000007',
     '20000000-0000-0000-0000-000000000008'
   )) as profiles,
-  (select count(*) from public.daily_limits where date in (current_date, current_date + 1)) as daily_limits,
-  (select count(*) from public.fuel_reservations where date in (current_date, current_date + 1)) as reservations;
+  (select count(*) from public.daily_limits where id::text like '60000000-%') as seed_daily_limits,
+  (select count(*) from public.fuel_queue_entries where permanent_number in (101, 102, 103, 104, 201, 202)) as queue_entries,
+  (select count(*) from public.daily_queue_allocations where allocation_date in (current_date, current_date + 1)) as daily_allocations;

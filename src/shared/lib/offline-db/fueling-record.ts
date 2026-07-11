@@ -5,12 +5,12 @@ import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import { evaluateVehicleAccessOffline } from './vehicle-access'
 import {
   offlineDb,
-  type LocalDailyLimit,
   type LocalFuelingRecord,
   type SyncOutboxOperation,
 } from './db'
 
 export type CreateOfflineFuelingRecordParams = {
+  allocationId?: string
   stationId: string
   plateNumber: string
   liters: number
@@ -27,6 +27,8 @@ export type OfflineFuelingRecordResult = {
   station_id: string
   vehicle_id: string
   reservation_id: string | null
+  allocation_id: string | null
+  queue_entry_id: string | null
   preferential_queue_entry_id: null
   fuel_type: FuelType
   liters: number
@@ -38,6 +40,7 @@ export type OfflineFuelingRecordResult = {
 }
 
 export type CreateFuelingRecordPayload = {
+  allocation_id?: string
   station_id: string
   plate_number: string
   liters: number
@@ -48,6 +51,7 @@ export type CreateFuelingRecordPayload = {
 }
 
 export function buildCreateFuelingRecordPayload({
+  allocationId,
   stationId,
   plateNumber,
   liters,
@@ -57,6 +61,7 @@ export function buildCreateFuelingRecordPayload({
   comment,
 }: CreateOfflineFuelingRecordParams): CreateFuelingRecordPayload {
   return {
+    allocation_id: allocationId,
     station_id: stationId,
     plate_number: normalizePlateNumber(plateNumber),
     liters,
@@ -71,35 +76,6 @@ function isAllowedForOfflineFueling(result: VehicleAccessResult) {
   return result.status === 'ALLOWED'
 }
 
-function assertFuelingLitersWithinLocalLimit({
-  dailyLimits,
-  fuelingRecords,
-  targetDate,
-  fuelType,
-  liters,
-}: {
-  dailyLimits: LocalDailyLimit[]
-  fuelingRecords: LocalFuelingRecord[]
-  targetDate: string
-  fuelType: FuelType
-  liters: number
-}) {
-  const dailyLimit = dailyLimits.find((item) => item.date === targetDate)
-  const overview = dailyLimit?.category_overviews?.find((item) => item.fuel_type === fuelType)
-
-  if (overview?.limit_mode !== 'fuel_liters' || overview.liters_limit == null) {
-    return
-  }
-
-  const fueledLiters = fuelingRecords
-    .filter((record) => record.date === targetDate && record.fuel_type === fuelType)
-    .reduce((total, record) => total + (record.liters ?? 0), 0)
-
-  if (fueledLiters + liters > overview.liters_limit) {
-    throw new Error('LITERS_LIMIT_EXCEEDED')
-  }
-}
-
 export async function createOfflineFuelingRecord({
   stationId,
   plateNumber,
@@ -110,10 +86,9 @@ export async function createOfflineFuelingRecord({
   comment,
   clientMutationId,
 }: CreateOfflineFuelingRecordParams): Promise<OfflineFuelingRecordResult> {
-  const [vehicles, reservations, dailyLimits, fuelingRecords, manualOverrides] = await Promise.all([
+  const [vehicles, reservations, fuelingRecords, manualOverrides] = await Promise.all([
     offlineDb.local_vehicles.toArray(),
     offlineDb.local_reservations.toArray(),
-    offlineDb.local_daily_limits.toArray(),
     offlineDb.local_fueling_records.toArray(),
     offlineDb.local_manual_overrides.toArray(),
   ])
@@ -127,7 +102,7 @@ export async function createOfflineFuelingRecord({
     {
       vehicles,
       reservations,
-      dailyLimits,
+      dailyLimits: [],
       fuelingRecords,
       manualOverrides,
     },
@@ -150,13 +125,9 @@ export async function createOfflineFuelingRecord({
     throw new Error('INVALID_FUEL_TYPE')
   }
 
-  assertFuelingLitersWithinLocalLimit({
-    dailyLimits,
-    fuelingRecords,
-    targetDate,
-    fuelType: effectiveFuelType,
-    liters,
-  })
+  if (accessResult.reason !== 'MANUAL_OVERRIDE_ACTIVE' && accessResult.effective_liters != null && liters > accessResult.effective_liters) {
+    throw new Error('LITERS_LIMIT_EXCEEDED')
+  }
 
   const id = `local-${clientMutationId}`
   const now = new Date().toISOString()
@@ -167,6 +138,8 @@ export async function createOfflineFuelingRecord({
     vehicle_id: vehicleId,
     date: targetDate,
     reservation_id: accessResult.reservation_id ?? null,
+    allocation_id: accessResult.allocation_id ?? accessResult.reservation_id ?? null,
+    queue_entry_id: accessResult.queue_entry_id ?? null,
     fuel_type: effectiveFuelType,
     liters,
     fueled_at: fueledAt,
@@ -183,6 +156,7 @@ export async function createOfflineFuelingRecord({
     type: 'CREATE_FUELING_RECORD',
     payload: buildCreateFuelingRecordPayload({
       stationId,
+      allocationId: accessResult.allocation_id ?? accessResult.reservation_id,
       plateNumber,
       liters,
       fuelType: effectiveFuelType,
@@ -231,6 +205,8 @@ export async function createOfflineFuelingRecord({
     station_id: stationId,
     vehicle_id: vehicleId,
     reservation_id: accessResult.reservation_id ?? null,
+    allocation_id: accessResult.allocation_id ?? accessResult.reservation_id ?? null,
+    queue_entry_id: accessResult.queue_entry_id ?? null,
     preferential_queue_entry_id: null,
     fuel_type: effectiveFuelType,
     liters,

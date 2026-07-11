@@ -1,55 +1,7 @@
 set check_function_bodies = off;
 set search_path = public, extensions;
 
-do $$
-declare
-  function_sql text;
-  updated_sql text;
-begin
-  select pg_get_functiondef(
-    'public.get_today_call_list(date, integer, integer, uuid, text, uuid, text, text, text)'::regprocedure
-  )
-  into function_sql;
-
-  if function_sql is null then
-    raise exception 'get_today_call_list(date, integer, integer, uuid, text, uuid, text, text, text) not found';
-  end if;
-
-  updated_sql := replace(
-    function_sql,
-    'v.normalized_plate_number,
-        d.full_name as driver_full_name,',
-    'v.normalized_plate_number,
-        s.name as station_name,
-        s.address as station_address,
-        d.full_name as driver_full_name,'
-  );
-
-  updated_sql := replace(
-    updated_sql,
-    'join public.vehicles v on v.id = fr.vehicle_id
-      left join public.drivers d on d.id = fr.driver_id',
-    'join public.vehicles v on v.id = fr.vehicle_id
-      left join public.stations s on s.id = fr.station_id
-      left join public.drivers d on d.id = fr.driver_id'
-  );
-
-  updated_sql := replace(
-    updated_sql,
-    '''station_id'', visible.station_id,
-            ''vehicle_id'', visible.vehicle_id,',
-    '''station_id'', visible.station_id,
-            ''station_name'', visible.station_name,
-            ''station_address'', visible.station_address,
-            ''vehicle_id'', visible.vehicle_id,'
-  );
-
-  if updated_sql = function_sql then
-    raise exception 'Could not add station context to get_today_call_list';
-  end if;
-
-  execute updated_sql;
-end $$;
+-- The city queue migration defines get_today_call_list in full.
 
 create or replace function public.get_my_queue_status()
 returns jsonb

@@ -60,9 +60,10 @@ async function markReservationSynced(operation: SyncOutboxOperation, data: unkno
   const parsed = parseCreateReservationResult(data)
   const syncedAt = new Date().toISOString()
 
+  const queueEntriesTable = offlineDb.local_queue_entries ?? offlineDb.local_reservations
   await offlineDb.transaction(
     'rw',
-    [offlineDb.sync_outbox, offlineDb.local_reservations],
+    [offlineDb.sync_outbox, queueEntriesTable],
     async () => {
       await offlineDb.sync_outbox.update(operation.id, {
         status: 'SYNCED',
@@ -71,22 +72,16 @@ async function markReservationSynced(operation: SyncOutboxOperation, data: unkno
       })
 
       if (parsed) {
-        await offlineDb.local_reservations
+        await queueEntriesTable
           .where('client_mutation_id')
           .equals(operation.client_mutation_id)
           .modify({
             id: parsed.id,
-            station_id: parsed.station_id,
             vehicle_id: parsed.vehicle_id,
-            driver_id: parsed.driver_id,
-            date: parsed.date,
-            fuel_type: parsed.fuel_type,
+            permanent_number: parsed.permanent_number,
+            preferred_fuel_type: parsed.fuel_type,
             fuel_preference_mode: parsed.fuel_preference_mode,
             requested_liters: parsed.requested_liters,
-            queue_number: parsed.queue_number,
-            ticket_number: parsed.ticket_number,
-            current_position: parsed.current_position ?? undefined,
-            people_ahead: parsed.people_ahead ?? undefined,
             status: parsed.status,
             normalized_plate_number: parsed.normalized_plate_number,
             driver_full_name: parsed.driver_full_name,
@@ -139,9 +134,10 @@ async function markReservationCallLogSynced(operation: SyncOutboxOperation, data
   const parsed = parseCreateReservationCallLogResult(data)
   const syncedAt = new Date().toISOString()
 
+  const allocationCallLogsTable = offlineDb.local_allocation_call_logs ?? offlineDb.local_reservation_call_logs
   await offlineDb.transaction(
     'rw',
-    [offlineDb.sync_outbox, offlineDb.local_reservation_call_logs, offlineDb.local_reservations],
+    [offlineDb.sync_outbox, allocationCallLogsTable, offlineDb.local_reservations],
     async () => {
       await offlineDb.sync_outbox.update(operation.id, {
         status: 'SYNCED',
@@ -150,7 +146,7 @@ async function markReservationCallLogSynced(operation: SyncOutboxOperation, data
       })
 
       if (parsed) {
-        await offlineDb.local_reservation_call_logs
+        await allocationCallLogsTable
           .where('client_mutation_id')
           .equals(operation.client_mutation_id)
           .modify({
@@ -186,13 +182,14 @@ async function markReservationCallLogSynced(operation: SyncOutboxOperation, data
 async function markOperationConflict(operation: SyncOutboxOperation, reason: string, payload: unknown) {
   const createdAt = new Date().toISOString()
 
+  const allocationCallLogsTable = offlineDb.local_allocation_call_logs ?? offlineDb.local_reservation_call_logs
   await offlineDb.transaction(
     'rw',
     [
       offlineDb.sync_outbox,
       offlineDb.local_fueling_records,
       offlineDb.local_reservations,
-      offlineDb.local_reservation_call_logs,
+      allocationCallLogsTable,
       offlineDb.local_manual_overrides,
       offlineDb.sync_conflicts,
     ],
@@ -224,7 +221,7 @@ async function markOperationConflict(operation: SyncOutboxOperation, reason: str
           sync_status: 'CONFLICT',
           updated_at: createdAt,
         })
-      await offlineDb.local_reservation_call_logs
+      await allocationCallLogsTable
         .where('client_mutation_id')
         .equals(operation.client_mutation_id)
         .modify({
@@ -290,7 +287,7 @@ async function syncOutboxOperation(operation: SyncOutboxOperation) {
     return
   }
 
-  if (operation.type === 'CREATE_RESERVATION_CALL_LOG') {
+  if (operation.type === 'CREATE_ALLOCATION_CALL_LOG') {
     await markReservationCallLogSynced(operation, result.data.data)
     return
   }

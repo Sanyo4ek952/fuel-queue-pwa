@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertTriangle, Car, Clock, MapPin, Pencil, RefreshCw, Ticket, XCircle } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { useCancelConsumerReservation } from '@/features/cancel-consumer-reservation'
@@ -9,7 +9,6 @@ import {
   useMyTodayFuelingStatus,
   useMyQueueStatus,
 } from '@/features/create-consumer-reservation'
-import { useDailyFuelingSchedule } from '@/features/manage-fueling-schedule'
 import {
   AddConsumerVehicleForm,
   useConsumerVehicles,
@@ -28,8 +27,6 @@ import {
   type FuelType,
   type QueueFuelType,
 } from '@/shared/constants'
-import { getTodayDateInputValue } from '@/shared/lib/date'
-import { calculateArrivalTime } from '@/shared/lib/fueling-schedule'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -53,6 +50,7 @@ import {
 } from '@/shared/ui/select'
 
 const reservationStatusLabels = {
+  WAITING: 'В постоянной очереди',
   RESERVED: 'В очереди',
   ARRIVED: 'Прибыл',
   APPROVED: 'Допущен',
@@ -117,11 +115,9 @@ function formatDateTime(value: string) {
 }
 
 export function ConsumerDashboardPanel() {
-  const todayDate = getTodayDateInputValue()
   const vehiclesQuery = useConsumerVehicles()
   const queueStatusQuery = useMyQueueStatus()
   const todayFuelingStatusQuery = useMyTodayFuelingStatus()
-  const fuelingScheduleQuery = useDailyFuelingSchedule(todayDate)
   const cancelReservationMutation = useCancelConsumerReservation()
   const updateFuelPreferenceMutation = useUpdateReservationFuelPreference()
   const [isFuelDialogOpen, setIsFuelDialogOpen] = useState(false)
@@ -140,7 +136,10 @@ export function ConsumerDashboardPanel() {
   const matchedFuelLabel = activeReservation?.matched_fuel_type
     ? (fuelTypeLabels[activeReservation.matched_fuel_type] ?? activeReservation.matched_fuel_type)
     : null
-  const stationLabel = activeReservation?.station_name ?? 'АЗС будет выбрана при заправке'
+  const stationLabel =
+    activeReservation?.allocation?.station_name ??
+    activeReservation?.station_name ??
+    'Ожидает дневного распределения'
   const activeFuelCategory = activeReservation
     ? getFuelQueueCategory(activeReservation.fuel_type)
     : null
@@ -158,46 +157,20 @@ export function ConsumerDashboardPanel() {
   })
   const watchedFuelType = fuelPreferenceForm.watch('fuelType')
   const isGasolineSelected = isGasolineFuelType(watchedFuelType)
-  const estimatedArrivalTime = useMemo(() => {
-    if (
-      !activeReservation ||
-      activeReservation.is_within_today_limit !== true ||
-      !activeReservation.current_position
-    ) {
-      return null
-    }
-
-    const fuelCategory = getFuelQueueCategory(activeReservation.fuel_type)
-
-    if (!fuelCategory) {
-      return null
-    }
-
-    const schedule = (fuelingScheduleQuery.data ?? []).find(
-      (item) => item.fuel_category === fuelCategory,
-    )
-
-    if (!schedule) {
-      return null
-    }
-
-    return calculateArrivalTime(
-      {
-        fuelCategory: schedule.fuel_category,
-        date: schedule.date,
-        startTime: schedule.start_time,
-        intervalMinutes: schedule.interval_minutes,
-        vehiclesPerInterval: schedule.vehicles_per_interval,
-      },
-      activeReservation.current_position,
-    )
-  }, [activeReservation, fuelingScheduleQuery.data])
+  const estimatedArrivalTime = activeReservation?.allocation?.arrival_at
+    ? new Intl.DateTimeFormat('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Moscow',
+      }).format(new Date(activeReservation.allocation.arrival_at))
+    : null
 
   function refresh() {
     void vehiclesQuery.refetch()
     void queueStatusQuery.refetch()
     void todayFuelingStatusQuery.refetch()
-    void fuelingScheduleQuery.refetch()
   }
 
   function handleFuelPreferenceSubmit(values: UpdateReservationFuelPreferenceFormValues) {
@@ -300,7 +273,7 @@ export function ConsumerDashboardPanel() {
               Активная запись
             </CardTitle>
             <CardDescription>
-              Номер записи №{activeReservation.ticket_number}
+              Постоянный номер №{activeReservation.permanent_number}
               {activeReservation.current_position
                 ? `, в очереди ${activeFuelCategoryLabel}: ${activeReservation.current_position}`
                 : ''}
@@ -354,7 +327,7 @@ export function ConsumerDashboardPanel() {
                       <DialogHeader>
                         <DialogTitle>Марка топлива</DialogTitle>
                         <DialogDescription>
-                          Номер записи №{activeReservation.ticket_number} сохранится без изменения.
+                          Постоянный номер №{activeReservation.permanent_number} сохранится без изменения.
                         </DialogDescription>
                       </DialogHeader>
                       <Form {...fuelPreferenceForm}>

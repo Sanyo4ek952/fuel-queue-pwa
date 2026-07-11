@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Clock3, Save } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 
 import {
@@ -10,12 +10,14 @@ import {
 } from '../model/schema'
 import { useDailyFuelingSchedule, useSetDailyFuelingSchedule } from '../model/use-fueling-schedule'
 import type { FuelQueueCategory } from '@/shared/constants'
+import { useCurrentProfile } from '@/entities/profile'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { StationSelectField } from '@/shared/ui/station-select-field'
 
 type FuelingScheduleSettingsCardProps = {
   canEdit: boolean
@@ -39,15 +41,22 @@ function buildDefaultSchedules() {
 }
 
 export function FuelingScheduleSettingsCard({ canEdit }: FuelingScheduleSettingsCardProps) {
+  const currentProfileQuery = useCurrentProfile()
+  const stations = useMemo(
+    () => currentProfileQuery.data?.stations ?? [],
+    [currentProfileQuery.data?.stations],
+  )
   const form = useForm<FuelingScheduleFormInput, unknown, FuelingScheduleFormValues>({
     resolver: zodResolver(fuelingScheduleFormSchema),
     defaultValues: {
       targetDate: getTodayDateInputValue(),
+      stationId: stations[0]?.id ?? '',
       schedules: buildDefaultSchedules(),
     },
   })
   const targetDate = form.watch('targetDate')
-  const scheduleQuery = useDailyFuelingSchedule(targetDate)
+  const stationId = form.watch('stationId')
+  const scheduleQuery = useDailyFuelingSchedule(targetDate, stationId || null)
   const setScheduleMutation = useSetDailyFuelingSchedule()
 
   useEffect(() => {
@@ -59,6 +68,7 @@ export function FuelingScheduleSettingsCard({ canEdit }: FuelingScheduleSettings
 
     form.reset({
       targetDate,
+      stationId,
       schedules: fuelCategories.map((fuelCategory) => {
         const row = rowsByCategory.get(fuelCategory)
 
@@ -70,11 +80,18 @@ export function FuelingScheduleSettingsCard({ canEdit }: FuelingScheduleSettings
         }
       }),
     })
-  }, [form, scheduleQuery.data, targetDate])
+  }, [form, scheduleQuery.data, stationId, targetDate])
+
+  useEffect(() => {
+    if (!stationId && stations[0]?.id) {
+      form.setValue('stationId', stations[0].id, { shouldValidate: true })
+    }
+  }, [form, stationId, stations])
 
   async function handleSubmit(values: FuelingScheduleFormValues) {
     await setScheduleMutation.mutateAsync({
       targetDate: values.targetDate,
+      stationId: values.stationId,
       schedules: values.schedules,
       clientMutationId: crypto.randomUUID(),
     })
@@ -136,6 +153,16 @@ export function FuelingScheduleSettingsCard({ canEdit }: FuelingScheduleSettings
                   <FormMessage>{form.formState.errors.targetDate.message}</FormMessage>
                 ) : null}
               </FormItem>
+
+              <StationSelectField
+                id="fuelingScheduleStation"
+                value={stationId}
+                stations={stations}
+                onValueChange={(value) => form.setValue('stationId', value, { shouldValidate: true })}
+              />
+              {form.formState.errors.stationId ? (
+                <FormMessage>{form.formState.errors.stationId.message}</FormMessage>
+              ) : null}
 
               <div className="grid gap-3">
                 {form.watch('schedules').map((schedule, index) => (

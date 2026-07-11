@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 
 import type {
+  DailyQueueAllocationStatus,
   FuelPreferenceMode,
   FuelType,
   ReservationCallStatus,
@@ -27,6 +28,9 @@ export type LocalVehicle = LocalRecord & {
 }
 
 export type LocalReservation = LocalRecord & {
+  allocation_id?: string
+  queue_entry_id?: string
+  permanent_number?: number
   station_id?: string | null
   station_name?: string | null
   station_address?: string | null
@@ -42,6 +46,12 @@ export type LocalReservation = LocalRecord & {
   ticket_number?: number
   current_position?: number
   people_ahead?: number
+  daily_position?: number
+  station_position?: number
+  station_fuel_position?: number
+  arrival_at?: string
+  allocation_status?: DailyQueueAllocationStatus
+  assigned_fuel_type?: FuelType | string
   fuel_type: FuelType | string
   fuel_preference_mode?: FuelPreferenceMode | string
   requested_liters: number
@@ -81,10 +91,32 @@ export type LocalReservationCallLog = LocalRecord & {
 }
 
 export type LocalQueueEntry = LocalRecord & {
-  station_id: string
   vehicle_id: string
-  date: string
+  permanent_number?: number
+  preferred_fuel_type: FuelType | string
+  fuel_preference_mode: FuelPreferenceMode | string
+  requested_liters: number
   status: string
+  client_mutation_id?: string | null
+  sync_status?: SyncStatus
+  normalized_plate_number?: string
+  driver_full_name?: string
+  driver_phone?: string | null
+  comment?: string | null
+}
+
+export type LocalDailyQueueAllocation = LocalRecord & {
+  queue_entry_id: string
+  allocation_date: string
+  station_id: string
+  assigned_fuel_type: FuelType | string
+  allocated_liters: number
+  daily_position: number
+  station_position: number
+  station_fuel_position: number
+  arrival_at: string
+  status: DailyQueueAllocationStatus
+  call_status: ReservationCallStatus
 }
 
 export type LocalDailyLimitCategoryOverview = {
@@ -140,6 +172,8 @@ export type LocalDailyLimit = LocalRecord & {
 }
 
 export type LocalFuelingRecord = LocalRecord & {
+  allocation_id?: string | null
+  queue_entry_id?: string | null
   station_id: string
   vehicle_id: string
   date: string
@@ -227,6 +261,8 @@ export class FuelQueueOfflineDb extends Dexie {
   local_reservations!: Table<LocalReservation, string>
   local_reservation_call_logs!: Table<LocalReservationCallLog, string>
   local_queue_entries!: Table<LocalQueueEntry, string>
+  local_daily_queue_allocations!: Table<LocalDailyQueueAllocation, string>
+  local_allocation_call_logs!: Table<LocalReservationCallLog, string>
   local_fueling_records!: Table<LocalFuelingRecord, string>
   local_refusal_records!: Table<LocalRefusalRecord, string>
   local_manual_overrides!: Table<LocalManualOverride, string>
@@ -491,6 +527,39 @@ export class FuelQueueOfflineDb extends Dexie {
             : null
         })
     })
+
+    this.version(13)
+      .stores({
+        local_profiles: 'id, updated_at',
+        local_stations: 'id, updated_at',
+        local_vehicles: 'id, normalized_plate_number, updated_at',
+        local_daily_limits: 'id, date, status, cached_at, updated_at',
+        local_reservations:
+          'id, client_mutation_id, vehicle_id, queue_number, status, sync_status, updated_at',
+        local_reservation_call_logs:
+          'id, client_mutation_id, reservation_id, status, called_at, sync_status, updated_at',
+        local_queue_entries:
+          'id, client_mutation_id, permanent_number, vehicle_id, status, sync_status, updated_at',
+        local_daily_queue_allocations:
+          'id, queue_entry_id, [station_id+allocation_date], allocation_date, status, call_status, updated_at',
+        local_allocation_call_logs:
+          'id, client_mutation_id, reservation_id, status, called_at, sync_status, updated_at',
+        local_fueling_records:
+          'id, client_mutation_id, [vehicle_id+date], date, sync_status, updated_at',
+        local_refusal_records: 'id, date, updated_at',
+        local_manual_overrides:
+          'id, client_mutation_id, [vehicle_id+station_id+date], date, sync_status, updated_at',
+        local_app_settings: 'key, updated_at, cached_at',
+        sync_outbox: 'id, client_mutation_id, status, created_at',
+        sync_conflicts: 'id, client_mutation_id, operation_id, created_at',
+      })
+      .upgrade(async (transaction) => {
+        await transaction.table('local_reservations').clear()
+        await transaction.table('local_reservation_call_logs').clear()
+        await transaction.table('local_app_settings').filter((setting: LocalAppSetting) =>
+          setting.key.startsWith('daily_fueling_schedule:'),
+        ).delete()
+      })
   }
 }
 

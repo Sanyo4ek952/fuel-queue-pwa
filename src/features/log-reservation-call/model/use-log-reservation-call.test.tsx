@@ -235,7 +235,7 @@ describe('useLogReservationCall', () => {
     expect(mocks.offlineDb.sync_outbox.put).toHaveBeenCalledWith(
       expect.objectContaining({
         client_mutation_id: '00000000-0000-4000-8000-000000000001',
-        type: 'CREATE_RESERVATION_CALL_LOG',
+        type: 'CREATE_ALLOCATION_CALL_LOG',
         status: 'PENDING',
       }),
     )

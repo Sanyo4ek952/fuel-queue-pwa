@@ -1164,38 +1164,7 @@ describe('TodayQueuePanel', () => {
     expect(within(article).getByRole('button', { name: /Изменить марку топлива/ })).toBeDisabled()
   })
 
-  it('shows fueling schedule summary and estimated arrival time', () => {
-    mocks.useTodayQueue.mockReturnValue({
-      rows: makeGasolineQueueRows(6),
-      isOnline: true,
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
-    mocks.useDailyFuelingSchedule.mockReturnValue({
-      data: [
-        {
-          date: '2026-07-09',
-          fuel_category: 'GASOLINE',
-          start_time: '13:00',
-          interval_minutes: 5,
-          vehicles_per_interval: 5,
-        },
-      ],
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
-
-    render(<TodayQueuePanel />)
-
-    expect(screen.getByText('Начало')).toBeInTheDocument()
-    expect(screen.getByText('Окончание')).toBeInTheDocument()
-    expect(screen.getAllByText('Предполагаемое время прибытия: 13:00 9 июля')).toHaveLength(5)
-    expect(screen.getByText('Предполагаемое время прибытия: 13:05 9 июля')).toBeInTheDocument()
-  })
-
-  it('hides estimated arrival time for rows outside today fueling plan', () => {
+  it('shows only the ETA persisted by the server', () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [
         makeQueueRow({
@@ -1204,6 +1173,7 @@ describe('TodayQueuePanel', () => {
           ticket_number: 1,
           normalized_plate_number: 'CALLABLE-001',
           is_callable_now: true,
+          arrival_at: '2026-07-09T10:00:00.000Z',
         }),
         makeQueueRow({
           id: 'no-compatible-fuel',
@@ -1213,65 +1183,24 @@ describe('TodayQueuePanel', () => {
           is_callable_now: false,
           call_unavailable_reason: 'NO_COMPATIBLE_FUEL',
         }),
-        makeQueueRow({
-          id: 'outside-limit',
-          queue_number: 3,
-          ticket_number: 3,
-          normalized_plate_number: 'LIMIT-003',
-          is_callable_now: false,
-          is_within_today_limit: false,
-          call_unavailable_reason: 'OUTSIDE_TODAY_LIMIT',
-        }),
-        makeQueueRow({
-          id: 'callable-2',
-          queue_number: 4,
-          ticket_number: 4,
-          normalized_plate_number: 'CALLABLE-004',
-          is_callable_now: true,
-        }),
       ],
       isOnline: true,
       isLoading: false,
       isFetching: false,
       error: null,
     })
-    mocks.useDailyFuelingSchedule.mockReturnValue({
-      data: [
-        {
-          date: '2026-07-09',
-          fuel_category: 'GASOLINE',
-          start_time: '13:00',
-          interval_minutes: 5,
-          vehicles_per_interval: 1,
-        },
-      ],
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
-
     render(<TodayQueuePanel />)
 
     const callableFirst = screen.getByText('CALLABLE-001').closest('article')
     const noFuel = screen.getByText('NOFUEL-002').closest('article')
-    const outsideLimit = screen.getByText('LIMIT-003').closest('article')
-    const callableSecond = screen.getByText('CALLABLE-004').closest('article')
 
     expect(callableFirst).not.toBeNull()
     expect(noFuel).not.toBeNull()
-    expect(outsideLimit).not.toBeNull()
-    expect(callableSecond).not.toBeNull()
     expect(
-      within(callableFirst as HTMLElement).getByText('Предполагаемое время прибытия: 13:00 9 июля'),
+      within(callableFirst as HTMLElement).getByText('Время прибытия: 9 июля в 13:00'),
     ).toBeInTheDocument()
     expect(
-      within(noFuel as HTMLElement).queryByText(/Предполагаемое время прибытия/),
+      within(noFuel as HTMLElement).queryByText(/Время прибытия/),
     ).not.toBeInTheDocument()
-    expect(
-      within(outsideLimit as HTMLElement).queryByText(/Предполагаемое время прибытия/),
-    ).not.toBeInTheDocument()
-    expect(
-      within(callableSecond as HTMLElement).getByText('Предполагаемое время прибытия: 13:05 9 июля'),
-    ).toBeInTheDocument()
   })
 })

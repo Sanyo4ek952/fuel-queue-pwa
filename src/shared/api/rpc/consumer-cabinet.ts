@@ -1,5 +1,12 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import type { FuelPreferenceMode, FuelType, ReservationStatus, SyncStatus } from '@/shared/constants'
+import type {
+  DailyQueueAllocationStatus,
+  FuelPreferenceMode,
+  FuelType,
+  ReservationCallStatus,
+  ReservationStatus,
+  SyncStatus,
+} from '@/shared/constants'
 import { supabase } from '@/shared/api/supabase'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
@@ -24,6 +31,8 @@ export type CreateConsumerVehicleParams = {
 
 export type ConsumerReservation = {
   id: string
+  queue_entry_id: string
+  permanent_number: number
   date: string | null
   station_id: string | null
   station_name: string | null
@@ -48,6 +57,22 @@ export type ConsumerReservation = {
   client_mutation_id: string
   created_at?: string
   updated_at?: string
+  allocation: ConsumerDailyQueueAllocation | null
+}
+
+export type ConsumerDailyQueueAllocation = {
+  id: string
+  date: string
+  station_id: string
+  station_name: string | null
+  station_address: string | null
+  assigned_fuel_type: FuelType
+  daily_position: number
+  station_position: number
+  station_fuel_position: number
+  arrival_at: string
+  status: DailyQueueAllocationStatus
+  call_status: ReservationCallStatus
 }
 
 export type ConsumerTodayFuelingStatus = {
@@ -170,6 +195,11 @@ export function parseConsumerReservation(value: unknown): ConsumerReservation | 
 
   const row = value as Partial<ConsumerReservation>
   const ticketNumber = toNullableNumber(row.ticket_number) ?? toNumber(row.queue_number)
+  const allocationValue = row.allocation
+  const allocation =
+    allocationValue && typeof allocationValue === 'object'
+      ? (allocationValue as Partial<ConsumerDailyQueueAllocation>)
+      : null
 
   if (
     typeof row.id === 'string' &&
@@ -181,6 +211,8 @@ export function parseConsumerReservation(value: unknown): ConsumerReservation | 
   ) {
     return {
       id: row.id,
+      queue_entry_id: row.queue_entry_id ?? row.id,
+      permanent_number: toNullableNumber(row.permanent_number) ?? ticketNumber,
       date: row.date ?? null,
       station_id: row.station_id ?? null,
       station_name: row.station_name ?? null,
@@ -205,6 +237,28 @@ export function parseConsumerReservation(value: unknown): ConsumerReservation | 
       client_mutation_id: row.client_mutation_id,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      allocation:
+        allocation &&
+        typeof allocation.id === 'string' &&
+        typeof allocation.date === 'string' &&
+        typeof allocation.station_id === 'string' &&
+        typeof allocation.assigned_fuel_type === 'string' &&
+        typeof allocation.arrival_at === 'string'
+          ? {
+              id: allocation.id,
+              date: allocation.date,
+              station_id: allocation.station_id,
+              station_name: allocation.station_name ?? null,
+              station_address: allocation.station_address ?? null,
+              assigned_fuel_type: allocation.assigned_fuel_type as FuelType,
+              daily_position: toNumber(allocation.daily_position),
+              station_position: toNumber(allocation.station_position),
+              station_fuel_position: toNumber(allocation.station_fuel_position),
+              arrival_at: allocation.arrival_at,
+              status: allocation.status as DailyQueueAllocationStatus,
+              call_status: allocation.call_status as ReservationCallStatus,
+            }
+          : null,
     }
   }
 

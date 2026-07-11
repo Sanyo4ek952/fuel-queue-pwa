@@ -1,5 +1,16 @@
 # 07. Offline Sync
 
+## Очередь и дневные назначения
+
+Offline-постановка создаёт `local_queue_entries` с `client_mutation_id`, статусом
+`PENDING` и без временного постоянного номера. Номер приходит только после sync.
+`local_daily_queue_allocations` содержит исключительно последний серверный снимок;
+клиент не вычисляет АЗС, дату, позиции, точную марку или ETA.
+
+Звонок синхронизируется как `CREATE_ALLOCATION_CALL_LOG`. Offline-допуск и заправка
+возможны только по закэшированному `ACTIVE` allocation. Если сервер к моменту sync
+остановил назначение, mutation получает `CONFLICT`.
+
 ## Цель
 
 Приложение должно работать как PWA с полноценным офлайн-режимом и последующей синхронизацией.
@@ -71,10 +82,10 @@ CREATE_REFUSAL_RECORD
 CREATE_MANUAL_OVERRIDE
 CREATE_DAILY_LIMIT
 UPDATE_DAILY_LIMIT
-CREATE_RESERVATION_CALL_LOG
+CREATE_ALLOCATION_CALL_LOG
 ```
 
-`CREATE_RESERVATION_CALL_LOG` accepts only `NOT_CALLED`, `CONTACTED`, and `NO_ANSWER`.
+`CREATE_ALLOCATION_CALL_LOG` accepts only `NOT_CALLED`, `CONTACTED`, and `NO_ANSWER`.
 Legacy `CALL_LATER` and `WRONG_NUMBER` statuses are not valid new offline mutations.
 
 ## Статусы синхронизации

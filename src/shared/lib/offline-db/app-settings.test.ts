@@ -114,6 +114,7 @@ describe('no-show grace app setting cache', () => {
     await cacheDailyFuelingSchedule('2026-07-09', [
       {
         date: '2026-07-09',
+        station_id: 'station-id',
         fuel_category: 'GASOLINE',
         start_time: '13:00',
         interval_minutes: 5,
@@ -124,6 +125,7 @@ describe('no-show grace app setting cache', () => {
     await expect(getCachedDailyFuelingSchedule('2026-07-09')).resolves.toEqual([
       {
         date: '2026-07-09',
+        station_id: 'station-id',
         fuel_category: 'GASOLINE',
         start_time: '13:00',
         interval_minutes: 5,

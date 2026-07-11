@@ -77,10 +77,14 @@ describe('createOfflineFuelingRecord', () => {
     })
     mocks.tables.local_reservations.rows.push({
       id: 'reservation-1',
+      allocation_id: 'reservation-1',
+      queue_entry_id: 'entry-1',
       station_id: stationId,
       vehicle_id: vehicleId,
       date: targetDate,
       status: 'RESERVED',
+      allocation_status: 'ACTIVE',
+      assigned_fuel_type: 'AI_95',
       queue_number: 7,
       fuel_type: 'AI_95',
       requested_liters: 40,
@@ -140,6 +144,7 @@ describe('createOfflineFuelingRecord', () => {
     Object.assign(mocks.tables.local_reservations.rows[0], {
       fuel_type: 'AI_95',
       fuel_preference_mode: 'ANY_GASOLINE',
+      assigned_fuel_type: 'AI_92',
     })
     mocks.tables.local_daily_limits.rows[0].category_overviews = [
       {

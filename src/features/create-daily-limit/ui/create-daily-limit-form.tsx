@@ -11,7 +11,7 @@ import {
   saveDailyFuelTypeLimitSchema,
   useCreateDailyLimit,
 } from '@/features/create-daily-limit'
-import type { DailyLimitMode, QueueFuelType } from '@/shared/constants'
+import type { QueueFuelType } from '@/shared/constants'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -35,14 +35,14 @@ const fuelTypeLabels: Record<QueueFuelType, string> = {
 }
 
 const defaultFuelTypeLimits = [
-  { fuelType: 'AI_92' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 0 },
-  { fuelType: 'AI_95' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
-  { fuelType: 'AI_100' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 0 },
-  { fuelType: 'DIESEL' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
-  { fuelType: 'GAS' as const, limitMode: 'fuel_liters' as const, vehicleLimit: 0, litersLimit: 400 },
+  { fuelType: 'AI_92' as const, status: 'PAUSED' as const, vehicleLimit: 0, litersLimit: null },
+  { fuelType: 'AI_95' as const, status: 'OPEN' as const, vehicleLimit: 20, litersLimit: 400 },
+  { fuelType: 'AI_100' as const, status: 'PAUSED' as const, vehicleLimit: 0, litersLimit: null },
+  { fuelType: 'DIESEL' as const, status: 'OPEN' as const, vehicleLimit: 20, litersLimit: 400 },
+  { fuelType: 'GAS' as const, status: 'OPEN' as const, vehicleLimit: 20, litersLimit: 400 },
 ]
 
-type FuelTypeLimitField = 'fuelType' | 'limitMode' | 'vehicleLimit' | 'litersLimit'
+type FuelTypeLimitField = 'fuelType' | 'status' | 'vehicleLimit' | 'litersLimit'
 
 export function CreateDailyLimitForm() {
   const currentProfileQuery = useCurrentProfile()
@@ -163,7 +163,6 @@ export function CreateDailyLimitForm() {
 
             <div className="grid gap-3">
               {fuelTypeLimits.map((item, index) => {
-                const mode = item.limitMode as DailyLimitMode
                 const fuelType = item.fuelType as QueueFuelType
                 const isSaving = savingFuelType === fuelType
                 const isSaved = savedFuelType === fuelType
@@ -188,9 +187,9 @@ export function CreateDailyLimitForm() {
                     <FormItem>
                       <FormLabel htmlFor={`limitMode-${fuelType}`}>Режим</FormLabel>
                       <Select
-                        value={mode}
+                        value={item.status}
                         onValueChange={(value) =>
-                          form.setValue(`fuelTypeLimits.${index}.limitMode`, value as DailyLimitMode, {
+                          form.setValue(`fuelTypeLimits.${index}.status`, value as 'OPEN' | 'PAUSED', {
                             shouldValidate: true,
                           })
                         }
@@ -199,19 +198,18 @@ export function CreateDailyLimitForm() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent position="popper" align="start">
-                          <SelectItem value="fuel_liters">Литры</SelectItem>
-                          <SelectItem value="vehicle_count">Машины</SelectItem>
+                          <SelectItem value="OPEN">Выдача открыта</SelectItem>
+                          <SelectItem value="PAUSED">Выдача остановлена</SelectItem>
                         </SelectContent>
                       </Select>
                     </FormItem>
 
-                    {mode === 'vehicle_count' ? (
-                      <FormItem>
+                    <FormItem>
                         <FormLabel htmlFor={`vehicleLimit-${fuelType}`}>Машин</FormLabel>
                         <Input
                           id={`vehicleLimit-${fuelType}`}
                           type="number"
-                          min={1}
+                          min={0}
                           inputMode="numeric"
                           {...form.register(`fuelTypeLimits.${index}.vehicleLimit`)}
                         />
@@ -220,9 +218,8 @@ export function CreateDailyLimitForm() {
                             {form.formState.errors.fuelTypeLimits[index]?.vehicleLimit?.message}
                           </FormMessage>
                         ) : null}
-                      </FormItem>
-                    ) : (
-                      <FormItem>
+                    </FormItem>
+                    <FormItem>
                         <FormLabel htmlFor={`litersLimit-${fuelType}`}>Литров</FormLabel>
                         <Input
                           id={`litersLimit-${fuelType}`}
@@ -237,8 +234,7 @@ export function CreateDailyLimitForm() {
                             {form.formState.errors.fuelTypeLimits[index]?.litersLimit?.message}
                           </FormMessage>
                         ) : null}
-                      </FormItem>
-                    )}
+                    </FormItem>
 
                     <div className="flex flex-col justify-end gap-2">
                       <Button

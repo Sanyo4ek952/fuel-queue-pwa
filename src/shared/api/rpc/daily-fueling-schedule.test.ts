@@ -29,6 +29,7 @@ describe('parseDailyFuelingSchedule', () => {
         {
           id: 'schedule-id',
           date: '2026-07-09',
+          station_id: 'station-id',
           fuel_category: 'GASOLINE',
           start_time: '13:00',
           interval_minutes: '5',
@@ -41,6 +42,7 @@ describe('parseDailyFuelingSchedule', () => {
       {
         id: 'schedule-id',
         date: '2026-07-09',
+        station_id: 'station-id',
         fuel_category: 'GASOLINE',
         start_time: '13:00',
         interval_minutes: 5,
@@ -64,10 +66,11 @@ describe('daily fueling schedule RPC wrappers', () => {
       error: null,
     } as never)
 
-    const result = await getDailyFuelingSchedule('2026-07-09')
+    const result = await getDailyFuelingSchedule('2026-07-09', 'station-id')
 
     expect(supabase.rpc).toHaveBeenCalledWith('get_daily_fueling_schedule', {
       target_date: '2026-07-09',
+      target_station_id: 'station-id',
     })
     expect(result).toEqual({ data: [], error: null })
   })
@@ -80,6 +83,7 @@ describe('daily fueling schedule RPC wrappers', () => {
 
     const result = await setDailyFuelingSchedule({
       targetDate: '2026-07-09',
+      stationId: 'station-id',
       schedules: [
         {
           fuelCategory: 'GASOLINE',
@@ -93,6 +97,7 @@ describe('daily fueling schedule RPC wrappers', () => {
 
     expect(supabase.rpc).toHaveBeenCalledWith('set_daily_fueling_schedule', {
       target_date: '2026-07-09',
+      target_station_id: 'station-id',
       schedules: [
         {
           fuel_category: 'GASOLINE',

@@ -8,6 +8,7 @@ import type { RpcResult } from './index'
 export type DailyFuelingScheduleRow = {
   id?: string | null
   date: string
+  station_id: string
   fuel_category: FuelQueueCategory
   start_time: string
   interval_minutes: number
@@ -18,6 +19,7 @@ export type DailyFuelingScheduleRow = {
 
 export type SetDailyFuelingScheduleParams = {
   targetDate: string
+  stationId: string
   schedules: Array<{
     fuelCategory: FuelQueueCategory
     startTime: string
@@ -51,6 +53,7 @@ function parseScheduleRow(value: unknown): DailyFuelingScheduleRow | null {
 
   if (
     typeof result.date !== 'string' ||
+    typeof result.station_id !== 'string' ||
     !isFuelCategory(result.fuel_category) ||
     !isTime(result.start_time) ||
     intervalMinutes === null ||
@@ -62,6 +65,7 @@ function parseScheduleRow(value: unknown): DailyFuelingScheduleRow | null {
   return {
     id: result.id ?? null,
     date: result.date,
+    station_id: result.station_id,
     fuel_category: result.fuel_category,
     start_time: result.start_time,
     interval_minutes: intervalMinutes,
@@ -83,6 +87,7 @@ export function parseDailyFuelingSchedule(value: unknown): DailyFuelingScheduleR
 
 export async function getDailyFuelingSchedule(
   targetDate: string,
+  stationId?: string | null,
 ): Promise<RpcResult<DailyFuelingScheduleRow[]>> {
   if (!isSupabaseConfigured) {
     return {
@@ -93,6 +98,7 @@ export async function getDailyFuelingSchedule(
 
   const { data, error } = await supabase.rpc('get_daily_fueling_schedule', {
     target_date: targetDate,
+    target_station_id: stationId ?? null,
   })
 
   if (error) {
@@ -111,7 +117,7 @@ export async function getDailyFuelingSchedule(
     }
   }
 
-  await cacheDailyFuelingSchedule(targetDate, parsed)
+  await cacheDailyFuelingSchedule(targetDate, parsed, stationId)
 
   return {
     data: parsed,
@@ -121,6 +127,7 @@ export async function getDailyFuelingSchedule(
 
 export async function setDailyFuelingSchedule({
   targetDate,
+  stationId,
   schedules,
   clientMutationId,
 }: SetDailyFuelingScheduleParams): Promise<RpcResult<DailyFuelingScheduleRow[]>> {
@@ -133,6 +140,7 @@ export async function setDailyFuelingSchedule({
 
   const { data, error } = await supabase.rpc('set_daily_fueling_schedule', {
     target_date: targetDate,
+    target_station_id: stationId,
     schedules: schedules.map((schedule) => ({
       fuel_category: schedule.fuelCategory,
       start_time: schedule.startTime,
@@ -158,7 +166,7 @@ export async function setDailyFuelingSchedule({
     }
   }
 
-  await cacheDailyFuelingSchedule(targetDate, parsed)
+  await cacheDailyFuelingSchedule(targetDate, parsed, stationId)
 
   return {
     data: parsed,

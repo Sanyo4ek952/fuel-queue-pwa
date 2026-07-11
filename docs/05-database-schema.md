@@ -1,348 +1,122 @@
 # 05. Database Schema
 
-## Общие правила
+## Current Queue Model
 
-База данных — Supabase PostgreSQL.
+The queue is split into two durable records.
 
-Критичные операции должны быть защищены:
+`fuel_queue_entries` is the permanent city queue entry. It stores only the immutable city number, vehicle, driver, preferred fuel type, preference mode, requested liters, author, sync/idempotency metadata, comments, and the permanent status.
 
-- RLS;
-- RPC;
-- транзакциями;
-- уникальными ограничениями;
-- audit log.
+`daily_queue_allocations` is the saved daily assignment. It stores date, queue entry, station, assigned exact fuel type, allocated liters snapshot, daily position, station position, station fuel position, `arrival_at`, allocation status, call status, pause/fueling/finalization timestamps, and audit timestamps.
 
-## Таблицы
+Station, date, position, counters, and ETA are not computed on the client and are not recomputed during reads. They are written by the server allocator.
+
+## Core Tables
 
 ### stations
 
-```sql
-create table stations (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  address text,
-  is_active boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
+Stations have a stable `allocation_order`. The allocator uses it as a tie-breaker after remaining capacity, then UUID.
 
-### profiles
+### fuel_queue_entries
 
-```sql
-create table profiles (
-  id uuid primary key default gen_random_uuid(),
-  auth_user_id uuid not null unique references auth.users(id) on delete cascade,
-  full_name text not null,
-  role text not null,
-  is_active boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
+Important fields:
 
-### user_stations
+- `permanent_number bigint`: generated from `fuel_queue_permanent_number_seq`, unique and immutable.
+- `vehicle_id`, `driver_id`.
+- `preferred_fuel_type`: `AI_92`, `AI_95`, `AI_100`, `DIESEL`, or `GAS`.
+- `fuel_preference_mode`: `EXACT` or `ANY_GASOLINE`.
+- `requested_liters`.
+- `status`: `WAITING`, `FUELED`, `CANCELLED`, `NO_SHOW`, `ERROR`, `CONFLICT`.
+- `operator_id`, `comment`, `client_mutation_id`, `sync_status`.
 
-```sql
-create table user_stations (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references profiles(id) on delete cascade,
-  station_id uuid not null references stations(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  unique(user_id, station_id)
-);
-```
+Only one `WAITING` queue entry is allowed per vehicle. The permanent number is never reused.
 
-### vehicles
+### daily_queue_allocations
 
-```sql
-create table vehicles (
-  id uuid primary key default gen_random_uuid(),
-  plate_number text not null,
-  normalized_plate_number text not null unique,
-  is_blocked boolean not null default false,
-  block_reason text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
+Important fields:
 
-### drivers
+- `allocation_date`.
+- `queue_entry_id`.
+- `station_id`.
+- `assigned_fuel_type`.
+- `allocated_liters`.
+- `daily_position`, `station_position`, `station_fuel_position`.
+- `arrival_at`.
+- `status`: `ACTIVE`, `PAUSED_BY_LIMIT`, `FUELED`, `MISSED`, `EXPIRED`.
+- `call_status`: `NOT_CALLED`, `CONTACTED`, `NO_ANSWER`.
 
-```sql
-create table drivers (
-  id uuid primary key default gen_random_uuid(),
-  full_name text not null,
-  phone text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
+There is at most one allocation for `(allocation_date, queue_entry_id)`. Active and fueled allocations have persisted daily positions.
 
-### daily_limits
+### daily_queue_allocation_call_logs
 
-```sql
-create table daily_limits (
-  id uuid primary key default gen_random_uuid(),
-  date date not null,
-  station_id uuid not null references stations(id),
-  total_vehicle_limit integer not null,
-  max_liters_per_vehicle numeric(10,2) not null,
-  status text not null default 'OPEN',
-  created_by uuid not null references profiles(id),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique(date, station_id)
-);
-```
+Call logs reference only `daily_queue_allocations`. The call status is also denormalized onto the allocation so access checks do not need to replay call history.
 
-### daily_fuel_type_limits
+### daily_limits and daily_fuel_type_limits
 
-```sql
-create table daily_fuel_type_limits (
-  id uuid primary key default gen_random_uuid(),
-  daily_limit_id uuid not null references daily_limits(id) on delete cascade,
-  fuel_type text not null,
-  vehicle_limit integer not null,
-  liters_limit numeric(10,2),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique(daily_limit_id, fuel_type)
-);
-```
+`daily_limits` stores the station and date envelope. `daily_fuel_type_limits` stores exact fuel limits:
 
-### fuel_reservations
+- `fuel_type`.
+- `vehicle_limit`.
+- optional cumulative `liters_limit`.
+- `status`: `OPEN` or `PAUSED`.
 
-```sql
-create table fuel_reservations (
-  id uuid primary key default gen_random_uuid(),
-  date date not null,
-  station_id uuid not null references stations(id),
-  vehicle_id uuid not null references vehicles(id),
-  driver_id uuid references drivers(id),
-  fuel_type text not null,
-  fuel_preference_mode text not null default 'EXACT',
-  requested_liters numeric(10,2) not null,
-  queue_number integer not null,
-  status text not null default 'RESERVED',
-  operator_id uuid not null references profiles(id),
-  approved_by uuid references profiles(id),
-  comment text,
-  client_mutation_id uuid,
-  sync_status text not null default 'SYNCED',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique(date, station_id, queue_number)
-);
-```
+Vehicle and liters limits apply together. A missing liters limit means only the vehicle limit is applied.
 
-`fuel_preference_mode`:
+### daily_fueling_schedules
 
-```text
-EXACT
-ANY_GASOLINE
-```
+Schedules are unique by `(date, station_id, fuel_category)`.
 
-`EXACT` означает только `fuel_type`. `ANY_GASOLINE` означает совместимость с `AI_92`, `AI_95`, `AI_100`.
+Fuel categories:
 
-Частичный уникальный индекс:
+- `GASOLINE`.
+- `DIESEL`.
+- `GAS`.
 
-```sql
-create unique index unique_active_reservation_per_vehicle_day
-on fuel_reservations(date, vehicle_id)
-where status in ('RESERVED', 'ARRIVED', 'APPROVED', 'FUELING');
-```
-
-### queue_entries
-
-```sql
-create table queue_entries (
-  id uuid primary key default gen_random_uuid(),
-  date date not null,
-  station_id uuid not null references stations(id),
-  vehicle_id uuid not null references vehicles(id),
-  driver_id uuid references drivers(id),
-  reservation_id uuid references fuel_reservations(id),
-  fuel_type text not null,
-  requested_liters numeric(10,2) not null,
-  status text not null default 'WAITING',
-  operator_id uuid not null references profiles(id),
-  comment text,
-  client_mutation_id uuid,
-  sync_status text not null default 'SYNCED',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
+The allocator uses the schedule for the allocation station and the assigned fuel category to persist `arrival_at`.
 
 ### fueling_records
 
-```sql
-create table fueling_records (
-  id uuid primary key default gen_random_uuid(),
-  date date not null,
-  station_id uuid not null references stations(id),
-  vehicle_id uuid not null references vehicles(id),
-  driver_id uuid references drivers(id),
-  reservation_id uuid references fuel_reservations(id),
-  queue_entry_id uuid references queue_entries(id),
-  preferential_queue_entry_id uuid references preferential_queue_entries(id),
-  fuel_type text not null,
-  liters numeric(10,2) not null,
-  cashier_id uuid not null references profiles(id),
-  is_manual_override boolean not null default false,
-  override_id uuid,
-  comment text,
-  client_mutation_id uuid,
-  sync_status text not null default 'SYNCED',
-  fueled_at timestamptz not null default now(),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
+Regular fueling records must reference both:
 
-Индекс для обычных заправок:
+- `allocation_id`.
+- `queue_entry_id`.
 
-```sql
-create unique index unique_regular_fueling_per_vehicle_day
-on fueling_records(date, vehicle_id)
-where is_manual_override = false
-  and preferential_queue_entry_id is null;
-```
+The record also stores the actual station, vehicle, driver, exact fuel type, liters, cashier, sync metadata, and `fueled_at`. The daily one-fueling rule is enforced for regular fueling records across all stations.
 
-### preferential_queue_entries
+Manual overrides may exist without a queue allocation.
 
-```sql
-create table preferential_queue_entries (
-  id uuid primary key default gen_random_uuid(),
-  queue_id uuid not null references preferential_queues(id),
-  vehicle_id uuid not null references vehicles(id),
-  driver_id uuid references drivers(id),
-  fuel_type text not null,
-  requested_liters numeric(10,2) not null,
-  status text not null default 'ACTIVE',
-  comment text,
-  client_mutation_id uuid,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
+### refusal_records, manual_overrides, audit_logs
 
-Для активной льготной записи `requested_liters` хранит остаток разрешённых литров.
-При частичной заправке остаток уменьшается, при нулевом остатке запись становится
-`FUELED`.
+These remain supporting operational tables. Refusals and manual overrides are still date/station scoped, while the normal fueling path is driven by the saved allocation.
 
-### refusal_records
+## Allocation Functions
 
-```sql
-create table refusal_records (
-  id uuid primary key default gen_random_uuid(),
-  date date not null,
-  station_id uuid not null references stations(id),
-  vehicle_id uuid references vehicles(id),
-  driver_id uuid references drivers(id),
-  reservation_id uuid references fuel_reservations(id),
-  queue_entry_id uuid references queue_entries(id),
-  reason text not null,
-  comment text,
-  user_id uuid not null references profiles(id),
-  client_mutation_id uuid,
-  sync_status text not null default 'SYNCED',
-  created_at timestamptz not null default now()
-);
-```
+`allocate_daily_queue(target_date)` runs under an advisory lock and is not granted to client roles. It is called after saving daily limits or fueling schedules.
 
-### manual_overrides
+The allocator:
 
-```sql
-create table manual_overrides (
-  id uuid primary key default gen_random_uuid(),
-  date date not null,
-  station_id uuid not null references stations(id),
-  vehicle_id uuid not null references vehicles(id),
-  reason text not null,
-  approved_by uuid not null references profiles(id),
-  expires_at timestamptz,
-  used_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-```
+- keeps already fueled allocations unchanged;
+- processes old `PAUSED_BY_LIMIT` allocations first by permanent number;
+- processes the remaining `WAITING` queue entries by permanent number;
+- matches `EXACT` only to the requested exact fuel;
+- matches `ANY_GASOLINE` to the requested gasoline first, then `AI_92`, `AI_95`, `AI_100`;
+- chooses the station with the largest remaining capacity;
+- persists station, fuel, positions, and `arrival_at`;
+- pauses non-fueled rows that no longer fit as `PAUSED_BY_LIMIT`.
 
-### audit_logs
+`finalize_daily_queue(target_date)` is service-role-only and idempotent. It turns contacted or no-answer unfinished active allocations into `MISSED`, turns not-called unfinished active allocations into `EXPIRED`, skips `PAUSED_BY_LIMIT`, and advances the permanent queue entry to `NO_SHOW` after the configured missed-allocation threshold.
 
-```sql
-create table audit_logs (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references profiles(id),
-  action text not null,
-  entity_type text not null,
-  entity_id uuid,
-  old_value jsonb,
-  new_value jsonb,
-  created_at timestamptz not null default now()
-);
-```
+## RPC Surface
 
-## Enum значения
+Critical writes go through RPC:
 
-### roles
+- `create_reservation`.
+- `create_consumer_reservation`.
+- `create_daily_limit`.
+- `set_daily_fueling_schedule`.
+- `create_reservation_call_log`.
+- `check_vehicle_access`.
+- `create_fueling_record`.
+- `sync_offline_mutation`.
+- `finalize_daily_queue` for service role.
 
-```text
-mayor
-station_manager
-cashier
-mayor_assistant
-```
-
-### fuel types
-
-```text
-AI_92
-AI_95
-AI_100
-DIESEL
-GAS
-OTHER
-```
-
-### statuses
-
-```text
-RESERVED
-ARRIVED
-APPROVED
-FUELING
-FUELED
-REJECTED
-CANCELLED
-NO_SHOW
-EXPIRED
-ERROR
-CONFLICT
-```
-
-### sync statuses
-
-```text
-SYNCED
-PENDING
-SYNCING
-FAILED
-CONFLICT
-```
-
-## Индексы
-
-```sql
-create index idx_vehicles_normalized_plate on vehicles(normalized_plate_number);
-create index idx_reservations_date_station on fuel_reservations(date, station_id);
-create index idx_reservations_vehicle_date on fuel_reservations(vehicle_id, date);
-create index idx_fueling_vehicle_date on fueling_records(vehicle_id, date);
-create index idx_queue_date_station on queue_entries(date, station_id);
-create index idx_audit_entity on audit_logs(entity_type, entity_id);
-create index idx_reservations_callable_queue
-on fuel_reservations(status, queue_number, fuel_type, fuel_preference_mode);
-create index idx_daily_fuel_type_limits_exact
-on daily_fuel_type_limits(daily_limit_id, fuel_type);
-```
+Public and consumer queries return the permanent queue entry plus a nullable saved daily allocation.

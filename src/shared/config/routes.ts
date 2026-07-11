@@ -26,7 +26,7 @@ export const PUBLIC_ROUTES = [ROUTES.promo, ROUTES.queueCheck] as const
 
 export const MAIN_SECTION_LINKS = [
   { path: ROUTES.preferentialQueues, label: 'Льготные очереди', description: 'Именованные списки мэра вне дневного лимита' },
-  { path: ROUTES.reservations, label: 'Записи', description: 'Предварительная запись на дату' },
+  { path: ROUTES.reservations, label: 'Городская очередь', description: 'Постановка автомобиля в постоянную очередь' },
   { path: ROUTES.queue, label: 'Очередь сегодня', description: 'Текущая очередь по выбранной АЗС' },
   { path: ROUTES.fueling, label: 'Заправка', description: 'Фиксация факта отпуска топлива' },
   { path: ROUTES.limits, label: 'Лимиты', description: 'Дневные лимиты по АЗС и топливу' },

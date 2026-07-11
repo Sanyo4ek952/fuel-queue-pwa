@@ -16,7 +16,6 @@ import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
-import { getFuelQueueCategory, type FuelType } from '@/shared/constants'
 
 const remainingAttemptsStorageKey = 'public-queue-check-remaining-attempts'
 
@@ -26,12 +25,6 @@ const fuelTypeLabels: Record<string, string> = {
   AI_100: 'АИ-100',
   DIESEL: 'Дизель',
   GAS: 'Газ',
-}
-
-const fuelCategoryLabels: Record<string, string> = {
-  GASOLINE: 'бензин',
-  DIESEL: 'дизель',
-  GAS: 'газ',
 }
 
 function saveRemainingAttempts(value: number) {
@@ -69,25 +62,20 @@ function QueuePositionSummary({
   ticketNumber,
   currentPosition,
   peopleAhead,
-  preferredFuelType,
 }: {
   ticketNumber: number | null
   currentPosition: number | null
   peopleAhead: number | null
-  preferredFuelType?: FuelType | string | null
 }) {
   if (ticketNumber === null) {
     return null
   }
 
-  const fuelCategory = preferredFuelType ? getFuelQueueCategory(preferredFuelType) : null
-  const fuelQueueLabel = fuelCategory ? fuelCategoryLabels[fuelCategory] : 'топлива'
-
   return (
     <span className="block">
-      Номер записи №{ticketNumber}.
+      Постоянный номер №{ticketNumber}.
       {currentPosition !== null && peopleAhead !== null
-        ? ` Позиция в очереди ${fuelQueueLabel}: ${currentPosition}, впереди: ${peopleAhead}.`
+        ? ` Дневная позиция: ${currentPosition}, впереди: ${peopleAhead}.`
         : ''}
     </span>
   )
@@ -125,6 +113,7 @@ export function PublicQueueCheckForm() {
   const isInvited = isFound && result.public_status === 'INVITED_BY_OPERATOR'
   const isInCallList = isFound && result.public_status === 'IN_CALL_LIST'
   const isWaitingFuel = isFound && result.public_status === 'WAITING_FOR_PREFERRED_FUEL'
+  const isPausedByLimit = isFound && result.public_status === 'PAUSED_BY_LIMIT'
   const isQueueNotReady =
     isFound &&
     (result.public_status === 'QUEUE_NOT_READY' || result.public_status === 'WAIT_FOR_CALL')
@@ -206,7 +195,6 @@ export function PublicQueueCheckForm() {
                     ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
-                    preferredFuelType={result.preferred_fuel_type}
                   />
                   Окончательный допуск подтвердят на АЗС.
                   <span className="mt-2 block">{noShowGraceDescription}</span>
@@ -223,13 +211,34 @@ export function PublicQueueCheckForm() {
                     ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
-                    preferredFuelType={result.preferred_fuel_type}
                   />
                   Ожидайте звонка оператора
                   {result.matched_fuel_type
                     ? `, доступно ${fuelTypeLabels[result.matched_fuel_type] ?? result.matched_fuel_type}`
                     : ''}
                   .
+                  {result.arrival_at ? (
+                    <span className="mt-2 block font-medium">
+                      Прибытие: {new Intl.DateTimeFormat('ru-RU', {
+                        day: 'numeric',
+                        month: 'long',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: 'Europe/Moscow',
+                      }).format(new Date(result.arrival_at))}
+                    </span>
+                  ) : null}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {isPausedByLimit ? (
+              <Alert className="border-amber-200 bg-amber-50 text-amber-950">
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>Дневное назначение временно остановлено</AlertTitle>
+                <AlertDescription>
+                  Постоянный номер №{result.permanent_number ?? foundTicketNumber} сохранён.
+                  После возобновления лимита назначение получит приоритет.
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -243,7 +252,6 @@ export function PublicQueueCheckForm() {
                     ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
-                    preferredFuelType={result.preferred_fuel_type}
                   />
                   Сейчас нет подходящей марки топлива для вашей записи.
                 </AlertDescription>
@@ -253,13 +261,12 @@ export function PublicQueueCheckForm() {
             {isQueueNotReady ? (
               <Alert className="border-amber-200 bg-amber-50 text-amber-950">
                 <TriangleAlert className="size-4" aria-hidden="true" />
-                <AlertTitle>Номер записи №{foundTicketNumber} еще не подошел</AlertTitle>
+                <AlertTitle>Постоянный номер №{foundTicketNumber} ожидает распределения</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
                     ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
-                    preferredFuelType={result.preferred_fuel_type}
                   />
                   Ваша запись найдена, но сегодня она еще не входит в лимит. Пожалуйста,
                   ожидайте своей очереди. Когда очередь подойдет, вам позвонят.

@@ -127,7 +127,8 @@ describe('CreateDailyLimitForm', () => {
           fuelTypeLimits: [
             expect.objectContaining({
               fuelType: 'AI_95',
-              limitMode: 'fuel_liters',
+              status: 'OPEN',
+              vehicleLimit: 20,
               litersLimit: 400,
             }),
           ],

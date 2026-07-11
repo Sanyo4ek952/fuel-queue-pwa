@@ -459,6 +459,15 @@ begin
       approval_status = excluded.approval_status,
       approved_at = coalesce(public.profiles.approved_at, excluded.approved_at);
 
+    select id
+    into profile_id_value
+    from public.profiles
+    where auth_user_id = auth_user_id_value;
+
+    if profile_id_value is null then
+      raise exception 'Consumer profile was not created for %.', email_value;
+    end if;
+
     insert into public.vehicles (
       id,
       plate_number,

@@ -115,7 +115,7 @@ describe('QueueRowCard', () => {
     )
 
     expect(screen.getByLabelText('Позиция в очереди топлива 3')).toBeInTheDocument()
-    expect(screen.getByText('В очереди дизель: 3 · Талон №10')).toBeInTheDocument()
+    expect(screen.getByText('Дневная позиция: 3 · Постоянный №10')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Открыть детали' }))
 
@@ -145,7 +145,7 @@ describe('QueueRowCard', () => {
   it('shows station fallback when station will be selected at fueling', () => {
     renderCard()
 
-    expect(screen.getByText('АЗС будет выбрана при заправке')).toBeInTheDocument()
+    expect(screen.getByText('Серверное назначение АЗС отсутствует')).toBeInTheDocument()
   })
 
   it('cancels only the selected reservation row', async () => {

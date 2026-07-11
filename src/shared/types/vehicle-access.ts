@@ -24,6 +24,8 @@ export type VehicleAccessResult = {
   station_id?: string
   vehicle_id?: string
   reservation_id?: string
+  allocation_id?: string
+  queue_entry_id?: string
   reservation_station_id?: string
   daily_limit_id?: string
   daily_limit_status?: string
@@ -39,6 +41,8 @@ export type VehicleAccessResult = {
   requested_liters?: number
   effective_liters?: number
   category_position?: number
+  arrival_at?: string
+  call_status?: string
   category_liters?: number
   max_liters_per_vehicle?: number
   manual_override_id?: string

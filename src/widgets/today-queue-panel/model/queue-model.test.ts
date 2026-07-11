@@ -8,7 +8,6 @@ import {
   hasActiveGasolineLimit,
   isRowCallable,
   matchesCallFilter,
-  toFuelingScheduleRows,
 } from './queue-model'
 
 function makeQueueRow(overrides: Partial<TodayQueueRow> = {}): TodayQueueRow {
@@ -118,18 +117,4 @@ describe('today queue model', () => {
     ).toBe(true)
   })
 
-  it('builds ETA input rows only for callable queue rows', () => {
-    expect(
-      toFuelingScheduleRows([
-        makeQueueRow({ id: 'callable', ticket_number: 2, fuel_type: 'DIESEL' }),
-        makeQueueRow({ id: 'outside', is_callable_now: false, fuel_type: 'AI_95' }),
-      ]),
-    ).toEqual([
-      {
-        id: 'callable',
-        ticketNumber: 2,
-        fuelCategory: 'DIESEL',
-      },
-    ])
-  })
 })

@@ -1,12 +1,12 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
-import type { DailyLimitMode, QueueFuelType } from '@/shared/constants'
+import type { QueueFuelType } from '@/shared/constants'
 
 import type { RpcResult } from './index'
 
 export type DailyFuelTypeLimitInput = {
   fuelType: QueueFuelType
-  limitMode: DailyLimitMode
+  status: 'OPEN' | 'PAUSED'
   vehicleLimit: number
   litersLimit?: number | null
 }
@@ -21,7 +21,7 @@ export type CreateDailyLimitParams = {
 export type DailyFuelTypeLimitResult = {
   fuel_type: QueueFuelType
   fuel_category: string
-  limit_mode: DailyLimitMode
+  status: 'OPEN' | 'PAUSED'
   vehicle_limit: number
   liters_limit: number | null
 }
@@ -63,7 +63,7 @@ function toDailyLimitResult(value: unknown): CreateDailyLimitResult | null {
         ? result.fuel_type_limits.map((item) => ({
             fuel_type: item.fuel_type,
             fuel_category: item.fuel_category,
-            limit_mode: item.limit_mode,
+            status: item.status ?? 'OPEN',
             vehicle_limit: toNumber(item.vehicle_limit),
             liters_limit: item.liters_limit == null ? null : toNumber(item.liters_limit),
           }))
@@ -72,7 +72,7 @@ function toDailyLimitResult(value: unknown): CreateDailyLimitResult | null {
         ? result.category_limits.map((item) => ({
             fuel_type: item.fuel_type,
             fuel_category: item.fuel_category,
-            limit_mode: item.limit_mode,
+            status: item.status ?? 'OPEN',
             vehicle_limit: toNumber(item.vehicle_limit),
             liters_limit: item.liters_limit == null ? null : toNumber(item.liters_limit),
           }))
@@ -101,7 +101,7 @@ export async function createDailyLimit({
     target_station_id: stationId,
     fuel_type_limits: fuelTypeLimits.map((item) => ({
       fuel_type: item.fuelType,
-      limit_mode: item.limitMode,
+      status: item.status,
       vehicle_limit: item.vehicleLimit,
       liters_limit: item.litersLimit ?? null,
     })),

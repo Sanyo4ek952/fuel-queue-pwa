@@ -19,6 +19,7 @@ export const PUBLIC_QUEUE_STATUSES = [
   'WAITING_FOR_PREFERRED_FUEL',
   'IN_CALL_LIST',
   'WAIT_FOR_CALL',
+  'PAUSED_BY_LIMIT',
   'INVITED_BY_OPERATOR',
   'COMPLETED_OR_CANCELLED',
   'NOT_FOUND',
@@ -40,6 +41,9 @@ export type PublicQueueCheckResult = {
   is_within_today_limit: boolean | null
   is_callable_now: boolean | null
   matched_fuel_type: QueueFuelType | string | null
+  permanent_number: number | null
+  allocation_status: string | null
+  arrival_at: string | null
   remaining_attempts: number
 }
 
@@ -124,6 +128,9 @@ export function parsePublicQueueCheckResult(value: unknown): PublicQueueCheckRes
       is_within_today_limit: isWithinTodayLimit,
       is_callable_now: isCallableNow,
       matched_fuel_type: result.matched_fuel_type ?? null,
+      permanent_number: toNullableNumber(result.permanent_number) ?? ticketNumber,
+      allocation_status: result.allocation_status ?? null,
+      arrival_at: result.arrival_at ?? null,
       remaining_attempts: remainingAttempts,
     }
   }

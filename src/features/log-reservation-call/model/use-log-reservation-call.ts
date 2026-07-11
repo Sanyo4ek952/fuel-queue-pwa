@@ -82,11 +82,12 @@ async function cacheSyncedCallLog(result: CreateReservationCallLogResult) {
     updated_at: now,
   }
 
+  const allocationCallLogsTable = offlineDb.local_allocation_call_logs ?? offlineDb.local_reservation_call_logs
   await offlineDb.transaction(
     'rw',
-    [offlineDb.local_reservation_call_logs, offlineDb.local_reservations],
+    [allocationCallLogsTable, offlineDb.local_reservations],
     async () => {
-      await offlineDb.local_reservation_call_logs.put(localCallLog)
+      await allocationCallLogsTable.put(localCallLog)
       await applyCallToReservation({
         reservationId: result.reservation_id,
         status: result.status,
@@ -145,7 +146,7 @@ async function createOfflineReservationCallLog({
   const syncOutboxOperation: SyncOutboxOperation = {
     id: clientMutationId,
     client_mutation_id: clientMutationId,
-    type: 'CREATE_RESERVATION_CALL_LOG',
+    type: 'CREATE_ALLOCATION_CALL_LOG',
     payload: buildCreateReservationCallLogPayload({
       reservationId: reservation.id,
       status,
@@ -157,11 +158,12 @@ async function createOfflineReservationCallLog({
     retry_count: 0,
   }
 
+  const allocationCallLogsTable = offlineDb.local_allocation_call_logs ?? offlineDb.local_reservation_call_logs
   await offlineDb.transaction(
     'rw',
-    [offlineDb.local_reservation_call_logs, offlineDb.local_reservations, offlineDb.sync_outbox],
+    [allocationCallLogsTable, offlineDb.local_reservations, offlineDb.sync_outbox],
     async () => {
-      await offlineDb.local_reservation_call_logs.put(localCallLog)
+      await allocationCallLogsTable.put(localCallLog)
       await offlineDb.sync_outbox.put(syncOutboxOperation)
       await applyCallToReservation({
         reservationId: reservation.id,
@@ -180,6 +182,7 @@ async function createOfflineReservationCallLog({
 
   return {
     id: localCallLog.id,
+    allocation_id: reservation.id,
     reservation_id: reservation.id,
     status,
     called_by_profile_id: profile.id,
@@ -229,7 +232,7 @@ export function useLogReservationCall() {
       })
 
       if (result.error || !result.data) {
-        throw new Error(result.error ?? 'CREATE_RESERVATION_CALL_LOG_FAILED')
+        throw new Error(result.error ?? 'CREATE_ALLOCATION_CALL_LOG_FAILED')
       }
 
       await cacheSyncedCallLog(result.data)

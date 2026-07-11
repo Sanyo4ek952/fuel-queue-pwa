@@ -117,7 +117,7 @@ describe('PublicQueueCheckForm', () => {
 
     expect(await screen.findByText('Запись включена в список обзвона')).toBeInTheDocument()
     expect(
-      screen.getByText(/Номер записи №2847. Позиция в очереди бензин: 71, впереди: 70./),
+      screen.getByText(/Постоянный номер №2847. Дневная позиция: 71, впереди: 70./),
     ).toBeInTheDocument()
     expect(screen.getByText(/Ожидайте звонка оператора, доступно АИ-95./)).toBeInTheDocument()
     expect(screen.queryByText(/Если вы не заправитесь/)).not.toBeInTheDocument()
@@ -147,9 +147,9 @@ describe('PublicQueueCheckForm', () => {
     await userEvent.type(screen.getByLabelText('Последние 4 цифры телефона'), '1234')
     await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
 
-    expect(await screen.findByText('Номер записи №2847 еще не подошел')).toBeInTheDocument()
+    expect(await screen.findByText('Постоянный номер №2847 ожидает распределения')).toBeInTheDocument()
     expect(
-      screen.getByText(/Номер записи №2847. Позиция в очереди дизель: 71, впереди: 70./),
+      screen.getByText(/Постоянный номер №2847. Дневная позиция: 71, впереди: 70./),
     ).toBeInTheDocument()
     expect(screen.queryByText(/аннулирована/)).not.toBeInTheDocument()
     expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()

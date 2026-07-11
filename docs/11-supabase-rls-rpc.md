@@ -1,187 +1,100 @@
 # 11. Supabase RLS and RPC
 
-## Цель
+## Rule
 
-Supabase должен защищать данные на уровне базы.
+Critical business writes go through RPC. UI code must not insert or update queue, allocation, limit, call, fueling, refusal, or sync-conflict rows directly.
 
-Нужны:
+## Queue RPC
 
-- RLS;
-- функции доступа;
-- RPC для критичных операций;
-- audit logs.
+`create_reservation` and `create_consumer_reservation` create permanent `fuel_queue_entries`.
 
-## Почему RLS обязательно
+They do not accept date, station, or time. They return the saved queue entry and the confirmed `permanent_number`.
 
-Если полагаться только на UI, пользователь может попытаться вызвать API напрямую.
+The server validates:
 
-RLS ограничивает доступ на уровне базы.
+- actor role and active profile;
+- vehicle and driver data;
+- vehicle block state;
+- duplicate active `WAITING` entry for the vehicle;
+- idempotency by `client_mutation_id`.
 
-## Helper functions
+## Allocation RPC
 
-Нужны PostgreSQL helper functions:
+`create_daily_limit` and `set_daily_fueling_schedule` save station/date configuration and then call the private allocator.
 
-```sql
-get_current_profile_id()
-get_current_user_role()
-can_access_station(station_id uuid)
-has_role(required_roles text[])
-```
+`allocate_daily_queue(target_date)` is private. Client roles do not get execute grants.
 
-## RPC функции
+The allocator persists:
 
-### check_vehicle_access
+- station;
+- assigned exact fuel type;
+- daily and station positions;
+- `arrival_at`;
+- allocation status.
 
-Параметры:
+## Staff Queue RPC
 
-```text
-plate_number
-station_id
-date
-```
+`get_today_call_list` returns saved `daily_queue_allocations` joined with `fuel_queue_entries`.
 
-Проверяет:
+Pagination and filters use persisted `daily_position` and IDs. They do not recalculate positions, summaries, counters, or ETA.
 
-- нормализацию номера;
-- запись на дату;
-- факт заправки по всем АЗС;
-- блокировку;
-- ручные разрешения;
-- доступ пользователя к АЗС.
+`create_reservation_call_log` accepts an `allocation_id`. It stores the call log in `daily_queue_allocation_call_logs` and updates `daily_queue_allocations.call_status`.
 
-### create_reservation
+Allowed call statuses:
 
-Проверяет:
+- `NOT_CALLED`.
+- `CONTACTED`.
+- `NO_ANSWER`.
 
-- роль mayor/station_manager/mayor_assistant;
-- доступ к АЗС;
-- лимит на дату;
-- лимит по топливу;
-- отсутствие активной записи автомобиля на эту дату;
-- блокировку автомобиля.
-- сохраняет автора записи в `fuel_reservations.operator_id`.
-- сохраняет `fuel_preference_mode`, по умолчанию `EXACT`.
+Calling status does not decide fueling access.
 
-### get_today_call_list
+## Access and Fueling RPC
 
-Возвращает общую очередь по `queue_number` и серверные поля обзвона:
+`check_vehicle_access` allows normal fueling only when the requested date and station have an `ACTIVE` allocation for that vehicle. The exact assigned fuel type must match the fueling request.
 
-```text
-is_callable_now
-call_unavailable_reason
-matched_fuel_type
-fuel_preference_mode
-preferred_fuel_type
-```
+`create_fueling_record` accepts an allocation. It rechecks:
 
-`is_callable_now` вычисляется на сервере по активному статусу записи, факту заправки, блокировке автомобиля, совместимости топлива и точному дневному лимиту выбранной марки.
-Для заявок из личного кабинета без `station_id` дневной лимит считается по
-сумме открытых лимитов всех АЗС; конкретная АЗС проверяется уже при допуске к
-заправке.
+- active allocation;
+- station;
+- exact assigned fuel type;
+- one regular fueling per vehicle per date across all stations;
+- vehicle block/manual override rules.
 
-### create_reservation_call_log
+On success it writes `fueling_records`, marks the allocation `FUELED`, and marks the permanent queue entry `FUELED`.
 
-Проверяет активность записи.
+## Public and Consumer RPC
 
-Allowed statuses are `NOT_CALLED`, `CONTACTED`, and `NO_ANSWER`.
-`CALL_LATER` and `WRONG_NUMBER` are rejected with `INVALID_CALL_STATUS`.
+`get_my_queue_status`, public queue check, reports, and backup return the permanent queue entry plus a nullable saved daily allocation.
 
-Для любого нового статуса звонка требует `is_callable_now = true`; иначе возвращает ошибку `RESERVATION_NOT_CALLABLE`.
-`NOT_CALLED` is additionally allowed only as a reset after latest `CONTACTED`.
+Public responses must not expose personal data.
 
-`NO_ANSWER` is a valid call result. If the reservation remains `RESERVED`, is within the exact daily fuel limit, and the vehicle has not fueled on the date, access can be allowed for that date. If the driver still does not fuel, the no-show policy counts the date as one missed fueling day.
+## Finalizer
 
-### check_public_queue_position
+`finalize_daily_queue(target_date)` is service-role-only and idempotent.
 
-Публичный RPC не раскрывает ФИО, телефон, комментарии и автора записи.
+It converts unfinished active allocations:
 
-Безопасные поля ответа:
+- `CONTACTED` or `NO_ANSWER` to `MISSED`;
+- `NOT_CALLED` to `EXPIRED`;
+- `PAUSED_BY_LIMIT` stays unchanged.
 
-```text
-queue_number
-preferred_fuel_type
-fuel_preference_mode
-public_status
-is_within_today_limit
-is_callable_now
-matched_fuel_type
-```
+Miss counters are derived from finalized daily allocations. After the configured `reservation_no_show_grace_days` threshold, the permanent queue entry becomes `NO_SHOW`.
 
-### create_fueling_record
+## Offline RPC
 
-Проверяет:
+`sync_offline_mutation` accepts:
 
-- роль mayor/station_manager/cashier;
-- наличие активной записи;
-- отсутствие заправки сегодня по всем АЗС;
-- лимит литров;
-- ручное разрешение, если есть.
+- `CREATE_RESERVATION`;
+- `CREATE_ALLOCATION_CALL_LOG`;
+- `CREATE_FUELING_RECORD`;
+- `CREATE_REFUSAL_RECORD`;
+- `CREATE_MANUAL_OVERRIDE`;
+- limit and settings mutations used by staff.
 
-### create_daily_limit
+Offline-created queue entries are pending until the server returns a real `permanent_number`. Offline calls and fueling are allowed only from a cached saved allocation snapshot.
 
-Проверяет:
+## Grants
 
-- роль mayor/station_manager;
-- доступ к АЗС;
-- корректность лимитов.
+Authenticated users receive execute grants only for public/staff RPC they need. Private allocator and finalizer are not callable by browser roles.
 
-### create_manual_override
-
-Проверяет:
-
-- роль mayor/station_manager;
-- причину;
-- дату;
-- автомобиль.
-
-### sync_offline_mutation
-
-Принимает:
-
-```text
-client_mutation_id
-operation_type
-payload
-```
-
-Сервер сам решает:
-
-- применить;
-- отклонить;
-- вернуть конфликт.
-
-## Idempotency
-
-Все mutation RPC должны учитывать `client_mutation_id`.
-
-Если операция с таким `client_mutation_id` уже была применена, сервер не должен создавать дубль.
-
-## Транзакции
-
-Критичные операции должны выполняться атомарно:
-
-- проверка лимита;
-- создание записи;
-- присвоение queue_number;
-- audit log.
-
-## Audit log
-
-RPC должен писать audit log для:
-
-- создания записи;
-- изменения статуса;
-- заправки;
-- отказа;
-- ручного разрешения;
-- изменения лимита;
-- решения конфликта.
-
-## Запрещено
-
-Нельзя:
-
-- делать критичные insert/update напрямую с клиента;
-- доверять роли из localStorage;
-- проверять лимит только на frontend;
-- создавать fueling_record без проверки на сервере.
+Direct table writes are blocked for critical queue tables by RLS and grants.

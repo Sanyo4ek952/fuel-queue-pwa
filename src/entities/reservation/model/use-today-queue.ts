@@ -7,7 +7,6 @@ import {
   listTodayQueueAuthors,
   listTodayQueueRowsPage,
   toTodayQueueRowFromLocal,
-  withCurrentQueuePositions,
   type QueueAuthorOption,
   type QueueCallFilter,
   type QueueGasolineFuelFilter,
@@ -174,7 +173,7 @@ export function useTodayQueue(params: TodayQueueParams = {}) {
         .map(toTodayQueueRowFromLocal)
         .sort(compareQueueRows)
 
-      return withCurrentQueuePositions(rows)
+      return rows
     }).subscribe({
       next: (rows) => {
         setLocalRows(rows)

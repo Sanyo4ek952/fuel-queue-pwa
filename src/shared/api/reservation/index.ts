@@ -4,6 +4,7 @@ import type {
   FuelQueueCategory,
   FuelPreferenceMode,
   FuelType,
+  DailyQueueAllocationStatus,
   ReservationCallStatus,
   ReservationStatus,
   SyncStatus,
@@ -11,7 +12,12 @@ import type {
 import { getFuelQueueCategory } from '@/shared/constants'
 import { supabase } from '@/shared/api/supabase'
 import { getTodayDateInputValue } from '@/shared/lib/date'
-import { offlineDb, type LocalReservation } from '@/shared/lib/offline-db'
+import {
+  offlineDb,
+  type LocalDailyQueueAllocation,
+  type LocalReservation,
+  type LocalQueueEntry,
+} from '@/shared/lib/offline-db'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 type RelatedVehicle = {
@@ -31,6 +37,9 @@ type RelatedProfile = {
 
 type ReservationRow = {
   id: string
+  allocation_id?: string | null
+  queue_entry_id?: string | null
+  permanent_number?: number | string | null
   date?: string | null
   station_id?: string | null
   station_name?: string | null
@@ -46,6 +55,12 @@ type ReservationRow = {
   ticket_number?: number | string | null
   current_position?: number | string | null
   people_ahead?: number | string | null
+  daily_position?: number | string | null
+  station_position?: number | string | null
+  station_fuel_position?: number | string | null
+  arrival_at?: string | null
+  allocation_status?: string | null
+  assigned_fuel_type?: string | null
   status: string
   comment?: string | null
   client_mutation_id?: string | null
@@ -78,6 +93,9 @@ type ReservationRow = {
 
 export type TodayQueueRow = {
   id: string
+  allocation_id?: string
+  queue_entry_id?: string
+  permanent_number?: number
   date: string | null
   station_id: string | null
   station_name?: string | null
@@ -92,6 +110,12 @@ export type TodayQueueRow = {
   ticket_number: number
   current_position: number
   people_ahead: number
+  daily_position?: number
+  station_position?: number
+  station_fuel_position?: number
+  arrival_at?: string
+  allocation_status?: DailyQueueAllocationStatus
+  assigned_fuel_type?: FuelType | string
   normalized_plate_number: string
   driver_full_name: string
   driver_phone: string | null
@@ -263,11 +287,15 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
   const driver = firstRelation(row.drivers)
   const operator = firstRelation(row.operator)
   const ticketNumber = toNullableNumber(row.ticket_number) ?? toNumber(row.queue_number)
+  const dailyPosition = toNullableNumber(row.daily_position) ?? ticketNumber
   const currentPosition = toNullableNumber(row.current_position)
   const peopleAhead = toNullableNumber(row.people_ahead)
 
   return {
     id: row.id,
+    allocation_id: row.allocation_id ?? undefined,
+    queue_entry_id: row.queue_entry_id ?? row.id,
+    permanent_number: toNullableNumber(row.permanent_number) ?? ticketNumber,
     date: row.date ?? null,
     station_id: row.station_id ?? null,
     station_name: row.station_name ?? null,
@@ -280,8 +308,14 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     created_by_signature_name: row.created_by_signature_name ?? operator?.signature_name ?? null,
     queue_number: ticketNumber,
     ticket_number: ticketNumber,
-    current_position: currentPosition ?? ticketNumber,
-    people_ahead: peopleAhead ?? Math.max((currentPosition ?? ticketNumber) - 1, 0),
+    current_position: currentPosition ?? dailyPosition,
+    people_ahead: peopleAhead ?? Math.max(dailyPosition - 1, 0),
+    daily_position: dailyPosition,
+    station_position: toNullableNumber(row.station_position) ?? undefined,
+    station_fuel_position: toNullableNumber(row.station_fuel_position) ?? undefined,
+    arrival_at: row.arrival_at ?? '',
+    allocation_status: (row.allocation_status ?? undefined) as DailyQueueAllocationStatus | undefined,
+    assigned_fuel_type: row.assigned_fuel_type ?? row.matched_fuel_type ?? row.fuel_type,
     normalized_plate_number: row.normalized_plate_number ?? vehicle?.normalized_plate_number ?? '',
     driver_full_name: row.driver_full_name ?? driver?.full_name ?? '',
     driver_phone: row.driver_phone ?? driver?.phone ?? null,
@@ -318,6 +352,9 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
 
   return {
     id: row.id,
+    allocation_id: row.allocation_id ?? row.id,
+    queue_entry_id: row.queue_entry_id ?? row.id,
+    permanent_number: row.permanent_number ?? ticketNumber,
     date: row.date ?? null,
     station_id: row.station_id ?? null,
     station_name: row.station_name ?? null,
@@ -332,6 +369,12 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     ticket_number: ticketNumber,
     current_position: currentPosition,
     people_ahead: peopleAhead,
+    daily_position: row.daily_position ?? currentPosition,
+    station_position: row.station_position ?? 0,
+    station_fuel_position: row.station_fuel_position ?? 0,
+    arrival_at: row.arrival_at ?? '',
+    allocation_status: row.allocation_status ?? 'ACTIVE',
+    assigned_fuel_type: row.assigned_fuel_type ?? row.matched_fuel_type ?? row.fuel_type,
     normalized_plate_number: row.normalized_plate_number ?? '',
     driver_full_name: row.driver_full_name ?? '',
     driver_phone: row.driver_phone ?? null,
@@ -359,36 +402,6 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     latest_call_sync_status: row.latest_call_sync_status ?? null,
     updated_at: row.updated_at,
   }
-}
-
-export function withCurrentQueuePositions(rows: TodayQueueRow[]) {
-  const rowsByCategory = new Map<FuelQueueCategory | null, TodayQueueRow[]>()
-
-  for (const row of rows) {
-    const fuelCategory = getFuelQueueCategory(row.fuel_type)
-    const categoryRows = rowsByCategory.get(fuelCategory) ?? []
-
-    categoryRows.push(row)
-    rowsByCategory.set(fuelCategory, categoryRows)
-  }
-
-  const positionsById = new Map<string, number>()
-
-  for (const categoryRows of rowsByCategory.values()) {
-    categoryRows
-      .sort((left, right) => left.ticket_number - right.ticket_number || left.id.localeCompare(right.id))
-      .forEach((row, index) => positionsById.set(row.id, index + 1))
-  }
-
-  return rows.map((row) => {
-    const currentPosition = positionsById.get(row.id) ?? row.current_position
-
-    return {
-      ...row,
-      current_position: currentPosition,
-      people_ahead: Math.max(currentPosition - 1, 0),
-    }
-  })
 }
 
 function buildTodayQueueSummaryFromRows(rows: TodayQueueRow[]): TodayQueueSummary {
@@ -542,12 +555,6 @@ export async function listTodayQueueRowsPage(params: {
     throw new Error('Supabase is not configured.')
   }
 
-  const policyResult = await supabase.rpc('apply_reservation_no_show_policy')
-
-  if (policyResult.error) {
-    throw new Error(policyResult.error.message)
-  }
-
   const { data, error } = await supabase.rpc('get_today_call_list', {
     target_date: getTodayDateInputValue(),
     page_size: params.pageSize ?? 25,
@@ -570,7 +577,7 @@ export async function listTodayQueueRowsPage(params: {
 export async function listTodayQueueRows() {
   const page = await listTodayQueueRowsPage()
 
-  return withCurrentQueuePositions(page.rows)
+  return page.rows
 }
 
 export async function listTodayQueueAuthors(params: {
@@ -634,49 +641,63 @@ export async function listCancelledReservations(params: {
 }
 
 export async function cacheTodayQueueRows(rows: TodayQueueRow[]) {
-  await offlineDb.local_reservations.bulkPut(
-    rows.map(
-      (row): LocalReservation => ({
-        id: row.id,
-        date: row.date,
+  const queueEntries = rows.map(
+    (row): LocalQueueEntry => ({
+      id: row.queue_entry_id ?? row.id,
+      vehicle_id: row.vehicle_id,
+      permanent_number: row.permanent_number,
+      preferred_fuel_type: row.fuel_type,
+      fuel_preference_mode: row.fuel_preference_mode ?? 'EXACT',
+      requested_liters: row.requested_liters,
+      status: row.status,
+      client_mutation_id: row.client_mutation_id,
+      sync_status: row.sync_status,
+      normalized_plate_number: row.normalized_plate_number,
+      driver_full_name: row.driver_full_name,
+      driver_phone: row.driver_phone,
+      comment: row.comment,
+      updated_at: row.updated_at,
+    }),
+  )
+  const allocations = rows.flatMap((row): LocalDailyQueueAllocation[] => {
+    if (
+      !row.allocation_id ||
+      !row.date ||
+      !row.station_id ||
+      !row.assigned_fuel_type ||
+      !row.allocation_status ||
+      row.daily_position == null ||
+      row.station_position == null ||
+      row.station_fuel_position == null
+    ) {
+      return []
+    }
+
+    return [
+      {
+        id: row.allocation_id,
+        queue_entry_id: row.queue_entry_id ?? row.id,
+        allocation_date: row.date,
         station_id: row.station_id,
-        station_name: row.station_name,
-        station_address: row.station_address,
-        vehicle_id: row.vehicle_id,
-        driver_id: row.driver_id,
-        created_by_profile_id: row.created_by_profile_id,
-        created_by_full_name: row.created_by_full_name,
-        created_by_role: row.created_by_role,
-        created_by_signature_name: row.created_by_signature_name,
-        fuel_type: row.fuel_type,
-        fuel_preference_mode: row.fuel_preference_mode,
-        requested_liters: row.requested_liters,
-        queue_number: row.queue_number,
-        ticket_number: row.ticket_number,
-        current_position: row.current_position,
-        people_ahead: row.people_ahead,
-        status: row.status,
-        normalized_plate_number: row.normalized_plate_number,
-        driver_full_name: row.driver_full_name,
-        driver_phone: row.driver_phone,
-        comment: row.comment,
-        client_mutation_id: row.client_mutation_id,
-        sync_status: row.sync_status,
-        is_within_today_limit: row.is_within_today_limit,
-        is_callable_now: row.is_callable_now,
-        call_unavailable_reason: row.call_unavailable_reason,
-        matched_fuel_type: row.matched_fuel_type,
-        latest_call_status: row.latest_call_status,
-        latest_called_by_profile_id: row.latest_called_by_profile_id,
-        latest_called_by_full_name: row.latest_called_by_full_name,
-        latest_called_by_role: row.latest_called_by_role,
-        latest_called_by_signature_name: row.latest_called_by_signature_name,
-        latest_called_at: row.latest_called_at,
-        latest_call_comment: row.latest_call_comment,
-        latest_call_client_mutation_id: row.latest_call_client_mutation_id,
-        latest_call_sync_status: row.latest_call_sync_status,
+        assigned_fuel_type: row.assigned_fuel_type,
+        allocated_liters: row.requested_liters,
+        daily_position: row.daily_position,
+        station_position: row.station_position,
+        station_fuel_position: row.station_fuel_position,
+        arrival_at: row.arrival_at ?? new Date().toISOString(),
+        status: row.allocation_status,
+        call_status: row.latest_call_status ?? 'NOT_CALLED',
         updated_at: row.updated_at,
-      }),
-    ),
+      },
+    ]
+  })
+
+  await offlineDb.transaction(
+    'rw',
+    [offlineDb.local_queue_entries, offlineDb.local_daily_queue_allocations],
+    async () => {
+      await offlineDb.local_queue_entries.bulkPut(queueEntries)
+      await offlineDb.local_daily_queue_allocations.bulkPut(allocations)
+    },
   )
 }

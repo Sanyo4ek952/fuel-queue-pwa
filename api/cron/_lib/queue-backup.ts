@@ -1,6 +1,7 @@
 export type QueueBackupRow = {
   date?: string | null
   queue_number?: number | string | null
+  permanent_number?: number | string | null
   station_id?: string | null
   station_name?: string | null
   normalized_plate_number?: string | null
@@ -11,6 +12,13 @@ export type QueueBackupRow = {
   fuel_preference_mode?: string | null
   compatible_fuel_types?: string[] | string | null
   matched_fuel_type?: string | null
+  assigned_fuel_type?: string | null
+  daily_position?: number | string | null
+  station_position?: number | string | null
+  station_fuel_position?: number | string | null
+  arrival_at?: string | null
+  allocation_status?: string | null
+  queue_status?: string | null
   concrete_supply?: string | null
   fuel_category?: string | null
   requested_liters?: number | string | null
@@ -42,7 +50,7 @@ const queueBackupColumns: Array<{
   value: (row: QueueBackupRow) => unknown
 }> = [
   { header: 'Дата', value: (row) => row.date },
-  { header: 'Номер очереди', value: (row) => row.queue_number },
+  { header: 'Постоянный номер', value: (row) => row.permanent_number ?? row.queue_number },
   { header: 'АЗС', value: (row) => row.station_name },
   { header: 'Назначенная АЗС', value: (row) => row.station_name },
   { header: 'Госномер', value: (row) => row.normalized_plate_number },
@@ -51,12 +59,17 @@ const queueBackupColumns: Array<{
   { header: 'Предпочтение топлива', value: (row) => row.preferred_fuel_type ?? row.fuel_type },
   { header: 'Режим предпочтения топлива', value: (row) => row.fuel_preference_mode },
   { header: 'Допустимые марки', value: (row) => formatList(row.compatible_fuel_types) },
-  { header: 'Назначенная марка', value: (row) => row.matched_fuel_type },
+  { header: 'Назначенная марка', value: (row) => row.assigned_fuel_type ?? row.matched_fuel_type },
+  { header: 'Дневная позиция', value: (row) => row.daily_position },
+  { header: 'Позиция на АЗС', value: (row) => row.station_position },
+  { header: 'Позиция АЗС/топливо', value: (row) => row.station_fuel_position },
+  { header: 'Время прибытия', value: (row) => row.arrival_at },
   { header: 'Конкретная поставка', value: (row) => row.concrete_supply },
   { header: 'Категория', value: (row) => row.fuel_category },
   { header: 'Запрошено литров', value: (row) => row.requested_liters },
   { header: 'Расчетные литры', value: (row) => row.effective_liters },
-  { header: 'Статус записи', value: (row) => row.status },
+  { header: 'Статус записи', value: (row) => row.queue_status ?? row.status },
+  { header: 'Статус назначения', value: (row) => row.allocation_status },
   { header: 'Статус синхронизации', value: (row) => row.sync_status },
   { header: 'В дневном лимите', value: (row) => formatBoolean(row.is_within_today_limit) },
   { header: 'Можно приглашать сейчас', value: (row) => formatBoolean(row.is_callable_now) },

@@ -287,6 +287,7 @@ export function CreateFuelingRecordForm() {
     }
 
     await createFuelingRecordMutation.mutateAsync({
+      allocationId: accessResult?.allocation_id,
       stationId: selectedStationId,
       plateNumber: values.plateNumber,
       liters: values.liters,

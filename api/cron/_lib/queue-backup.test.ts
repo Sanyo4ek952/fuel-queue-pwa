@@ -30,7 +30,7 @@ describe('queue backup csv', () => {
       },
     ])
 
-    expect(csv.startsWith('\uFEFFДата;Номер очереди;АЗС;Назначенная АЗС')).toBe(true)
+    expect(csv.startsWith('\uFEFFДата;Постоянный номер;АЗС;Назначенная АЗС')).toBe(true)
     expect(csv).toContain('ANY_GASOLINE')
     expect(csv).toContain('AI_95, AI_92, AI_100')
     expect(csv).toContain('AI_92')

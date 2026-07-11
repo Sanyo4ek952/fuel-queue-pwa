@@ -255,6 +255,7 @@ describe('syncPendingOutbox', () => {
           fuel_type: 'AI_95',
           requested_liters: 40,
           queue_number: 3,
+          permanent_number: 3,
           status: 'RESERVED',
           client_mutation_id: 'mutation-id',
         },
@@ -271,7 +272,7 @@ describe('syncPendingOutbox', () => {
     expect(mocks.tables.local_reservations.rows[0]).toMatchObject({
       id: 'server-reservation-id',
       vehicle_id: 'vehicle-id',
-      queue_number: 3,
+      permanent_number: 3,
       sync_status: 'SYNCED',
     })
   })

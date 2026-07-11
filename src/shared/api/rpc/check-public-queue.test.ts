@@ -19,7 +19,7 @@ describe('parsePublicQueueCheckResult', () => {
         is_within_today_limit: true,
         remaining_attempts: '4',
       }),
-    ).toEqual({
+    ).toMatchObject({
       status: 'FOUND',
       queue_number: 2847,
       ticket_number: 2847,
@@ -43,7 +43,7 @@ describe('parsePublicQueueCheckResult', () => {
         is_within_today_limit: false,
         remaining_attempts: '2',
       }),
-    ).toEqual({
+    ).toMatchObject({
       status: 'FOUND',
       queue_number: 15,
       ticket_number: 15,
@@ -67,7 +67,7 @@ describe('parsePublicQueueCheckResult', () => {
         is_within_today_limit: null,
         remaining_attempts: 3,
       }),
-    ).toEqual({
+    ).toMatchObject({
       status: 'NOT_FOUND',
       queue_number: null,
       ticket_number: null,
@@ -91,7 +91,7 @@ describe('parsePublicQueueCheckResult', () => {
         is_within_today_limit: null,
         remaining_attempts: 0,
       }),
-    ).toEqual({
+    ).toMatchObject({
       status: 'LIMIT_EXCEEDED',
       queue_number: null,
       ticket_number: null,

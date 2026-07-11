@@ -77,20 +77,15 @@ describe('createOfflineReservation', () => {
 
     expect(result).toMatchObject({
       id: 'local-mutation-id',
-      date: null,
-      station_id: null,
-      queue_number: 1,
-      ticket_number: 1,
-      current_position: 1,
-      people_ahead: 0,
+      queue_entry_id: 'local-mutation-id',
+      permanent_number: null,
+      status: 'WAITING',
       sync_status: 'PENDING',
     })
     expect(mocks.tables.local_vehicles.rows).toHaveLength(1)
     expect(mocks.tables.local_reservations.rows[0]).toMatchObject({
       client_mutation_id: 'mutation-id',
-      date: null,
-      station_id: null,
-      status: 'RESERVED',
+      status: 'WAITING',
       sync_status: 'PENDING',
     })
     expect(mocks.tables.sync_outbox.rows[0]).toMatchObject({
@@ -148,10 +143,8 @@ describe('createOfflineReservation', () => {
       clientMutationId: 'mutation-id',
     })
 
-    expect(result.queue_number).toBe(11)
-    expect(result.ticket_number).toBe(11)
-    expect(result.current_position).toBe(1)
-    expect(result.people_ahead).toBe(0)
+    expect(result.permanent_number).toBeNull()
+    expect(result.status).toBe('WAITING')
   })
 
   it('blocks a local reservation when cached refuel cooldown is active', async () => {

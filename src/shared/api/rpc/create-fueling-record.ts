@@ -6,6 +6,7 @@ import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import type { RpcResult } from './index'
 
 export type CreateFuelingRecordParams = {
+  allocationId?: string
   stationId: string
   plateNumber: string
   liters: number
@@ -23,6 +24,7 @@ export type CreateFuelingRecordResult = {
   vehicle_id: string
   driver_id: string | null
   reservation_id: string | null
+  allocation_id: string | null
   queue_entry_id: string | null
   preferential_queue_entry_id: string | null
   fuel_type: FuelType
@@ -65,6 +67,7 @@ export function parseCreateFuelingRecordResult(
       vehicle_id: result.vehicle_id,
       driver_id: result.driver_id ?? null,
       reservation_id: result.reservation_id ?? null,
+      allocation_id: result.allocation_id ?? null,
       queue_entry_id: result.queue_entry_id ?? null,
       preferential_queue_entry_id: result.preferential_queue_entry_id ?? null,
       fuel_type: result.fuel_type as FuelType,
@@ -81,6 +84,7 @@ export function parseCreateFuelingRecordResult(
 }
 
 export async function createFuelingRecord({
+  allocationId,
   stationId,
   plateNumber,
   liters,
@@ -97,16 +101,24 @@ export async function createFuelingRecord({
     }
   }
 
-  const { data, error } = await supabase.rpc('create_fueling_record', {
-    target_station_id: stationId,
-    plate_number: normalizePlateNumber(plateNumber),
-    liters,
-    fuel_type: fuelType ?? null,
-    target_date: targetDate,
-    fueled_at: fueledAt,
-    comment: comment ?? null,
-    client_mutation_id: clientMutationId,
-  })
+  const { data, error } = allocationId
+    ? await supabase.rpc('create_fueling_record_for_allocation', {
+        allocation_id: allocationId,
+        liters,
+        fueled_at: fueledAt,
+        comment: comment ?? null,
+        client_mutation_id: clientMutationId,
+      })
+    : await supabase.rpc('create_fueling_record', {
+        target_station_id: stationId,
+        plate_number: normalizePlateNumber(plateNumber),
+        liters,
+        fuel_type: fuelType ?? null,
+        target_date: targetDate,
+        fueled_at: fueledAt,
+        comment: comment ?? null,
+        client_mutation_id: clientMutationId,
+      })
 
   if (error) {
     return {

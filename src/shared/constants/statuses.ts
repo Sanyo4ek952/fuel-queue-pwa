@@ -1,4 +1,5 @@
 export const RESERVATION_STATUSES = [
+  'WAITING',
   'RESERVED',
   'ARRIVED',
   'APPROVED',
@@ -19,6 +20,15 @@ export const RESERVATION_CALL_STATUSES = [
   'NO_ANSWER',
 ] as const
 
+export const DAILY_QUEUE_ALLOCATION_STATUSES = [
+  'ACTIVE',
+  'PAUSED_BY_LIMIT',
+  'FUELED',
+  'MISSED',
+  'EXPIRED',
+] as const
+
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number]
 export type SyncStatus = (typeof SYNC_STATUSES)[number]
 export type ReservationCallStatus = (typeof RESERVATION_CALL_STATUSES)[number]
+export type DailyQueueAllocationStatus = (typeof DAILY_QUEUE_ALLOCATION_STATUSES)[number]

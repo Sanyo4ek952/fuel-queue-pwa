@@ -31,16 +31,11 @@ export async function refreshVehicleAccessCache({
     return
   }
 
-  const policyResult = await supabase.rpc('apply_reservation_no_show_policy')
-
-  if (policyResult.error) {
-    throw new Error(policyResult.error.message)
-  }
-
   const [
     stationsResult,
     vehiclesResult,
-    reservationsResult,
+    queueEntriesResult,
+    allocationsResult,
     fuelingRecordsResult,
     manualOverridesResult,
     dailyLimitOverviewResult,
@@ -52,11 +47,15 @@ export async function refreshVehicleAccessCache({
       .from('vehicles')
       .select('id,normalized_plate_number,is_blocked,block_reason,updated_at'),
     supabase
-      .from('fuel_reservations')
+      .from('fuel_queue_entries')
       .select(
-        'id,station_id,vehicle_id,driver_id,date,status,queue_number,fuel_type,requested_liters,comment,client_mutation_id,sync_status,created_at,updated_at,vehicles(normalized_plate_number),drivers(full_name,phone)',
+        'id,permanent_number,vehicle_id,driver_id,status,preferred_fuel_type,fuel_preference_mode,requested_liters,comment,client_mutation_id,sync_status,created_at,updated_at,vehicles(normalized_plate_number),drivers(full_name,phone)',
       )
-      .in('status', ['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING']),
+      .eq('status', 'WAITING'),
+    supabase
+      .from('daily_queue_allocations')
+      .select('id,queue_entry_id,allocation_date,station_id,assigned_fuel_type,allocated_liters,daily_position,station_position,station_fuel_position,arrival_at,status,call_status,updated_at')
+      .eq('allocation_date', checkDate),
     supabase
       .from('fueling_records')
       .select('id,station_id,vehicle_id,date,fueled_at,is_manual_override,updated_at')
@@ -76,7 +75,8 @@ export async function refreshVehicleAccessCache({
   const firstError =
     stationsResult.error ??
     vehiclesResult.error ??
-    reservationsResult.error ??
+    queueEntriesResult.error ??
+    allocationsResult.error ??
     fuelingRecordsResult.error ??
     manualOverridesResult.error ??
     (dailyLimitOverviewResult.error ? new Error(dailyLimitOverviewResult.error) : null) ??
@@ -102,8 +102,31 @@ export async function refreshVehicleAccessCache({
       await offlineDb.local_stations.bulkPut(toRows<LocalStation>(stationsResult.data))
       await offlineDb.local_vehicles.bulkPut(toRows<LocalVehicle>(vehiclesResult.data))
       await offlineDb.local_reservations.bulkPut(
-        toRows<SupabaseRow>(reservationsResult.data).map((row) => ({
+        toRows<SupabaseRow>(queueEntriesResult.data).map((row) => {
+          const allocation = toRows<SupabaseRow>(allocationsResult.data).find(
+            (candidate) => candidate.queue_entry_id === row.id,
+          )
+          return ({
           ...row,
+          id: allocation?.id ?? row.id,
+          allocation_id: allocation?.id,
+          queue_entry_id: row.id,
+          queue_number: toNumber(row.permanent_number),
+          ticket_number: toNumber(row.permanent_number),
+          fuel_type: row.preferred_fuel_type,
+          date: allocation?.allocation_date,
+          station_id: allocation?.station_id,
+          assigned_fuel_type: allocation?.assigned_fuel_type,
+          matched_fuel_type: allocation?.assigned_fuel_type,
+          daily_position: allocation?.daily_position,
+          current_position: allocation?.daily_position,
+          station_position: allocation?.station_position,
+          station_fuel_position: allocation?.station_fuel_position,
+          arrival_at: allocation?.arrival_at,
+          allocation_status: allocation?.status,
+          is_within_today_limit: allocation?.status === 'ACTIVE',
+          is_callable_now: allocation?.status === 'ACTIVE',
+          latest_call_status: allocation?.call_status,
           normalized_plate_number:
             typeof row.vehicles === 'object' && row.vehicles && !Array.isArray(row.vehicles)
               ? (row.vehicles as SupabaseRow).normalized_plate_number
@@ -117,7 +140,7 @@ export async function refreshVehicleAccessCache({
               ? (row.drivers as SupabaseRow).phone
               : undefined,
           requested_liters: toNumber(row.requested_liters),
-        })) as LocalReservation[],
+        })}) as LocalReservation[],
       )
       if (dailyLimitOverviewResult.data?.exists) {
         await offlineDb.local_daily_limits.put({

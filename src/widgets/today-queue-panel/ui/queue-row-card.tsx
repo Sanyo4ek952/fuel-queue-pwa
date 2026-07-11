@@ -26,7 +26,6 @@ import {
   type FuelType,
   type QueueFuelType,
   QUEUE_FUEL_TYPES,
-  getFuelQueueCategory,
   type ReservationCallStatus,
 } from '@/shared/constants'
 import { cn } from '@/shared/lib/utils'
@@ -61,7 +60,6 @@ import {
   callStatusButtonClasses,
   callStatusLabels,
   callUnavailableReasonLabels,
-  categoryLabels,
   fuelPreferenceLabels,
   fuelTypeLabels,
 } from '../model/labels'
@@ -140,12 +138,10 @@ export function QueueRowCard({
   const callTime = formatCallTime(row.latest_called_at)
   const quickCallStatus: ReservationCallStatus = isContacted ? 'NOT_CALLED' : 'CONTACTED'
   const phoneActionDisabled = !callableNow
-  const stationLabel = row.station_name ?? 'АЗС будет выбрана при заправке'
+  const stationLabel = row.station_name ?? 'Серверное назначение АЗС отсутствует'
   const matchedFuelLabel = row.matched_fuel_type
     ? (fuelTypeLabels[row.matched_fuel_type as FuelType] ?? row.matched_fuel_type)
     : null
-  const fuelCategory = getFuelQueueCategory(row.fuel_type)
-  const fuelCategoryLabel = fuelCategory ? categoryLabels[fuelCategory].toLowerCase() : 'топлива'
   const callReasonLabel = row.call_unavailable_reason
     ? (callUnavailableReasonLabels[row.call_unavailable_reason] ?? row.call_unavailable_reason)
     : null
@@ -210,7 +206,7 @@ export function QueueRowCard({
                     {row.driver_full_name || 'Водитель не указан'}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-slate-500">
-                    В очереди {fuelCategoryLabel}: {row.current_position} · Талон №{row.ticket_number}
+                    Дневная позиция: {row.daily_position ?? row.current_position} · Постоянный №{row.permanent_number ?? row.ticket_number}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-500">
                     <MapPin className="size-3 shrink-0" aria-hidden="true" />
@@ -218,7 +214,7 @@ export function QueueRowCard({
                   </p>
                   {estimatedArrivalTime ? (
                     <p className="mt-0.5 truncate text-xs font-medium text-slate-700">
-                      Предполагаемое время прибытия: {estimatedArrivalTime}
+                      Время прибытия: {estimatedArrivalTime}
                     </p>
                   ) : null}
                   <div className="mt-1 flex max-w-full flex-nowrap gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -413,7 +409,7 @@ export function QueueRowCard({
             <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
               {estimatedArrivalTime ? (
                 <div>
-                  <dt className="text-slate-500">Предполагаемое время прибытия</dt>
+                  <dt className="text-slate-500">Время прибытия</dt>
                   <dd className="font-medium text-slate-950">{estimatedArrivalTime}</dd>
                 </div>
               ) : null}
@@ -454,7 +450,7 @@ export function QueueRowCard({
                       <DialogHeader>
                         <DialogTitle>Марка топлива</DialogTitle>
                         <DialogDescription>
-                          Номер записи №{row.ticket_number} сохранится без изменения.
+                          Постоянный номер №{row.permanent_number ?? row.ticket_number} сохранится без изменения.
                         </DialogDescription>
                       </DialogHeader>
                       <form

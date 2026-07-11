@@ -26,3 +26,15 @@ export function formatCallTime(value: string | null) {
     ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null
 }
+
+export function formatArrivalAt(value: string | null | undefined) {
+  return value
+    ? new Intl.DateTimeFormat('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Moscow',
+      }).format(new Date(value))
+    : null
+}

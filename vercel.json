@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/backup-queue", "schedule": "5 21 * * *" },
+    { "path": "/api/cron/finalize-daily-queue", "schedule": "10 21 * * *" },
     { "path": "/api/cron/cleanup-unconfirmed-users", "schedule": "35 21 * * *" }
   ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]

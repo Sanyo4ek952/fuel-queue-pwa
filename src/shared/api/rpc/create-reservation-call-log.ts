@@ -14,6 +14,7 @@ export type CreateReservationCallLogParams = {
 
 export type CreateReservationCallLogResult = {
   id: string
+  allocation_id: string
   reservation_id: string
   status: ReservationCallStatus
   called_by_profile_id: string
@@ -27,7 +28,7 @@ export type CreateReservationCallLogResult = {
 }
 
 export type CreateReservationCallLogPayload = {
-  reservation_id: string
+  allocation_id: string
   status: ReservationCallStatus
   comment?: string
 }
@@ -38,7 +39,7 @@ export function buildCreateReservationCallLogPayload({
   comment,
 }: CreateReservationCallLogParams): CreateReservationCallLogPayload {
   return {
-    reservation_id: reservationId,
+    allocation_id: reservationId,
     status,
     comment: comment || undefined,
   }
@@ -63,6 +64,7 @@ export function parseCreateReservationCallLogResult(
   ) {
     return {
       id: result.id,
+      allocation_id: result.allocation_id ?? result.reservation_id,
       reservation_id: result.reservation_id,
       status: result.status as ReservationCallStatus,
       called_by_profile_id: result.called_by_profile_id,

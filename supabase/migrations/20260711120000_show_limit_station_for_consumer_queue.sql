@@ -179,43 +179,7 @@ $$;
 
 grant execute on function public.get_reservation_limit_station_assignments(date) to authenticated;
 
-do $$
-declare
-  function_sql text;
-  updated_sql text;
-begin
-  select pg_get_functiondef(
-    'public.get_today_call_list(date, integer, integer, uuid, text, uuid, text, text, text)'::regprocedure
-  )
-  into function_sql;
-
-  if function_sql is null then
-    raise exception 'get_today_call_list(date, integer, integer, uuid, text, uuid, text, text, text) not found';
-  end if;
-
-  updated_sql := replace(
-    function_sql,
-    's.name as station_name,
-        s.address as station_address,',
-    'coalesce(s.name, lsa.limit_station_name) as station_name,
-        coalesce(s.address, lsa.limit_station_address) as station_address,'
-  );
-
-  updated_sql := replace(
-    updated_sql,
-    'left join public.stations s on s.id = fr.station_id
-      left join public.drivers d on d.id = fr.driver_id',
-    'left join public.stations s on s.id = fr.station_id
-      left join public.get_reservation_limit_station_assignments(target_date) lsa on lsa.reservation_id = fr.id
-      left join public.drivers d on d.id = fr.driver_id'
-  );
-
-  if updated_sql = function_sql then
-    raise exception 'Could not add limit station context to get_today_call_list';
-  end if;
-
-  execute updated_sql;
-end $$;
+-- The city queue migration defines get_today_call_list in full.
 
 create or replace function public.get_my_queue_status()
 returns jsonb

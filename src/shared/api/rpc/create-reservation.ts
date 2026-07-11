@@ -1,6 +1,6 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
-import type { FuelPreferenceMode, FuelType, ReservationStatus } from '@/shared/constants'
+import type { FuelPreferenceMode, FuelType } from '@/shared/constants'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
@@ -18,8 +18,8 @@ export type CreateReservationParams = {
 
 export type CreateReservationResult = {
   id: string
-  date: string | null
-  station_id: string | null
+  queue_entry_id: string
+  permanent_number: number
   vehicle_id: string
   driver_id: string | null
   normalized_plate_number: string
@@ -32,7 +32,7 @@ export type CreateReservationResult = {
   ticket_number: number
   current_position: number | null
   people_ahead: number | null
-  status: ReservationStatus
+  status: 'WAITING' | 'FUELED' | 'CANCELLED' | 'NO_SHOW' | 'ERROR' | 'CONFLICT'
   client_mutation_id: string
 }
 
@@ -56,7 +56,10 @@ export function parseCreateReservationResult(value: unknown): CreateReservationR
   }
 
   const result = value as Partial<CreateReservationResult>
-  const ticketNumber = toNullableNumber(result.ticket_number) ?? toNumber(result.queue_number)
+  const ticketNumber =
+    toNullableNumber(result.permanent_number) ??
+    toNullableNumber(result.ticket_number) ??
+    toNumber(result.queue_number)
 
   if (
     typeof result.id === 'string' &&
@@ -68,8 +71,8 @@ export function parseCreateReservationResult(value: unknown): CreateReservationR
   ) {
     return {
       id: result.id,
-      date: result.date ?? null,
-      station_id: result.station_id ?? null,
+      queue_entry_id: result.queue_entry_id ?? result.id,
+      permanent_number: ticketNumber,
       vehicle_id: result.vehicle_id,
       driver_id: result.driver_id ?? null,
       normalized_plate_number: result.normalized_plate_number ?? '',
@@ -82,7 +85,7 @@ export function parseCreateReservationResult(value: unknown): CreateReservationR
       ticket_number: ticketNumber,
       current_position: toNullableNumber(result.current_position),
       people_ahead: toNullableNumber(result.people_ahead),
-      status: result.status as ReservationStatus,
+      status: result.status as CreateReservationResult['status'],
       client_mutation_id: result.client_mutation_id,
     }
   }

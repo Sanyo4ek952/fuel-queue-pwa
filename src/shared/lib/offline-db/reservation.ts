@@ -1,4 +1,4 @@
-import { getFuelQueueCategory, type FuelPreferenceMode, type FuelType } from '@/shared/constants'
+import { type FuelPreferenceMode, type FuelType } from '@/shared/constants'
 import type { UserRole } from '@/shared/config/roles'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
@@ -6,12 +6,10 @@ import { getCachedRefuelCooldownDays } from './app-settings'
 import {
   offlineDb,
   type LocalFuelingRecord,
-  type LocalReservation,
+  type LocalQueueEntry,
   type LocalVehicle,
   type SyncOutboxOperation,
 } from './db'
-
-const activeReservationStatuses = new Set(['RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'])
 
 export type CreateOfflineReservationParams = {
   plateNumber: string
@@ -30,8 +28,8 @@ export type CreateOfflineReservationParams = {
 
 export type OfflineReservationResult = {
   id: string
-  date: string | null
-  station_id: string | null
+  queue_entry_id: string
+  permanent_number: null
   vehicle_id: string
   driver_id: string | null
   created_by_profile_id: string | null
@@ -44,11 +42,7 @@ export type OfflineReservationResult = {
   fuel_type: FuelType
   fuel_preference_mode: FuelPreferenceMode
   requested_liters: number
-  queue_number: number
-  ticket_number: number
-  current_position: number
-  people_ahead: number
-  status: 'RESERVED'
+  status: 'WAITING'
   client_mutation_id: string
   sync_status: 'PENDING'
 }
@@ -127,6 +121,7 @@ export async function createOfflineReservation({
   createdByRole,
   createdBySignatureName,
 }: CreateOfflineReservationParams): Promise<OfflineReservationResult> {
+  const queueEntriesTable = offlineDb.local_queue_entries ?? offlineDb.local_reservations
   const normalizedPlateNumber = normalizePlateNumber(plateNumber)
   const trimmedDriverFullName = driverFullName.trim()
   const trimmedDriverPhone = driverPhone?.trim() || null
@@ -148,9 +143,9 @@ export async function createOfflineReservation({
     throw new Error('INVALID_REQUESTED_LITERS')
   }
 
-  const [vehicles, reservations, fuelingRecords, cooldownDays] = await Promise.all([
+  const [vehicles, queueEntries, fuelingRecords, cooldownDays] = await Promise.all([
     offlineDb.local_vehicles.toArray(),
-    offlineDb.local_reservations.toArray(),
+    queueEntriesTable.toArray(),
     offlineDb.local_fueling_records.toArray(),
     getCachedRefuelCooldownDays(),
   ])
@@ -176,51 +171,31 @@ export async function createOfflineReservation({
     }
   }
 
-  const duplicateReservation = reservations.find(
-    (reservation) =>
-      reservation.vehicle_id === vehicle.id &&
-      activeReservationStatuses.has(reservation.status),
+  const duplicateReservation = queueEntries.find(
+    (entry) =>
+      entry.vehicle_id === vehicle.id &&
+      ['WAITING', 'RESERVED', 'ARRIVED', 'APPROVED', 'FUELING'].includes(entry.status),
   )
 
   if (duplicateReservation) {
     throw new Error('ACTIVE_RESERVATION_ALREADY_EXISTS')
   }
 
-  const nextQueueNumber =
-    Math.max(0, ...reservations.map((reservation) => reservation.queue_number)) + 1
-  const fuelCategory = getFuelQueueCategory(fuelType)
-  const activeReservationsAhead = reservations.filter((reservation) =>
-    activeReservationStatuses.has(reservation.status) &&
-    getFuelQueueCategory(reservation.fuel_type) === fuelCategory,
-  ).length
-  const currentPosition = activeReservationsAhead + 1
   const id = `local-${clientMutationId}`
   const now = new Date().toISOString()
-  const localReservation: LocalReservation = {
+  const localQueueEntry: LocalQueueEntry = {
     id,
-    date: null,
-    station_id: null,
     vehicle_id: vehicle.id,
-    driver_id: null,
-    created_by_profile_id: createdByProfileId ?? null,
-    created_by_full_name: createdByFullName ?? '',
-    created_by_role: createdByRole ?? null,
-    created_by_signature_name: createdBySignatureName ?? null,
-    fuel_type: fuelType,
+    preferred_fuel_type: fuelType,
     fuel_preference_mode: fuelPreferenceMode,
     requested_liters: requestedLiters,
-    queue_number: nextQueueNumber,
-    ticket_number: nextQueueNumber,
-    current_position: currentPosition,
-    people_ahead: activeReservationsAhead,
-    status: 'RESERVED',
+    status: 'WAITING',
     normalized_plate_number: normalizedPlateNumber,
     driver_full_name: trimmedDriverFullName,
     driver_phone: trimmedDriverPhone,
     comment: trimmedComment,
     client_mutation_id: clientMutationId,
     sync_status: 'PENDING',
-    created_at: now,
     updated_at: now,
   }
   const syncOutboxOperation: SyncOutboxOperation = {
@@ -244,21 +219,21 @@ export async function createOfflineReservation({
 
   await offlineDb.transaction(
     'rw',
-    [offlineDb.local_vehicles, offlineDb.local_reservations, offlineDb.sync_outbox],
+    [offlineDb.local_vehicles, queueEntriesTable, offlineDb.sync_outbox],
     async () => {
       if (!existingVehicle) {
         await offlineDb.local_vehicles.put(vehicle)
       }
 
-      await offlineDb.local_reservations.put(localReservation)
+      await queueEntriesTable.put(localQueueEntry as never)
       await offlineDb.sync_outbox.put(syncOutboxOperation)
     },
   )
 
   return {
     id,
-    date: null,
-    station_id: null,
+    queue_entry_id: id,
+    permanent_number: null,
     vehicle_id: vehicle.id,
     driver_id: null,
     created_by_profile_id: createdByProfileId ?? null,
@@ -271,11 +246,7 @@ export async function createOfflineReservation({
     fuel_type: fuelType,
     fuel_preference_mode: fuelPreferenceMode,
     requested_liters: requestedLiters,
-    queue_number: nextQueueNumber,
-    ticket_number: nextQueueNumber,
-    current_position: currentPosition,
-    people_ahead: activeReservationsAhead,
-    status: 'RESERVED',
+    status: 'WAITING',
     client_mutation_id: clientMutationId,
     sync_status: 'PENDING',
   }

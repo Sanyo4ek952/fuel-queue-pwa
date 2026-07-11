@@ -153,7 +153,7 @@ describe('ConsumerDashboardPanel', () => {
 
     render(<ConsumerDashboardPanel />)
 
-    expect(screen.getByText('АЗС будет выбрана при заправке')).toBeInTheDocument()
+    expect(screen.getByText('Ожидает дневного распределения')).toBeInTheDocument()
   })
 
   it('shows today fueling status separately from the active reservation card', () => {
