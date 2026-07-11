@@ -129,7 +129,7 @@ describe('ConsumerDashboardPanel', () => {
     expect(screen.getAllByText('АИ-95').length).toBeGreaterThan(0)
   })
 
-  it('shows station assigned by the daily limit even when reservation station id is empty', () => {
+  it('shows station returned by the reservation when it is already known', () => {
     mocks.activeReservation = makeActiveReservation({
       station_id: null,
       station_name: 'АЗС №2',
@@ -141,7 +141,7 @@ describe('ConsumerDashboardPanel', () => {
 
     expect(screen.getByText('АЗС №2')).toBeInTheDocument()
     expect(screen.getByText('Адрес 2')).toBeInTheDocument()
-    expect(screen.queryByText('АЗС будет назначена')).not.toBeInTheDocument()
+    expect(screen.queryByText('АЗС будет выбрана при заправке')).not.toBeInTheDocument()
   })
 
   it('shows a clear fallback when station is not assigned yet', () => {
@@ -153,7 +153,7 @@ describe('ConsumerDashboardPanel', () => {
 
     render(<ConsumerDashboardPanel />)
 
-    expect(screen.getByText('АЗС будет назначена')).toBeInTheDocument()
+    expect(screen.getByText('АЗС будет выбрана при заправке')).toBeInTheDocument()
   })
 
   it('shows today fueling status separately from the active reservation card', () => {

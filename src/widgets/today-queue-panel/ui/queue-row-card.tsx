@@ -140,7 +140,7 @@ export function QueueRowCard({
   const callTime = formatCallTime(row.latest_called_at)
   const quickCallStatus: ReservationCallStatus = isContacted ? 'NOT_CALLED' : 'CONTACTED'
   const phoneActionDisabled = !callableNow
-  const stationLabel = row.station_name ?? 'АЗС будет назначена'
+  const stationLabel = row.station_name ?? 'АЗС будет выбрана при заправке'
   const matchedFuelLabel = row.matched_fuel_type
     ? (fuelTypeLabels[row.matched_fuel_type as FuelType] ?? row.matched_fuel_type)
     : null

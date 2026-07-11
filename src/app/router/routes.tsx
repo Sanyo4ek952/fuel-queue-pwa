@@ -58,6 +58,12 @@ const PublicQueueCheckPage = lazy(() =>
   import('@/pages/public-queue-check').then((m) => ({ default: m.PublicQueueCheckPage })),
 )
 const LoginPage = lazy(() => import('@/pages/login').then((m) => ({ default: m.LoginPage })))
+const AuthCallbackPage = lazy(() =>
+  import('@/pages/auth-callback').then((m) => ({ default: m.AuthCallbackPage })),
+)
+const ProfileSetupPage = lazy(() =>
+  import('@/pages/profile-setup').then((m) => ({ default: m.ProfileSetupPage })),
+)
 
 function LoadingScreen() {
   return (
@@ -300,6 +306,22 @@ export function AppRoutes() {
     return (
       <Suspense fallback={<LoadingScreen />}>
         {normalizedPathname === ROUTES.queueCheck ? <PublicQueueCheckPage /> : <PromoPage />}
+      </Suspense>
+    )
+  }
+
+  if (normalizedPathname === ROUTES.authCallback) {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <AuthCallbackPage />
+      </Suspense>
+    )
+  }
+
+  if (normalizedPathname === ROUTES.profileSetup) {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <ProfileSetupPage />
       </Suspense>
     )
   }

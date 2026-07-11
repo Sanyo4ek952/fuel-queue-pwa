@@ -142,10 +142,10 @@ describe('QueueRowCard', () => {
     expect(screen.getByText('Адрес 1')).toBeInTheDocument()
   })
 
-  it('shows station fallback when station is not assigned yet', () => {
+  it('shows station fallback when station will be selected at fueling', () => {
     renderCard()
 
-    expect(screen.getByText('АЗС будет назначена')).toBeInTheDocument()
+    expect(screen.getByText('АЗС будет выбрана при заправке')).toBeInTheDocument()
   })
 
   it('cancels only the selected reservation row', async () => {

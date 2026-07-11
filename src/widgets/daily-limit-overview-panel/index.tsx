@@ -131,24 +131,18 @@ function LimitSummary({ overview }: { overview: DailyLimitStationOverview }) {
   )
 }
 
-function getStationOverviews(overview: DailyLimitOverviewResult): DailyLimitStationOverview[] {
-  if ((overview.station_overviews ?? []).length > 0) {
-    return overview.station_overviews
+function getAggregateOverview(overview: DailyLimitOverviewResult): DailyLimitStationOverview {
+  return {
+    exists: overview.exists,
+    id: overview.id,
+    date: overview.date,
+    station_id: null,
+    station_name: overview.station_name ?? 'Общий пул',
+    station_address: overview.station_address,
+    status: overview.status,
+    category_overviews: overview.category_overviews,
+    updated_at: overview.updated_at,
   }
-
-  return [
-    {
-      exists: overview.exists,
-      id: overview.id,
-      date: overview.date,
-      station_id: overview.station_id,
-      station_name: overview.station_name,
-      station_address: overview.station_address,
-      status: overview.status,
-      category_overviews: overview.category_overviews,
-      updated_at: overview.updated_at,
-    },
-  ]
 }
 
 export function DailyLimitOverviewPanel() {
@@ -226,7 +220,20 @@ export function DailyLimitOverviewPanel() {
 
       {overview?.exists ? (
         <div className="space-y-4">
-          {getStationOverviews(overview).map((stationOverview) => (
+          <section className="space-y-3">
+            <LimitSummary overview={getAggregateOverview(overview)} />
+            <div className="grid gap-3 lg:grid-cols-3">
+              {(overview.category_overviews ?? []).map((row) => (
+                <CategoryCard
+                  key={`aggregate-${row.fuel_type ?? row.fuel_category}`}
+                  row={row}
+                  stationName={overview.station_name}
+                />
+              ))}
+            </div>
+          </section>
+
+          {(overview.station_overviews ?? []).map((stationOverview) => (
             <section
               key={stationOverview.id ?? stationOverview.station_id ?? 'global'}
               className="space-y-3"

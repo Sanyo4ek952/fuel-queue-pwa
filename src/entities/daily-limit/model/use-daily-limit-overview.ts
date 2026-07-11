@@ -186,7 +186,20 @@ export function applyUnsyncedReservationEstimate(
     stationOverviews.length > 0
       ? {
           ...overview,
-          category_overviews: stationOverviews[0]?.category_overviews ?? overview.category_overviews,
+          category_overviews: applyUnsyncedReservationEstimateToStation(
+            {
+              exists: overview.exists,
+              id: overview.id,
+              date: overview.date,
+              station_id: null,
+              station_name: overview.station_name,
+              station_address: overview.station_address,
+              status: overview.status,
+              category_overviews: overview.category_overviews,
+              updated_at: overview.updated_at,
+            },
+            unsyncedReservations,
+          ).category_overviews,
           station_overviews: stationOverviews,
         }
       : overview
@@ -259,6 +272,7 @@ function applyUnsyncedReservationEstimateToStation(
 
       if (item.liters_limit != null && nextLiters <= item.liters_limit) {
         item.covered_vehicle_count += 1
+        item.covered_liters += requestedLiters
         item.projected_queue_number = Math.max(
           item.projected_queue_number ?? 0,
           reservation.queue_number,

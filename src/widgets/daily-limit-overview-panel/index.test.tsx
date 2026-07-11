@@ -95,14 +95,30 @@ describe('DailyLimitOverviewPanel', () => {
     mocks.useDailyLimitOverview.mockReturnValue({
       data: {
         exists: true,
-        id: 'limit-id',
+        id: null,
         date: '2026-07-05',
-        station_id: 'station-1',
-        station_name: 'АЗС №1',
-        station_address: 'Адрес 1',
+        station_id: null,
+        station_name: 'Общий пул',
+        station_address: null,
         status: 'OPEN',
         updated_at: null,
-        category_overviews: [],
+        category_overviews: [
+          {
+            fuel_type: 'AI_95',
+            fuel_category: 'GASOLINE',
+            label: 'АИ-95',
+            limit_mode: 'fuel_liters',
+            vehicle_limit: 0,
+            liters_limit: 400,
+            queue_count: 8,
+            queued_liters: 300,
+            covered_vehicle_count: 5,
+            covered_liters: 250,
+            remaining_vehicle_count: null,
+            remaining_liters: 150,
+            projected_queue_number: 12,
+          },
+        ],
         station_overviews: [
           {
             exists: true,
@@ -171,9 +187,10 @@ describe('DailyLimitOverviewPanel', () => {
 
     render(<DailyLimitOverviewPanel />)
 
+    expect(screen.getAllByText('Общий пул')).not.toHaveLength(0)
     expect(screen.getAllByText('АЗС №1')).not.toHaveLength(0)
     expect(screen.getAllByText('АЗС №2')).not.toHaveLength(0)
-    expect(screen.getByText('АИ-95')).toBeInTheDocument()
+    expect(screen.getAllByText('АИ-95')).not.toHaveLength(0)
     expect(screen.getByText('Дизель')).toBeInTheDocument()
   })
 

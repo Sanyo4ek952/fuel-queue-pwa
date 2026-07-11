@@ -7,6 +7,7 @@ import {
   type LoginFormValues,
   loginSchema,
   useLogin,
+  useYandexLogin,
 } from '@/features/auth'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
@@ -20,6 +21,7 @@ type LoginFormProps = {
 
 export function LoginForm({ onSuccess }: LoginFormProps) {
   const loginMutation = useLogin()
+  const yandexLoginMutation = useYandexLogin()
   const form = useForm<LoginFormInput, unknown, LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -31,6 +33,10 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   async function handleSubmit(values: LoginFormValues) {
     await loginMutation.mutateAsync(values)
     onSuccess?.()
+  }
+
+  async function handleYandexLogin() {
+    await yandexLoginMutation.mutateAsync()
   }
 
   return (
@@ -79,10 +85,30 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               {loginMutation.isPending ? 'Входим...' : 'Войти'}
             </Button>
 
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full gap-2"
+              disabled={yandexLoginMutation.isPending}
+              onClick={handleYandexLogin}
+            >
+              <span className="flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-semibold leading-none text-white" aria-hidden="true">
+                Я
+              </span>
+              {yandexLoginMutation.isPending ? 'Открываем Яндекс ID...' : 'Войти через Яндекс ID'}
+            </Button>
+
             {loginMutation.error ? (
               <Alert variant="destructive">
                 <AlertTitle>Вход не выполнен</AlertTitle>
                 <AlertDescription>{loginMutation.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {yandexLoginMutation.error ? (
+              <Alert variant="destructive">
+                <AlertTitle>Вход через Яндекс ID не выполнен</AlertTitle>
+                <AlertDescription>{yandexLoginMutation.error.message}</AlertDescription>
               </Alert>
             ) : null}
           </form>

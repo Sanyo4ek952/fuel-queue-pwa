@@ -18,10 +18,14 @@ export type ProfileStation = {
 export type CurrentProfile = {
   id: string
   auth_user_id: string
+  email: string | null
   full_name: string
   first_name: string | null
   last_name: string | null
   middle_name: string | null
+  phone: string | null
+  avatar_url: string | null
+  auth_provider: string | null
   position: string | null
   signature_name: string | null
   role: UserRole
@@ -42,6 +46,10 @@ export type CurrentProfile = {
 
 export type ProfileApprovalStatus = 'pending' | 'approved' | 'rejected'
 
+export function isConsumerProfileComplete(profile: Pick<CurrentProfile, 'first_name' | 'last_name' | 'phone'>) {
+  return Boolean(profile.first_name?.trim() && profile.last_name?.trim() && profile.phone?.trim())
+}
+
 export type ManagedProfile = Omit<CurrentProfile, 'stations'> & {
   requested_station_name: string | null
   approved_by_name: string | null
@@ -55,10 +63,14 @@ export type ManagedProfile = Omit<CurrentProfile, 'stations'> & {
 type ProfileRow = {
   id: string
   auth_user_id: string
+  email?: string | null
   full_name: string
   first_name: string | null
   last_name: string | null
   middle_name: string | null
+  phone?: string | null
+  avatar_url?: string | null
+  auth_provider?: string | null
   position: string | null
   signature_name: string | null
   role: string
@@ -91,10 +103,14 @@ function toProfile(value: ProfileRow, stations: ProfileStation[]): CurrentProfil
   return {
     id: value.id,
     auth_user_id: value.auth_user_id,
+    email: value.email ?? null,
     full_name: value.full_name,
     first_name: value.first_name,
     last_name: value.last_name,
     middle_name: value.middle_name,
+    phone: value.phone ?? null,
+    avatar_url: value.avatar_url ?? null,
+    auth_provider: value.auth_provider ?? null,
     position: value.position,
     signature_name: value.signature_name,
     role: value.role,
@@ -183,10 +199,14 @@ function toManagedProfile(value: unknown): ManagedProfile | null {
     return {
       id: row.id,
       auth_user_id: row.auth_user_id,
+      email: row.email ?? null,
       full_name: row.full_name,
       first_name: row.first_name ?? null,
       last_name: row.last_name ?? null,
       middle_name: row.middle_name ?? null,
+      phone: row.phone ?? null,
+      avatar_url: row.avatar_url ?? null,
+      auth_provider: row.auth_provider ?? null,
       position: row.position ?? null,
       signature_name: row.signature_name ?? null,
       role: row.role,
@@ -361,4 +381,40 @@ export async function deactivateProfile(params: { profileId: string; reason: str
   if (error) {
     throw new Error(error.message)
   }
+}
+
+export async function completeCurrentConsumerProfile(params: {
+  firstName: string
+  lastName: string
+  middleName?: string
+  phone: string
+}): Promise<CurrentProfile> {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const { data, error } = await supabase.rpc('complete_consumer_profile', {
+    p_first_name: params.firstName,
+    p_last_name: params.lastName,
+    p_middle_name: params.middleName ?? null,
+    p_phone: params.phone,
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const profile = data as ProfileRow | null
+
+  if (!profile) {
+    throw new Error('PROFILE_NOT_FOUND')
+  }
+
+  const currentProfile = toProfile(profile, [])
+
+  if (!currentProfile) {
+    throw new Error('INVALID_CURRENT_PROFILE')
+  }
+
+  return currentProfile
 }

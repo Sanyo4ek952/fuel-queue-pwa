@@ -37,7 +37,9 @@ const routeRoles: Partial<Record<AppRoute, ReadonlySet<UserRole>>> = {
   [ROUTES.sync]: stationManagerRoles,
   [ROUTES.settings]: staffRoles,
   [ROUTES.queueCheckQr]: staffRoles,
+  [ROUTES.profileSetup]: new Set<UserRole>(['consumer']),
   [ROUTES.login]: allRoles,
+  [ROUTES.authCallback]: allRoles,
   [ROUTES.promo]: allRoles,
 }
 

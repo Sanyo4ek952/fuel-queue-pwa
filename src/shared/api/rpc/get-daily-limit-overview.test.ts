@@ -16,7 +16,7 @@ describe('parseDailyLimitOverview', () => {
         id: 'limit-id',
         date: '2026-07-05',
         station_id: null,
-        station_name: null,
+        station_name: 'Общий пул',
         station_address: null,
         status: 'OPEN',
         updated_at: '2026-07-05T10:00:00.000Z',
@@ -68,11 +68,16 @@ describe('parseDailyLimitOverview', () => {
     ).toMatchObject({
       exists: true,
       id: 'limit-id',
+      station_name: 'Общий пул',
       category_overviews: [
         {
           fuel_category: 'GASOLINE',
           limit_mode: 'fuel_liters',
           liters_limit: 1500.5,
+          queue_count: 12,
+          covered_vehicle_count: 10,
+          covered_liters: 400.25,
+          remaining_liters: 1100.25,
           queued_liters: 420.25,
           projected_queue_number: 12,
         },

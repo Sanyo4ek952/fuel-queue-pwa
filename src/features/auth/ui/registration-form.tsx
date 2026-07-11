@@ -35,6 +35,7 @@ export function RegistrationForm() {
   const registerMutation = useRegister()
   const resendMutation = useResendSignupConfirmation()
   const hcaptcha = useHcaptchaToken()
+  const resetHcaptcha = hcaptcha.reset
   const [resendCooldown, setResendCooldown] = useState(0)
   const form = useForm<RegisterFormInput, unknown, RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -67,10 +68,10 @@ export function RegistrationForm() {
       return
     }
 
-    hcaptcha.reset()
+    resetHcaptcha()
     form.setValue('captchaToken', '')
     setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
-  }, [form, hcaptcha.reset, registerMutation.isSuccess])
+  }, [form, registerMutation.isSuccess, resetHcaptcha])
 
   useEffect(() => {
     if (resendCooldown <= 0) {

@@ -1,4 +1,4 @@
--- Local development users for Fuel Queue PWA.
+-- Local development staff accounts and 500 consumer accounts for Fuel Queue PWA.
 -- Run only against the local Supabase database:
 --   npx supabase db query --local --file supabase/local-dev-users.sql
 --
@@ -16,9 +16,12 @@ declare
   n integer;
   auth_user_id_value uuid;
   profile_id_value uuid;
+  consumer_vehicle_id_value uuid;
   email_value text;
   full_name_value text;
   first_name_value text;
+  phone_value text;
+  plate_value text;
   role_value text;
   position_value text;
   requested_station_id_value uuid;
@@ -235,10 +238,12 @@ begin
       id,
       auth_user_id,
       full_name,
+      email,
       first_name,
       last_name,
       position,
       signature_name,
+      auth_provider,
       requested_station_id,
       role,
       is_active,
@@ -251,10 +256,12 @@ begin
       row_data.profile_id,
       row_data.auth_user_id,
       row_data.full_name,
+      row_data.email,
       row_data.first_name,
       'Dev',
       row_data.position,
       row_data.full_name,
+      'email',
       row_data.requested_station_id,
       row_data.profile_role,
       row_data.is_active,
@@ -266,10 +273,12 @@ begin
     on conflict (auth_user_id) do update
     set
       full_name = excluded.full_name,
+      email = excluded.email,
       first_name = excluded.first_name,
       last_name = excluded.last_name,
       position = excluded.position,
       signature_name = excluded.signature_name,
+      auth_provider = excluded.auth_provider,
       requested_station_id = excluded.requested_station_id,
       role = excluded.role,
       is_active = excluded.is_active,
@@ -279,7 +288,13 @@ begin
       rejection_reason = excluded.rejection_reason;
   end loop;
 
-  for n in 1..1000 loop
+  delete from auth.users
+  where email like 'local-consumer-%@example.local'
+    or email like 'local-cashier-%@example.local'
+    or email like 'local-station-manager-%@example.local'
+    or email like 'local-mayor-assistant-%@example.local';
+
+  for n in 1..500 loop
     auth_user_id_value := (
       substr(md5('local-dev-auth-' || n::text), 1, 8) || '-' ||
       substr(md5('local-dev-auth-' || n::text), 9, 4) || '-' ||
@@ -294,36 +309,22 @@ begin
       substr(md5('local-dev-profile-' || n::text), 17, 4) || '-' ||
       substr(md5('local-dev-profile-' || n::text), 21, 12)
     )::uuid;
+    consumer_vehicle_id_value := (
+      substr(md5('local-dev-consumer-vehicle-' || n::text), 1, 8) || '-' ||
+      substr(md5('local-dev-consumer-vehicle-' || n::text), 9, 4) || '-' ||
+      substr(md5('local-dev-consumer-vehicle-' || n::text), 13, 4) || '-' ||
+      substr(md5('local-dev-consumer-vehicle-' || n::text), 17, 4) || '-' ||
+      substr(md5('local-dev-consumer-vehicle-' || n::text), 21, 12)
+    )::uuid;
 
-    if n <= 700 then
-      role_value := 'consumer';
-      email_value := 'local-consumer-' || lpad(n::text, 4, '0') || '@example.local';
-      full_name_value := 'Local Consumer ' || lpad(n::text, 4, '0');
-      first_name_value := 'Consumer ' || lpad(n::text, 4, '0');
-      position_value := null;
-      requested_station_id_value := null;
-    elsif n <= 850 then
-      role_value := 'cashier';
-      email_value := 'local-cashier-' || lpad((n - 700)::text, 4, '0') || '@example.local';
-      full_name_value := 'Local Cashier ' || lpad((n - 700)::text, 4, '0');
-      first_name_value := 'Cashier ' || lpad((n - 700)::text, 4, '0');
-      position_value := 'Cashier';
-      requested_station_id_value := station_ids[1 + ((n - 1) % 3)];
-    elsif n <= 950 then
-      role_value := 'station_manager';
-      email_value := 'local-station-manager-' || lpad((n - 850)::text, 4, '0') || '@example.local';
-      full_name_value := 'Local Station Manager ' || lpad((n - 850)::text, 4, '0');
-      first_name_value := 'Station Manager ' || lpad((n - 850)::text, 4, '0');
-      position_value := 'Station Manager';
-      requested_station_id_value := station_ids[1 + ((n - 1) % 3)];
-    else
-      role_value := 'mayor_assistant';
-      email_value := 'local-mayor-assistant-' || lpad((n - 950)::text, 4, '0') || '@example.local';
-      full_name_value := 'Local Mayor Assistant ' || lpad((n - 950)::text, 4, '0');
-      first_name_value := 'Mayor Assistant ' || lpad((n - 950)::text, 4, '0');
-      position_value := 'Mayor Assistant';
-      requested_station_id_value := null;
-    end if;
+    role_value := 'consumer';
+    email_value := 'local-consumer-' || lpad(n::text, 4, '0') || '@example.local';
+    full_name_value := 'Local Consumer ' || lpad(n::text, 4, '0');
+    first_name_value := 'Consumer ' || lpad(n::text, 4, '0');
+    phone_value := '+7910' || lpad(n::text, 7, '0');
+    plate_value := 'K' || lpad(n::text, 3, '0') || 'MM777';
+    position_value := null;
+    requested_station_id_value := null;
 
     is_active_value := true;
     approval_status_value := 'approved';
@@ -412,10 +413,13 @@ begin
       id,
       auth_user_id,
       full_name,
+      email,
       first_name,
       last_name,
+      phone,
       position,
       signature_name,
+      auth_provider,
       requested_station_id,
       role,
       is_active,
@@ -426,10 +430,13 @@ begin
       profile_id_value,
       auth_user_id_value,
       full_name_value,
+      email_value,
       first_name_value,
       'Local',
+      phone_value,
       position_value,
       full_name_value,
+      'email',
       requested_station_id_value,
       role_value,
       is_active_value,
@@ -439,15 +446,54 @@ begin
     on conflict (auth_user_id) do update
     set
       full_name = excluded.full_name,
+      email = excluded.email,
       first_name = excluded.first_name,
       last_name = excluded.last_name,
+      phone = excluded.phone,
       position = excluded.position,
       signature_name = excluded.signature_name,
+      auth_provider = excluded.auth_provider,
       requested_station_id = excluded.requested_station_id,
       role = excluded.role,
       is_active = excluded.is_active,
       approval_status = excluded.approval_status,
       approved_at = coalesce(public.profiles.approved_at, excluded.approved_at);
+
+    insert into public.vehicles (
+      id,
+      plate_number,
+      normalized_plate_number,
+      is_blocked,
+      block_reason
+    )
+    values (
+      consumer_vehicle_id_value,
+      plate_value,
+      plate_value,
+      false,
+      null
+    )
+    on conflict (normalized_plate_number) do update
+    set
+      plate_number = excluded.plate_number,
+      is_blocked = false,
+      block_reason = null,
+      updated_at = now();
+
+    insert into public.profile_vehicles (
+      profile_id,
+      vehicle_id,
+      status
+    )
+    values (
+      profile_id_value,
+      consumer_vehicle_id_value,
+      'ACTIVE'
+    )
+    on conflict (profile_id, vehicle_id) do update
+    set
+      status = 'ACTIVE',
+      updated_at = now();
   end loop;
 
   insert into public.user_stations (user_id, station_id)
@@ -473,17 +519,13 @@ begin
       'pending-cashier@example.local',
       'rejected-cashier@example.local'
     )
-      or u.email like 'local-consumer-%@example.local'
-      or u.email like 'local-cashier-%@example.local'
-      or u.email like 'local-station-manager-%@example.local'
-      or u.email like 'local-mayor-assistant-%@example.local'
   ) station_rows
   on conflict (user_id, station_id) do nothing;
 
   select count(*)
   into generated_count
   from auth.users
-  where email like 'local-%@example.local';
+  where email like 'local-consumer-%@example.local';
 
   select count(*)
   into documented_count
@@ -499,7 +541,7 @@ begin
     'rejected-cashier@example.local'
   );
 
-  raise notice 'local-dev-users-ready: generated_auth_users=%, documented_auth_users=%',
+  raise notice 'local-dev-users-ready: consumer_auth_users=%, documented_staff_auth_users=%',
     generated_count,
     documented_count;
 end $$;

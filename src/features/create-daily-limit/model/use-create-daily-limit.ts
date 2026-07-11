@@ -19,6 +19,10 @@ export function useCreateDailyLimit() {
         throw new Error(result.error ?? 'Не удалось создать лимит.')
       }
 
+      if (result.data.station_id !== params.stationId) {
+        throw new Error('Сервер сохранил лимит для другой АЗС. Обновите страницу и повторите попытку.')
+      }
+
       return result.data
     },
     onSuccess: () => {

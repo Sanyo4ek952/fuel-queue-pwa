@@ -31,15 +31,19 @@ vi.mock('@/shared/api/supabase', () => ({
   supabase: mocks.supabase,
 }))
 
-import { getCurrentProfile, type CurrentProfile } from './index'
+import { completeCurrentConsumerProfile, getCurrentProfile, type CurrentProfile } from './index'
 
 const profile: CurrentProfile = {
   id: 'profile-id',
   auth_user_id: 'auth-user-id',
+  email: null,
   full_name: 'Test User',
   first_name: 'Test',
   last_name: 'User',
   middle_name: null,
+  phone: null,
+  avatar_url: null,
+  auth_provider: null,
   position: null,
   signature_name: null,
   role: 'cashier',
@@ -66,6 +70,7 @@ describe('getCurrentProfile', () => {
     mocks.fetchWithTimeout.mockReset()
     mocks.getCachedCurrentProfile.mockReset()
     mocks.saveCachedCurrentProfile.mockReset()
+    mocks.supabase.rpc.mockReset()
   })
 
   it('loads the profile through the Vercel API and caches it', async () => {
@@ -152,5 +157,38 @@ describe('getCurrentProfile', () => {
 
     await expect(getCurrentProfile()).rejects.toThrow('Authorization token is invalid.')
     expect(mocks.getCachedCurrentProfile).not.toHaveBeenCalled()
+  })
+
+  it('completes a consumer profile through the RPC wrapper', async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: {
+        ...profile,
+        role: 'consumer',
+        first_name: 'Ivan',
+        last_name: 'Resident',
+        phone: '+79990000000',
+        stations: [],
+      },
+      error: null,
+    })
+
+    await expect(
+      completeCurrentConsumerProfile({
+        firstName: 'Ivan',
+        lastName: 'Resident',
+        middleName: '',
+        phone: '+79990000000',
+      }),
+    ).resolves.toMatchObject({
+      role: 'consumer',
+      first_name: 'Ivan',
+      phone: '+79990000000',
+    })
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith('complete_consumer_profile', {
+      p_first_name: 'Ivan',
+      p_last_name: 'Resident',
+      p_middle_name: '',
+      p_phone: '+79990000000',
+    })
   })
 })

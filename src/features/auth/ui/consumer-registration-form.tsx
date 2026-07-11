@@ -25,6 +25,7 @@ export function ConsumerRegistrationForm() {
   const registerMutation = useRegisterConsumer()
   const resendMutation = useResendSignupConfirmation()
   const hcaptcha = useHcaptchaToken()
+  const resetHcaptcha = hcaptcha.reset
   const [resendCooldown, setResendCooldown] = useState(0)
   const form = useForm<ConsumerRegisterFormInput, unknown, ConsumerRegisterFormValues>({
     resolver: zodResolver(consumerRegisterSchema),
@@ -53,10 +54,10 @@ export function ConsumerRegistrationForm() {
       return
     }
 
-    hcaptcha.reset()
+    resetHcaptcha()
     form.setValue('captchaToken', '')
     setResendCooldown(EMAIL_RESEND_COOLDOWN_SECONDS)
-  }, [form, hcaptcha.reset, registerMutation.isSuccess])
+  }, [form, registerMutation.isSuccess, resetHcaptcha])
 
   useEffect(() => {
     if (resendCooldown <= 0) {

@@ -262,6 +262,41 @@ begin
               and (l.station_id is null or fr.station_id = l.station_id)
             group by fr.fuel_type
           ),
+          reservation_coverage_by_type as (
+            select
+              fuel_type,
+              count(id) filter (
+                where cumulative_liters <= greatest(coalesce(liters_limit, 0) - fueled_liters, 0)
+              )::integer as liter_mode_covered_count,
+              coalesce(sum(effective_liters) filter (
+                where cumulative_liters <= greatest(coalesce(liters_limit, 0) - fueled_liters, 0)
+              ), 0)::numeric as liter_mode_covered_liters,
+              max(queue_number) filter (
+                where cumulative_liters <= greatest(coalesce(liters_limit, 0) - fueled_liters, 0)
+              ) as liter_mode_projected_queue_number
+            from (
+              select
+                ft.fuel_type,
+                ar.id,
+                ar.queue_number,
+                ar.effective_liters,
+                dftl.liters_limit,
+                coalesce(fbt.fueled_liters, 0)::numeric as fueled_liters,
+                sum(ar.effective_liters) over (
+                  partition by ft.fuel_type
+                  order by ar.queue_number, ar.id
+                )::numeric as cumulative_liters
+              from fuel_types ft
+              left join public.daily_fuel_type_limits dftl
+                on dftl.daily_limit_id = l.id
+               and dftl.fuel_type = ft.fuel_type
+              join active_reservations ar
+                on ft.fuel_type = any(public.get_compatible_fuel_types(ar.fuel_type, ar.fuel_preference_mode))
+              left join fueled_by_type fbt
+                on fbt.fuel_type = ft.fuel_type
+            ) ranked
+            group by fuel_type
+          ),
           grouped as (
             select
               ft.fuel_type,
@@ -286,6 +321,9 @@ begin
                   and ar.queue_number <= coalesce(dftl.vehicle_limit, 0)
               )::integer as vehicle_mode_covered_count,
               coalesce(max(fbt.fueled_liters), 0)::numeric as fueled_liters,
+              coalesce(max(rcbt.liter_mode_covered_count), 0)::integer as liter_mode_covered_count,
+              coalesce(max(rcbt.liter_mode_covered_liters), 0)::numeric as liter_mode_covered_liters,
+              max(rcbt.liter_mode_projected_queue_number) as liter_mode_projected_queue_number,
               max(ar.queue_number) filter (
                 where ft.fuel_type = any(public.get_compatible_fuel_types(ar.fuel_type, ar.fuel_preference_mode))
                   and ar.queue_number <= coalesce(dftl.vehicle_limit, 0)
@@ -298,6 +336,8 @@ begin
               on ft.fuel_type = any(public.get_compatible_fuel_types(ar.fuel_type, ar.fuel_preference_mode))
             left join fueled_by_type fbt
               on fbt.fuel_type = ft.fuel_type
+            left join reservation_coverage_by_type rcbt
+              on rcbt.fuel_type = ft.fuel_type
             group by ft.fuel_type, ft.label, ft.sort_order, dftl.limit_mode, dftl.vehicle_limit, dftl.liters_limit
           )
           select jsonb_agg(
@@ -312,10 +352,10 @@ begin
               'queued_liters', queued_liters,
               'covered_vehicle_count', case
                 when limit_mode = 'vehicle_count' then vehicle_mode_covered_count
-                else queue_count
+                else liter_mode_covered_count
               end,
               'covered_liters', case
-                when limit_mode = 'fuel_liters' then fueled_liters
+                when limit_mode = 'fuel_liters' then liter_mode_covered_liters
                 else vehicle_mode_covered_liters
               end,
               'remaining_vehicle_count', case
@@ -326,7 +366,10 @@ begin
                 when limit_mode = 'fuel_liters' then greatest(coalesce(liters_limit, 0) - fueled_liters, 0)
                 else null
               end,
-              'projected_queue_number', projected_queue_number
+              'projected_queue_number', case
+                when limit_mode = 'fuel_liters' then liter_mode_projected_queue_number
+                else projected_queue_number
+              end
             )
             order by sort_order
           )

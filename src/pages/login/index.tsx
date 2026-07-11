@@ -2,9 +2,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { ConsumerRegistrationForm, LoginForm, RegistrationForm } from '@/features/auth'
 import { ROUTES } from '@/shared/config/routes'
+import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 
 type LocationState = {
+  authError?: string
   from?: {
     pathname?: string
   }
@@ -13,7 +15,8 @@ type LocationState = {
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as LocationState | null)?.from?.pathname ?? ROUTES.dashboard
+  const locationState = location.state as LocationState | null
+  const from = locationState?.from?.pathname ?? ROUTES.dashboard
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
@@ -22,6 +25,12 @@ export function LoginPage() {
           <p className="text-sm text-slate-500">АЗС Онлайн</p>
           <h1 className="mt-2 text-2xl font-semibold text-slate-950">Вход в приложение</h1>
         </div>
+        {locationState?.authError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Вход не выполнен</AlertTitle>
+            <AlertDescription>{locationState.authError}</AlertDescription>
+          </Alert>
+        ) : null}
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid h-10 w-full grid-cols-3">
             <TabsTrigger value="login">Вход</TabsTrigger>

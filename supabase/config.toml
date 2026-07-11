@@ -60,3 +60,7 @@ email_sent = 1000
 sign_in_sign_ups = 1000
 token_refresh = 1000
 token_verifications = 1000
+
+[functions.yandex-userinfo]
+enabled = true
+verify_jwt = false

@@ -140,7 +140,7 @@ export function ConsumerDashboardPanel() {
   const matchedFuelLabel = activeReservation?.matched_fuel_type
     ? (fuelTypeLabels[activeReservation.matched_fuel_type] ?? activeReservation.matched_fuel_type)
     : null
-  const stationLabel = activeReservation?.station_name ?? 'АЗС будет назначена'
+  const stationLabel = activeReservation?.station_name ?? 'АЗС будет выбрана при заправке'
   const activeFuelCategory = activeReservation
     ? getFuelQueueCategory(activeReservation.fuel_type)
     : null

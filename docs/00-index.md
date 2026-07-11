@@ -16,7 +16,8 @@
 12. [12-testing-and-quality.md](12-testing-and-quality.md) — тестирование и качество.
 13. [13-deployment-and-env.md](13-deployment-and-env.md) — деплой и env.
 14. [14-ai-working-rules.md](14-ai-working-rules.md) — правила работы с ИИ.
-15. [99-final-checklist.md](99-final-checklist.md) — финальный чеклист.
+15. [yandex-auth-setup.md](yandex-auth-setup.md) — ручная настройка входа через Яндекс ID.
+16. [99-final-checklist.md](99-final-checklist.md) — финальный чеклист.
 
 ## Читать в первую очередь
 

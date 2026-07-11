@@ -116,6 +116,29 @@ export async function signInWithPassword({
   }
 }
 
+export async function signInWithYandex(): Promise<AuthResult<true>> {
+  if (!isSupabaseConfigured) {
+    return {
+      data: null,
+      error: 'Supabase is not configured.',
+    }
+  }
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'custom:yandex',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+      scopes: 'login:info login:email',
+    },
+  })
+
+  return {
+    data: error ? null : true,
+    error: error?.message ?? null,
+    ...getAuthErrorMeta(error),
+  }
+}
+
 export async function signUpWithPassword({
   email,
   password,

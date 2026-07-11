@@ -77,6 +77,7 @@ export function CreateDailyLimitForm() {
   async function handleFuelTypeSubmit(index: number) {
     const fuelTypeLimit = form.getValues(`fuelTypeLimits.${index}`)
     const fuelType = fuelTypeLimit.fuelType as QueueFuelType
+    const selectedStationId = form.getValues('stationId')
 
     form.clearErrors()
     setSavedFuelType(null)
@@ -84,7 +85,7 @@ export function CreateDailyLimitForm() {
 
     const parsed = saveDailyFuelTypeLimitSchema.safeParse({
       targetDate: form.getValues('targetDate'),
-      stationId: form.getValues('stationId'),
+      stationId: selectedStationId,
       fuelTypeLimit,
     })
 

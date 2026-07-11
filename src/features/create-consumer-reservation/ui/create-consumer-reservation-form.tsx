@@ -289,7 +289,7 @@ export function CreateConsumerReservationForm({
                   <br />
                   {createReservationMutation.data.station_name
                     ? `АЗС: ${createReservationMutation.data.station_name}.`
-                    : 'АЗС будет назначена.'}
+                    : 'АЗС будет выбрана при заправке.'}
                 </AlertDescription>
               </Alert>
             ) : null}

@@ -1,5 +1,7 @@
 export const ROUTES = {
   login: '/login',
+  authCallback: '/auth/callback',
+  profileSetup: '/profile/setup',
   dashboard: '/dashboard',
   check: '/check',
   queue: '/queue',

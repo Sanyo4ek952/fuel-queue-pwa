@@ -55,12 +55,12 @@ function renderWithQueryClient(children: ReactNode) {
   }
 }
 
-function mockSuccessfulDailyLimit() {
+function mockSuccessfulDailyLimit(stationId = 'station-id') {
   mocks.createDailyLimit.mockResolvedValue({
     data: {
       id: 'limit-id',
       date: '2026-07-05',
-      station_id: 'station-id',
+      station_id: stationId,
       status: 'OPEN',
       client_mutation_id: 'mutation-id',
       fuel_type_limits: [],
@@ -72,6 +72,22 @@ function mockSuccessfulDailyLimit() {
 
 describe('CreateDailyLimitForm', () => {
   beforeEach(() => {
+    if (!Element.prototype.hasPointerCapture) {
+      Element.prototype.hasPointerCapture = () => false
+    }
+
+    if (!Element.prototype.setPointerCapture) {
+      Element.prototype.setPointerCapture = () => undefined
+    }
+
+    if (!Element.prototype.releasePointerCapture) {
+      Element.prototype.releasePointerCapture = () => undefined
+    }
+
+    if (!Element.prototype.scrollIntoView) {
+      Element.prototype.scrollIntoView = () => undefined
+    }
+
     mocks.createDailyLimit.mockReset()
     mocks.stations = [
       {
@@ -125,6 +141,48 @@ describe('CreateDailyLimitForm', () => {
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       predicate: expect.any(Function),
     })
+  })
+
+  it.each([
+    ['АЗС №2', 'station-2'],
+    ['АЗС №3', 'station-3'],
+  ])('submits the selected station %s', async (stationName, stationId) => {
+    mocks.stations = [
+      { id: 'station-1', name: 'АЗС №1', address: 'Адрес 1' },
+      { id: 'station-2', name: 'АЗС №2', address: 'Адрес 2' },
+      { id: 'station-3', name: 'АЗС №3', address: 'Адрес 3' },
+    ]
+    mockSuccessfulDailyLimit(stationId)
+
+    renderWithQueryClient(<CreateDailyLimitForm />)
+    await userEvent.click(screen.getByLabelText('АЗС'))
+    await userEvent.click(await screen.findByRole('option', { name: stationName }))
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить АИ-95' }))
+
+    await waitFor(() => {
+      expect(mocks.createDailyLimit).toHaveBeenCalledWith(
+        expect.objectContaining({ stationId }),
+      )
+    })
+  })
+
+  it('shows an error when the server returns another station', async () => {
+    mocks.stations = [
+      { id: 'station-1', name: 'АЗС №1', address: 'Адрес 1' },
+      { id: 'station-2', name: 'АЗС №2', address: 'Адрес 2' },
+    ]
+    mockSuccessfulDailyLimit('station-1')
+
+    renderWithQueryClient(<CreateDailyLimitForm />)
+    await userEvent.click(screen.getByLabelText('АЗС'))
+    await userEvent.click(await screen.findByRole('option', { name: 'АЗС №2' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить АИ-95' }))
+
+    expect(
+      await screen.findByText(
+        'Сервер сохранил лимит для другой АЗС. Обновите страницу и повторите попытку.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('does not submit changed values from other fuel types', async () => {

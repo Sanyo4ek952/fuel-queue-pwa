@@ -1,7 +1,10 @@
+/** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   signUp: vi.fn(),
+  resend: vi.fn(),
+  signInWithOAuth: vi.fn(),
   signInWithPassword: vi.fn(),
   signOut: vi.fn(),
 }))
@@ -14,19 +17,36 @@ vi.mock('@/shared/api/supabase', () => ({
   supabase: {
     auth: {
       signUp: mocks.signUp,
+      resend: mocks.resend,
+      signInWithOAuth: mocks.signInWithOAuth,
       signInWithPassword: mocks.signInWithPassword,
       signOut: mocks.signOut,
     },
   },
 }))
 
-import { signUpConsumerWithPassword, signUpWithPassword } from './index'
+import {
+  resendSignupConfirmationEmail,
+  signInWithYandex,
+  signUpConsumerWithPassword,
+  signUpWithPassword,
+} from './index'
 
 describe('auth registration metadata', () => {
   beforeEach(() => {
     mocks.signUp.mockReset()
     mocks.signUp.mockResolvedValue({
       data: { session: null },
+      error: null,
+    })
+    mocks.resend.mockReset()
+    mocks.resend.mockResolvedValue({
+      data: {},
+      error: null,
+    })
+    mocks.signInWithOAuth.mockReset()
+    mocks.signInWithOAuth.mockResolvedValue({
+      data: {},
       error: null,
     })
     mocks.signInWithPassword.mockReset()
@@ -151,6 +171,69 @@ describe('auth registration metadata', () => {
     expect(mocks.signInWithPassword).not.toHaveBeenCalled()
     expect(mocks.signOut).toHaveBeenCalledTimes(1)
     expect(result.data).toBeNull()
+    expect(result.error).toBeNull()
+  })
+
+  it('resends a signup confirmation email', async () => {
+    const result = await resendSignupConfirmationEmail({
+      email: 'resident@example.local',
+    })
+
+    expect(mocks.resend).toHaveBeenCalledWith({
+      type: 'signup',
+      email: 'resident@example.local',
+      options: undefined,
+    })
+    expect(result.data).toBe(true)
+    expect(result.error).toBeNull()
+  })
+
+  it('passes hCaptcha token when resending signup confirmation', async () => {
+    await resendSignupConfirmationEmail({
+      email: 'resident@example.local',
+      captchaToken: 'resend-captcha-token',
+    })
+
+    expect(mocks.resend).toHaveBeenCalledWith({
+      type: 'signup',
+      email: 'resident@example.local',
+      options: {
+        captchaToken: 'resend-captcha-token',
+      },
+    })
+  })
+
+  it('preserves 429 status from resend errors', async () => {
+    mocks.resend.mockResolvedValue({
+      data: {},
+      error: {
+        message: 'Too many requests',
+        status: 429,
+        code: 'over_email_send_rate_limit',
+      },
+    })
+
+    const result = await resendSignupConfirmationEmail({
+      email: 'resident@example.local',
+    })
+
+    expect(result.data).toBeNull()
+    expect(result.error).toBe('Too many requests')
+    expect(result.status).toBe(429)
+    expect(result.code).toBe('over_email_send_rate_limit')
+  })
+
+  it('starts Yandex ID OAuth with the custom provider, scopes, and auth callback redirect', async () => {
+    const result = await signInWithYandex()
+
+    expect(mocks.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'custom:yandex',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'login:info login:email',
+      },
+    })
+    expect(result.data).toBe(true)
     expect(result.error).toBeNull()
   })
 })
