@@ -6,6 +6,7 @@ import {
   type ConsumerVehicle,
   type CreateConsumerVehicleParams,
 } from '@/shared/api/rpc'
+import { getConsumerCabinetErrorMessage } from '@/shared/lib/consumer-cabinet-error'
 
 export type { ConsumerVehicle, CreateConsumerVehicleParams }
 
@@ -19,7 +20,10 @@ const createConsumerVehicleErrorMessages: Record<string, string> = {
 }
 
 function getCreateConsumerVehicleErrorMessage(error: string) {
-  return createConsumerVehicleErrorMessages[error] ?? error
+  return (
+    createConsumerVehicleErrorMessages[error] ??
+    getConsumerCabinetErrorMessage(error, 'Не удалось добавить автомобиль.')
+  )
 }
 
 export function useConsumerVehicles() {

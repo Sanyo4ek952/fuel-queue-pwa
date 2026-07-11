@@ -350,7 +350,7 @@ export async function listMyVehicles(): Promise<ConsumerVehicle[]> {
   }
 
   if (!Array.isArray(data)) {
-    throw new Error('Unexpected list_my_vehicles response.')
+    throw new Error('Не удалось загрузить автомобили.')
   }
 
   return data.map(parseConsumerVehicle).filter((vehicle): vehicle is ConsumerVehicle => Boolean(vehicle))
@@ -363,7 +363,7 @@ export async function createConsumerVehicle({
   if (!isSupabaseConfigured) {
     return {
       data: null,
-      error: 'Supabase is not configured.',
+      error: 'Не удалось подключиться к серверу.',
     }
   }
 
@@ -384,7 +384,7 @@ export async function createConsumerVehicle({
   if (!parsed) {
     return {
       data: null,
-      error: 'Unexpected create_consumer_vehicle response.',
+      error: 'Не удалось добавить автомобиль.',
     }
   }
 
@@ -412,7 +412,7 @@ export async function getMyQueueStatus(): Promise<ConsumerReservation | null> {
   const parsed = parseConsumerReservation(data)
 
   if (!parsed) {
-    throw new Error('Unexpected get_my_queue_status response.')
+    throw new Error('Не удалось загрузить очередь.')
   }
 
   return parsed
@@ -436,7 +436,7 @@ export async function getMyTodayFuelingStatus(): Promise<ConsumerTodayFuelingSta
   const parsed = parseConsumerTodayFuelingStatus(data)
 
   if (!parsed) {
-    throw new Error('Unexpected get_my_today_fueling_status response.')
+    throw new Error('Не удалось загрузить сегодняшнюю заправку.')
   }
 
   return parsed
@@ -455,7 +455,7 @@ export async function createConsumerReservation({
   if (!isSupabaseConfigured) {
     return {
       data: null,
-      error: 'Supabase is not configured.',
+      error: 'Не удалось подключиться к серверу.',
     }
   }
 
@@ -482,7 +482,7 @@ export async function createConsumerReservation({
   if (!parsed) {
     return {
       data: null,
-      error: 'Unexpected create_consumer_reservation response.',
+      error: 'Не удалось создать запись.',
     }
   }
 
@@ -499,7 +499,7 @@ export async function cancelMyReservation({
   if (!isSupabaseConfigured) {
     return {
       data: null,
-      error: 'Supabase is not configured.',
+      error: 'Не удалось подключиться к серверу.',
     }
   }
 
@@ -520,7 +520,7 @@ export async function cancelMyReservation({
   if (!parsed) {
     return {
       data: null,
-      error: 'Unexpected cancel_my_reservation response.',
+      error: 'Не удалось отменить запись.',
     }
   }
 

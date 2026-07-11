@@ -5,6 +5,7 @@ import {
   type UpdateReservationFuelPreferenceParams,
   type UpdateReservationFuelPreferenceResult,
 } from '@/shared/api/rpc'
+import { getConsumerCabinetErrorMessage } from '@/shared/lib/consumer-cabinet-error'
 import { offlineDb } from '@/shared/lib/offline-db'
 import { useOnlineStatus } from '@/shared/lib/sync'
 
@@ -20,10 +21,15 @@ const updateReservationFuelPreferenceErrorMessages: Record<string, string> = {
     'Топливо нельзя изменить после открытия лимитов на сегодня.',
   FUEL_PREFERENCE_LOCKED_BY_ACTIVE_FUELING:
     'Топливо нельзя изменить, пока идет заправка. Попробуйте позже.',
+  OFFLINE_UNAVAILABLE: 'Изменение доступно только при подключении к интернету.',
+  UPDATE_RESERVATION_FUEL_PREFERENCE_FAILED: 'Не удалось сохранить марку топлива.',
 }
 
 function getUpdateReservationFuelPreferenceErrorMessage(error: string) {
-  return updateReservationFuelPreferenceErrorMessages[error] ?? error
+  return (
+    updateReservationFuelPreferenceErrorMessages[error] ??
+    getConsumerCabinetErrorMessage(error, 'Не удалось сохранить марку топлива.')
+  )
 }
 
 export function useUpdateReservationFuelPreference() {
@@ -33,7 +39,7 @@ export function useUpdateReservationFuelPreference() {
   return useMutation({
     mutationFn: async (params: UpdateReservationFuelPreferenceParams) => {
       if (!isOnline) {
-        throw new Error('OFFLINE_UNAVAILABLE')
+        throw new Error(getUpdateReservationFuelPreferenceErrorMessage('OFFLINE_UNAVAILABLE'))
       }
 
       const result = await updateReservationFuelPreference(params)

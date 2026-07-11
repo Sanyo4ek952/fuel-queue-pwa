@@ -7,10 +7,7 @@ const requiredRuPhoneNumberSchema = z
   .string()
   .trim()
   .min(1, 'Введите телефон в формате +7 999 123-45-67')
-  .refine(
-    isValidRuPhoneNumber,
-    'Введите телефон в формате +7 999 123-45-67',
-  )
+  .refine(isValidRuPhoneNumber, 'Введите телефон в формате +7 999 123-45-67')
   .transform((value) => normalizeRuPhoneNumber(value))
 
 export const createConsumerReservationSchema = z

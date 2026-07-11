@@ -20,13 +20,12 @@ import {
 } from '@/features/update-reservation-fuel-preference'
 import {
   QUEUE_FUEL_TYPES,
-  getFuelQueueCategory,
   isGasolineFuelType,
-  type FuelQueueCategory,
   type FuelPreferenceMode,
   type FuelType,
   type QueueFuelType,
 } from '@/shared/constants'
+import { getConsumerCabinetErrorMessage } from '@/shared/lib/consumer-cabinet-error'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -78,12 +77,6 @@ const fuelPreferenceLabels: Record<FuelPreferenceMode, string> = {
   ANY_GASOLINE: 'Подойдет АИ-92/95/100',
 }
 
-const fuelCategoryLabels: Record<FuelQueueCategory, string> = {
-  GASOLINE: 'бензин',
-  DIESEL: 'дизель',
-  GAS: 'газ',
-}
-
 function getLimitStatusView(isWithinTodayLimit: boolean | null | undefined) {
   if (isWithinTodayLimit === true) {
     return {
@@ -125,8 +118,10 @@ export function ConsumerDashboardPanel() {
   const activeReservation = queueStatusQuery.data
   const todayFuelingStatus = todayFuelingStatusQuery.data
   const canAddVehicle = vehicles.length < 3
-  const canCreateReservation = vehicles.length > 0 && !activeReservation && !todayFuelingStatus
-  const canCancelReservation = activeReservation?.status === 'RESERVED'
+  const canCreateReservation =
+    vehicles.length > 0 && !activeReservation && !todayFuelingStatus && !queueStatusQuery.error
+  const canCancelReservation =
+    activeReservation?.status === 'WAITING' || activeReservation?.status === 'RESERVED'
   const isFuelPreferenceUpdateLocked =
     activeReservation?.is_fuel_preference_update_locked === true
   const canEditFuelPreference =
@@ -140,13 +135,14 @@ export function ConsumerDashboardPanel() {
     activeReservation?.allocation?.station_name ??
     activeReservation?.station_name ??
     'Ожидает дневного распределения'
-  const activeFuelCategory = activeReservation
-    ? getFuelQueueCategory(activeReservation.fuel_type)
-    : null
-  const activeFuelCategoryLabel = activeFuelCategory
-    ? fuelCategoryLabels[activeFuelCategory]
-    : 'топлива'
+  const stationAddress =
+    activeReservation?.allocation?.station_address ?? activeReservation?.station_address
   const limitStatusView = getLimitStatusView(activeReservation?.is_within_today_limit)
+  const hasDailyDistribution =
+    Boolean(activeReservation?.allocation) ||
+    Boolean(activeReservation?.station_name) ||
+    activeReservation?.is_within_today_limit != null ||
+    Boolean(activeReservation?.matched_fuel_type)
   const fuelPreferenceForm = useForm<UpdateReservationFuelPreferenceFormValues>({
     resolver: zodResolver(updateReservationFuelPreferenceSchema),
     mode: 'onBlur',
@@ -247,21 +243,36 @@ export function ConsumerDashboardPanel() {
       {queueStatusQuery.error ? (
         <Alert variant="destructive">
           <AlertTitle>Не удалось загрузить очередь</AlertTitle>
-          <AlertDescription>{queueStatusQuery.error.message}</AlertDescription>
+          <AlertDescription>
+            {getConsumerCabinetErrorMessage(
+              queueStatusQuery.error,
+              'Не удалось загрузить очередь.',
+            )}
+          </AlertDescription>
         </Alert>
       ) : null}
 
       {vehiclesQuery.error ? (
         <Alert variant="destructive">
           <AlertTitle>Не удалось загрузить автомобили</AlertTitle>
-          <AlertDescription>{vehiclesQuery.error.message}</AlertDescription>
+          <AlertDescription>
+            {getConsumerCabinetErrorMessage(
+              vehiclesQuery.error,
+              'Не удалось загрузить автомобили.',
+            )}
+          </AlertDescription>
         </Alert>
       ) : null}
 
       {todayFuelingStatusQuery.error ? (
         <Alert variant="destructive">
           <AlertTitle>Не удалось загрузить сегодняшнюю заправку</AlertTitle>
-          <AlertDescription>{todayFuelingStatusQuery.error.message}</AlertDescription>
+          <AlertDescription>
+            {getConsumerCabinetErrorMessage(
+              todayFuelingStatusQuery.error,
+              'Не удалось загрузить сегодняшнюю заправку.',
+            )}
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -273,16 +284,13 @@ export function ConsumerDashboardPanel() {
               Активная запись
             </CardTitle>
             <CardDescription>
-              Постоянный номер №{activeReservation.permanent_number}
-              {activeReservation.current_position
-                ? `, в очереди ${activeFuelCategoryLabel}: ${activeReservation.current_position}`
-                : ''}
+              Постоянный номер в общей очереди №{activeReservation.permanent_number}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid gap-2 text-sm sm:grid-cols-2">
               <div>
-                <span className="text-slate-500">Госномер</span>
+                <span className="text-slate-500">Автомобиль в очереди</span>
                 <p className="font-medium text-slate-950">
                   {activeReservation.normalized_plate_number}
                 </p>
@@ -294,14 +302,8 @@ export function ConsumerDashboardPanel() {
                 </p>
               </div>
               <div>
-                <span className="text-slate-500">АЗС</span>
-                <p className="flex items-center gap-1.5 font-medium text-slate-950">
-                  <MapPin className="size-4 text-slate-500" aria-hidden="true" />
-                  {stationLabel}
-                </p>
-                {activeReservation.station_address ? (
-                  <p className="mt-1 text-xs text-slate-500">{activeReservation.station_address}</p>
-                ) : null}
+                <span className="text-slate-500">Общая очередь</span>
+                <p className="font-medium text-slate-950">№{activeReservation.permanent_number}</p>
               </div>
               <div>
                 <span className="text-slate-500">Топливо</span>
@@ -327,7 +329,8 @@ export function ConsumerDashboardPanel() {
                       <DialogHeader>
                         <DialogTitle>Марка топлива</DialogTitle>
                         <DialogDescription>
-                          Постоянный номер №{activeReservation.permanent_number} сохранится без изменения.
+                          Постоянный номер в общей очереди №{activeReservation.permanent_number}{' '}
+                          сохранится без изменения.
                         </DialogDescription>
                       </DialogHeader>
                       <Form {...fuelPreferenceForm}>
@@ -436,35 +439,45 @@ export function ConsumerDashboardPanel() {
                   {activeReservation.requested_liters}
                 </p>
               </div>
-              <div>
-                <span className="text-slate-500">Позиция в очереди топлива</span>
-                <p className="font-medium text-slate-950">
-                  {activeReservation.current_position ?? 'Позиция уточняется'}
-                </p>
-              </div>
-              <div>
-                <span className="text-slate-500">Статус лимита</span>
-                <div className="mt-1">
-                  <Badge variant="outline" className={`rounded-md ${limitStatusView.className}`}>
-                    {limitStatusView.label}
-                  </Badge>
-                </div>
-              </div>
-              {matchedFuelLabel ? (
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-medium text-slate-950">Дневное распределение</p>
+              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                 <div>
-                  <span className="text-slate-500">Доступная марка</span>
-                  <p className="font-medium text-slate-950">{matchedFuelLabel}</p>
-                </div>
-              ) : null}
-              {estimatedArrivalTime ? (
-                <div>
-                  <span className="text-slate-500">Примерное прибытие</span>
+                  <span className="text-slate-500">АЗС</span>
                   <p className="flex items-center gap-1.5 font-medium text-slate-950">
-                    <Clock className="size-4 text-slate-500" aria-hidden="true" />
-                    {estimatedArrivalTime}
+                    <MapPin className="size-4 text-slate-500" aria-hidden="true" />
+                    {stationLabel}
                   </p>
+                  {stationAddress ? (
+                    <p className="mt-1 text-xs text-slate-500">{stationAddress}</p>
+                  ) : null}
                 </div>
-              ) : null}
+                {matchedFuelLabel ? (
+                  <div>
+                    <span className="text-slate-500">Доступная марка</span>
+                    <p className="font-medium text-slate-950">{matchedFuelLabel}</p>
+                  </div>
+                ) : null}
+                <div>
+                  <span className="text-slate-500">Статус дневного лимита</span>
+                  <div className="mt-1">
+                    <Badge variant="outline" className={`rounded-md ${limitStatusView.className}`}>
+                      {hasDailyDistribution ? limitStatusView.label : 'Ожидает распределения'}
+                    </Badge>
+                  </div>
+                </div>
+                {estimatedArrivalTime ? (
+                  <div>
+                    <span className="text-slate-500">Примерное прибытие</span>
+                    <p className="flex items-center gap-1.5 font-medium text-slate-950">
+                      <Clock className="size-4 text-slate-500" aria-hidden="true" />
+                      {estimatedArrivalTime}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             {isFuelPreferenceUpdateLocked ? (
@@ -477,10 +490,23 @@ export function ConsumerDashboardPanel() {
               </Alert>
             ) : null}
 
+            <Alert>
+              <AlertTitle>Можно поставить в очередь только один автомобиль</AlertTitle>
+              <AlertDescription>
+                Сейчас в очереди стоит {activeReservation.normalized_plate_number}. Новая запись
+                будет доступна после заправки или отмены текущей записи.
+              </AlertDescription>
+            </Alert>
+
             {updateFuelPreferenceMutation.error ? (
               <Alert variant="destructive">
                 <AlertTitle>Марка топлива не сохранена</AlertTitle>
-                <AlertDescription>{updateFuelPreferenceMutation.error.message}</AlertDescription>
+                <AlertDescription>
+                  {getConsumerCabinetErrorMessage(
+                    updateFuelPreferenceMutation.error,
+                    'Не удалось сохранить марку топлива.',
+                  )}
+                </AlertDescription>
               </Alert>
             ) : null}
 
@@ -512,7 +538,12 @@ export function ConsumerDashboardPanel() {
             {cancelReservationMutation.error ? (
               <Alert variant="destructive">
                 <AlertTitle>Запись не отменена</AlertTitle>
-                <AlertDescription>{cancelReservationMutation.error.message}</AlertDescription>
+                <AlertDescription>
+                  {getConsumerCabinetErrorMessage(
+                    cancelReservationMutation.error,
+                    'Не удалось отменить запись.',
+                  )}
+                </AlertDescription>
               </Alert>
             ) : null}
           </CardContent>
@@ -582,7 +613,9 @@ export function ConsumerDashboardPanel() {
         </CardHeader>
         <CardContent className="space-y-2">
           {vehicles.length === 0 ? (
-            <p className="text-sm text-slate-500">Добавьте автомобиль, чтобы встать в очередь.</p>
+            <p className="text-sm text-slate-500">
+              Добавьте автомобиль, чтобы встать в очередь.
+            </p>
           ) : (
             vehicles.map((vehicle) => (
               <div

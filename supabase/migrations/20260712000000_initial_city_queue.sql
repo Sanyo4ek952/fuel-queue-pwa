@@ -2624,24 +2624,32 @@ CREATE OR REPLACE FUNCTION "public"."get_my_today_fueling_status"() RETURNS "jso
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
-  select coalesce((
+  select (
     select jsonb_build_object(
-      'fueled', true,
+      'id', fr.id,
+      'date', fr.date,
       'station_id', fr.station_id,
+      'station_name', s.name,
+      'station_address', s.address,
+      'vehicle_id', fr.vehicle_id,
+      'reservation_id', fr.queue_entry_id,
+      'normalized_plate_number', v.normalized_plate_number,
       'fuel_type', fr.fuel_type,
       'liters', fr.liters,
       'fueled_at', fr.fueled_at,
-      'allocation_id', fr.allocation_id,
-      'queue_entry_id', fr.queue_entry_id
+      'ticket_number', fqe.permanent_number
     )
     from public.fueling_records fr
     join public.profile_vehicles pv on pv.vehicle_id = fr.vehicle_id
+    join public.vehicles v on v.id = fr.vehicle_id
+    left join public.stations s on s.id = fr.station_id
+    left join public.fuel_queue_entries fqe on fqe.id = fr.queue_entry_id
     where pv.profile_id = public.get_current_profile_id()
       and fr.date = (now() at time zone 'Europe/Moscow')::date
       and coalesce(fr.is_manual_override, false) = false
     order by fr.fueled_at desc
     limit 1
-  ), jsonb_build_object('fueled', false));
+  );
 $$;
 
 

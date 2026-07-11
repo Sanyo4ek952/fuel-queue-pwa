@@ -5,6 +5,7 @@ import {
   type CancelMyReservationParams,
   type CancelMyReservationResult,
 } from '@/shared/api/rpc'
+import { getConsumerCabinetErrorMessage } from '@/shared/lib/consumer-cabinet-error'
 import { useOnlineStatus } from '@/shared/lib/sync'
 
 export type { CancelMyReservationParams, CancelMyReservationResult }
@@ -19,7 +20,10 @@ const cancelMyReservationErrorMessages: Record<string, string> = {
 }
 
 function getCancelMyReservationErrorMessage(error: string) {
-  return cancelMyReservationErrorMessages[error] ?? error
+  return (
+    cancelMyReservationErrorMessages[error] ??
+    getConsumerCabinetErrorMessage(error, 'Не удалось отменить запись.')
+  )
 }
 
 export function useCancelConsumerReservation() {

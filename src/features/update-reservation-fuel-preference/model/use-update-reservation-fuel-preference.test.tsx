@@ -106,7 +106,7 @@ describe('useUpdateReservationFuelPreference', () => {
         fuelPreferenceMode: 'ANY_GASOLINE',
         clientMutationId: 'mutation-id',
       }),
-    ).rejects.toThrow('OFFLINE_UNAVAILABLE')
+    ).rejects.toThrow('Изменение доступно только при подключении к интернету.')
   })
 
   it('shows a clear error when fuel editing is locked by an active gasoline limit', async () => {
@@ -157,6 +157,32 @@ describe('useUpdateReservationFuelPreference', () => {
         clientMutationId: 'mutation-id',
       }),
     ).rejects.toThrow('Топливо нельзя изменить, пока идет заправка. Попробуйте позже.')
+
+    expect(mocks.localReservationUpdate).not.toHaveBeenCalled()
+  })
+
+  it('hides unknown technical RPC errors behind a clear fallback', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    mocks.updateReservationFuelPreference.mockResolvedValue({
+      data: null,
+      error: 'UPDATE_RESERVATION_FUEL_PREFERENCE_FAILED',
+    })
+
+    const { result } = renderHook(() => useUpdateReservationFuelPreference(), {
+      wrapper: makeWrapper(queryClient),
+    })
+
+    await expect(
+      result.current.mutateAsync({
+        reservationId: 'reservation-id',
+        fuelType: 'AI_92',
+        fuelPreferenceMode: 'ANY_GASOLINE',
+        clientMutationId: 'mutation-id',
+      }),
+    ).rejects.toThrow('Не удалось сохранить марку топлива.')
 
     expect(mocks.localReservationUpdate).not.toHaveBeenCalled()
   })

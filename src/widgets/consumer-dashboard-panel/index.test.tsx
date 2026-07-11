@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import '@testing-library/jest-dom/vitest'
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => ({
       updated_at: '2026-07-09T10:00:00Z',
     },
   ],
+  queueStatusError: null as Error | null,
+  todayFuelingStatusError: null as Error | null,
+  vehiclesError: null as Error | null,
 }))
 
 vi.mock('@/features/cancel-consumer-reservation', () => ({
@@ -34,13 +37,13 @@ vi.mock('@/features/create-consumer-reservation', () => ({
   CreateConsumerReservationForm: () => <div data-testid="create-reservation-form" />,
   useMyQueueStatus: () => ({
     data: mocks.activeReservation,
-    error: null,
+    error: mocks.queueStatusError,
     isFetching: false,
     refetch: vi.fn(),
   }),
   useMyTodayFuelingStatus: () => ({
     data: mocks.todayFuelingStatus,
-    error: null,
+    error: mocks.todayFuelingStatusError,
     refetch: vi.fn(),
   }),
 }))
@@ -49,16 +52,9 @@ vi.mock('@/features/manage-consumer-vehicles', () => ({
   AddConsumerVehicleForm: () => <div data-testid="add-vehicle-form" />,
   useConsumerVehicles: () => ({
     data: mocks.vehicles,
-    error: null,
+    error: mocks.vehiclesError,
     isFetching: false,
     isLoading: false,
-    refetch: vi.fn(),
-  }),
-}))
-
-vi.mock('@/features/manage-fueling-schedule', () => ({
-  useDailyFuelingSchedule: () => ({
-    data: [],
     refetch: vi.fn(),
   }),
 }))
@@ -83,6 +79,8 @@ import { ConsumerDashboardPanel } from './index'
 function makeActiveReservation(overrides: Record<string, unknown> = {}) {
   return {
     id: 'reservation-id',
+    queue_entry_id: 'reservation-id',
+    permanent_number: 7,
     date: '2026-07-10',
     station_id: 'station-id',
     station_name: 'АЗС №1',
@@ -103,8 +101,9 @@ function makeActiveReservation(overrides: Record<string, unknown> = {}) {
     is_callable_now: true,
     matched_fuel_type: 'AI_95',
     is_fuel_preference_update_locked: false,
-    status: 'RESERVED',
+    status: 'WAITING',
     client_mutation_id: 'mutation-id',
+    allocation: null,
     ...overrides,
   }
 }
@@ -113,6 +112,9 @@ describe('ConsumerDashboardPanel', () => {
   beforeEach(() => {
     mocks.activeReservation = makeActiveReservation()
     mocks.todayFuelingStatus = null
+    mocks.queueStatusError = null
+    mocks.todayFuelingStatusError = null
+    mocks.vehiclesError = null
   })
 
   afterEach(() => {
@@ -120,28 +122,72 @@ describe('ConsumerDashboardPanel', () => {
     vi.clearAllMocks()
   })
 
-  it('shows station name and address on the active reservation card', () => {
+  it('shows permanent number as the consumer common queue position', () => {
     render(<ConsumerDashboardPanel />)
 
-    expect(screen.getByText('АЗС №1')).toBeInTheDocument()
-    expect(screen.getByText('Адрес 1')).toBeInTheDocument()
-    expect(screen.getByText('В лимите')).toHaveClass('bg-emerald-50', 'text-emerald-700')
-    expect(screen.getAllByText('АИ-95').length).toBeGreaterThan(0)
+    expect(screen.getByText('Постоянный номер в общей очереди №7')).toBeInTheDocument()
+    expect(screen.getByText('Общая очередь')).toBeInTheDocument()
+    expect(screen.getByText('№7')).toBeInTheDocument()
   })
 
-  it('shows station returned by the reservation when it is already known', () => {
+  it('shows which vehicle is queued and keeps the create form hidden', () => {
+    render(<ConsumerDashboardPanel />)
+
+    expect(screen.getByText('Автомобиль в очереди')).toBeInTheDocument()
+    expect(screen.getAllByText('А123ВС777').length).toBeGreaterThan(0)
+    expect(
+      screen.getByText('Можно поставить в очередь только один автомобиль'),
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('create-reservation-form')).not.toBeInTheDocument()
+  })
+
+  it('does not show current_position as a consumer queue position', () => {
+    render(<ConsumerDashboardPanel />)
+
+    expect(screen.queryByText('Позиция в очереди топлива')).not.toBeInTheDocument()
+    expect(screen.queryByText('№3')).not.toBeInTheDocument()
+  })
+
+  it('shows daily distribution station context separately', () => {
+    render(<ConsumerDashboardPanel />)
+
+    const distribution = screen.getByText('Дневное распределение').closest('div')
+
+    expect(distribution).not.toBeNull()
+    expect(within(distribution as HTMLElement).getByText('АЗС №1')).toBeInTheDocument()
+    expect(within(distribution as HTMLElement).getByText('Адрес 1')).toBeInTheDocument()
+    expect(within(distribution as HTMLElement).getByText('В лимите')).toHaveClass(
+      'bg-emerald-50',
+      'text-emerald-700',
+    )
+    expect(within(distribution as HTMLElement).getByText('АИ-95')).toBeInTheDocument()
+  })
+
+  it('shows station returned by allocation over the base reservation station', () => {
     mocks.activeReservation = makeActiveReservation({
-      station_id: null,
-      station_name: 'АЗС №2',
-      station_address: 'Адрес 2',
-      is_within_today_limit: true,
+      station_name: 'АЗС из записи',
+      station_address: 'Адрес из записи',
+      allocation: {
+        id: 'allocation-id',
+        date: '2026-07-10',
+        station_id: 'station-id-2',
+        station_name: 'АЗС №2',
+        station_address: 'Адрес 2',
+        assigned_fuel_type: 'AI_95',
+        daily_position: 3,
+        station_position: 2,
+        station_fuel_position: 2,
+        arrival_at: '2026-07-10T10:00:00Z',
+        status: 'ACTIVE',
+        call_status: 'NOT_CALLED',
+      },
     })
 
     render(<ConsumerDashboardPanel />)
 
     expect(screen.getByText('АЗС №2')).toBeInTheDocument()
     expect(screen.getByText('Адрес 2')).toBeInTheDocument()
-    expect(screen.queryByText('АЗС будет выбрана при заправке')).not.toBeInTheDocument()
+    expect(screen.queryByText('АЗС из записи')).not.toBeInTheDocument()
   })
 
   it('shows a clear fallback when station is not assigned yet', () => {
@@ -149,11 +195,15 @@ describe('ConsumerDashboardPanel', () => {
       station_id: null,
       station_name: null,
       station_address: null,
+      allocation: null,
+      is_within_today_limit: null,
+      matched_fuel_type: null,
     })
 
     render(<ConsumerDashboardPanel />)
 
     expect(screen.getByText('Ожидает дневного распределения')).toBeInTheDocument()
+    expect(screen.getByText('Ожидает распределения')).toBeInTheDocument()
   })
 
   it('shows today fueling status separately from the active reservation card', () => {
@@ -181,5 +231,18 @@ describe('ConsumerDashboardPanel', () => {
     expect(screen.getByText('Адрес 2')).toBeInTheDocument()
     expect(screen.getByText('25')).toBeInTheDocument()
     expect(screen.queryByTestId('create-reservation-form')).not.toBeInTheDocument()
+  })
+
+  it('shows a Russian fallback for technical today fueling loading errors', () => {
+    mocks.todayFuelingStatusError = new Error('Unexpected get_my_today_fueling_status response.')
+
+    render(<ConsumerDashboardPanel />)
+
+    expect(screen.getByText('Не удалось загрузить сегодняшнюю заправку')).toBeInTheDocument()
+    expect(screen.getByText('Не удалось загрузить сегодняшнюю заправку.')).toBeInTheDocument()
+    expect(screen.getByText('Активная запись')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Unexpected get_my_today_fueling_status response.'),
+    ).not.toBeInTheDocument()
   })
 })

@@ -121,7 +121,9 @@ export function CreateConsumerReservationForm({
           <CalendarPlus className="size-5 text-slate-500" aria-hidden="true" />
           Встать в очередь
         </CardTitle>
-        <CardDescription>Запись создается в общей очереди по выбранному автомобилю.</CardDescription>
+        <CardDescription>
+          Запись создается в общей очереди по выбранному автомобилю.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -283,13 +285,14 @@ export function CreateConsumerReservationForm({
               <Alert className="border-emerald-200 bg-emerald-50 text-emerald-950">
                 <AlertTitle>Запись создана</AlertTitle>
                 <AlertDescription>
-                  Номер записи №{createReservationMutation.data.ticket_number},{' '}
+                  Запись создана в общей очереди. Ваш постоянный номер №
+                  {createReservationMutation.data.permanent_number}.{' '}
                   {createReservationMutation.data.normalized_plate_number},{' '}
                   {createReservationMutation.data.requested_liters} л.
                   <br />
                   {createReservationMutation.data.station_name
                     ? `АЗС: ${createReservationMutation.data.station_name}.`
-                    : 'АЗС будет выбрана при заправке.'}
+                    : 'АЗС будет назначена дневным распределением.'}
                 </AlertDescription>
               </Alert>
             ) : null}

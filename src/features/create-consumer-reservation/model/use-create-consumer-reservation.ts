@@ -8,6 +8,7 @@ import {
   type ConsumerReservation,
   type CreateConsumerReservationParams,
 } from '@/shared/api/rpc'
+import { getConsumerCabinetErrorMessage } from '@/shared/lib/consumer-cabinet-error'
 import { useOnlineStatus } from '@/shared/lib/sync'
 
 export type { ConsumerReservation, CreateConsumerReservationParams }
@@ -21,7 +22,8 @@ const createConsumerReservationErrorMessages: Record<string, string> = {
   CONSUMER_ACTIVE_RESERVATION_ALREADY_EXISTS: 'У вас уже есть активная запись в очереди.',
   VEHICLE_NOT_OWNED: 'Выберите один из своих автомобилей.',
   VEHICLE_BLOCKED: 'Этот автомобиль заблокирован для записи.',
-  REFUEL_COOLDOWN_ACTIVE: 'Для этого автомобиля еще действует ограничение после заправки.',
+  REFUEL_COOLDOWN_ACTIVE:
+    'Для этого автомобиля еще действует ограничение после заправки.',
   INVALID_DRIVER_FULL_NAME: 'Введите ФИО водителя.',
   INVALID_DRIVER_PHONE: 'Введите телефон водителя.',
   INVALID_FUEL_TYPE: 'Выберите вид топлива.',
@@ -32,7 +34,10 @@ const createConsumerReservationErrorMessages: Record<string, string> = {
 }
 
 function getCreateConsumerReservationErrorMessage(error: string) {
-  return createConsumerReservationErrorMessages[error] ?? error
+  return (
+    createConsumerReservationErrorMessages[error] ??
+    getConsumerCabinetErrorMessage(error, 'Не удалось создать запись.')
+  )
 }
 
 export function useMyQueueStatus() {
@@ -75,6 +80,7 @@ export function useCreateConsumerReservation() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: myQueueStatusQueryKey })
+      void queryClient.invalidateQueries({ queryKey: myTodayFuelingStatusQueryKey })
     },
   })
 }

@@ -6,7 +6,14 @@ vi.mock('@/shared/api/supabase', () => ({
   },
 }))
 
+vi.mock('@/shared/config/env', () => ({
+  isSupabaseConfigured: true,
+}))
+
+import { supabase } from '@/shared/api/supabase'
+
 import {
+  getMyTodayFuelingStatus,
   parseCancelMyReservationResult,
   parseConsumerReservation,
   parseConsumerTodayFuelingStatus,
@@ -40,7 +47,7 @@ describe('consumer cabinet RPC parsers', () => {
     })
   })
 
-  it('parses ticket number and fuel queue position for a consumer reservation response', () => {
+  it('parses permanent number as the consumer common queue number', () => {
     expect(
       parseConsumerReservation({
         id: 'reservation-id',
@@ -56,6 +63,7 @@ describe('consumer cabinet RPC parsers', () => {
         fuel_type: 'DIESEL',
         fuel_preference_mode: 'EXACT',
         requested_liters: '20.5',
+        permanent_number: '10',
         queue_number: '10',
         current_position: '3',
         people_ahead: '2',
@@ -72,6 +80,7 @@ describe('consumer cabinet RPC parsers', () => {
       station_name: 'АЗС №1',
       station_address: 'Адрес 1',
       fuel_type: 'DIESEL',
+      permanent_number: 10,
       queue_number: 10,
       ticket_number: 10,
       current_position: 3,
@@ -97,17 +106,46 @@ describe('consumer cabinet RPC parsers', () => {
         fuel_type: 'AI_95',
         fuel_preference_mode: 'EXACT',
         requested_liters: 20,
+        permanent_number: 8,
         queue_number: 8,
         is_within_today_limit: true,
         status: 'RESERVED',
         client_mutation_id: 'mutation-id',
       }),
     ).toMatchObject({
+      permanent_number: 8,
       station_id: null,
       station_name: 'АЗС №2',
       station_address: 'Адрес 2',
       is_within_today_limit: true,
       ticket_number: 8,
+    })
+  })
+
+  it('parses a waiting queue entry before daily allocation exists', () => {
+    expect(
+      parseConsumerReservation({
+        id: 'queue-entry-id',
+        queue_entry_id: 'queue-entry-id',
+        permanent_number: 11,
+        queue_number: 11,
+        vehicle_id: 'vehicle-id',
+        normalized_plate_number: 'А777АА777',
+        fuel_type: 'AI_95',
+        fuel_preference_mode: 'EXACT',
+        requested_liters: 20,
+        status: 'WAITING',
+        client_mutation_id: 'mutation-id',
+        allocation: null,
+      }),
+    ).toMatchObject({
+      id: 'queue-entry-id',
+      permanent_number: 11,
+      normalized_plate_number: 'А777АА777',
+      station_id: null,
+      is_within_today_limit: null,
+      status: 'WAITING',
+      allocation: null,
     })
   })
 
@@ -164,6 +202,49 @@ describe('consumer cabinet RPC parsers', () => {
       fuel_type: 'AI_95',
       liters: 20.5,
       fueled_at: '2026-07-10T10:00:00Z',
+      ticket_number: 7,
+    })
+  })
+
+  it('returns null for an empty today fueling parser payload', () => {
+    expect(parseConsumerTodayFuelingStatus(null)).toBeNull()
+  })
+})
+
+describe('getMyTodayFuelingStatus', () => {
+  it('returns null when the RPC has no today fueling record', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: null,
+      error: null,
+    } as never)
+
+    await expect(getMyTodayFuelingStatus()).resolves.toBeNull()
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_my_today_fueling_status')
+  })
+
+  it('returns a parsed today fueling record', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: {
+        id: 'fueling-id',
+        date: '2026-07-10',
+        station_id: 'station-id',
+        station_name: 'АЗС №1',
+        station_address: 'Адрес 1',
+        vehicle_id: 'vehicle-id',
+        reservation_id: 'reservation-id',
+        normalized_plate_number: 'А123ВС777',
+        fuel_type: 'AI_95',
+        liters: '20.5',
+        fueled_at: '2026-07-10T10:00:00Z',
+        ticket_number: '7',
+      },
+      error: null,
+    } as never)
+
+    await expect(getMyTodayFuelingStatus()).resolves.toMatchObject({
+      id: 'fueling-id',
+      vehicle_id: 'vehicle-id',
       ticket_number: 7,
     })
   })
