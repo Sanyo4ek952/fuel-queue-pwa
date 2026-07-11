@@ -44,7 +44,7 @@ describe('evaluateVehicleAccessOffline', () => {
   it('blocks an allocation for another station', () => {
     const value = snapshot()
     value.reservations[0].station_id = '10000000-0000-0000-0000-000000000002'
-    expect(check(value)).toMatchObject({ status: 'BLOCKED', reason: 'OUTSIDE_TODAY_LIMIT' })
+    expect(check(value)).toMatchObject({ status: 'BLOCKED', reason: 'RESERVATION_AT_OTHER_STATION' })
   })
 
   it('keeps the cached decision explicitly unconfirmed offline', () => {

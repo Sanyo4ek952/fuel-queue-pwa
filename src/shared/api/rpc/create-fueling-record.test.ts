@@ -18,6 +18,7 @@ describe('parseCreateFuelingRecordResult', () => {
         vehicle_id: 'vehicle-id',
         driver_id: null,
         reservation_id: 'reservation-id',
+        allocation_id: 'allocation-id',
         queue_entry_id: null,
         preferential_queue_entry_id: 'preferential-entry-id',
         fuel_type: 'AI_95',
@@ -31,6 +32,7 @@ describe('parseCreateFuelingRecordResult', () => {
     ).toMatchObject({
       id: 'fueling-id',
       fuel_type: 'AI_95',
+      allocation_id: 'allocation-id',
       liters: 42.5,
       sync_status: 'SYNCED',
       preferential_queue_entry_id: 'preferential-entry-id',

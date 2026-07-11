@@ -30,10 +30,10 @@ export function useCheckVehicleAccess() {
     mutationFn: async (params: CheckVehicleAccessParams) => {
       if (isOnline) {
         try {
-          await refreshVehicleAccessCache(params)
           const result = await checkVehicleAccess(params)
 
           if (result.data) {
+            void refreshVehicleAccessCache(params).catch(() => undefined)
             return result.data
           }
 

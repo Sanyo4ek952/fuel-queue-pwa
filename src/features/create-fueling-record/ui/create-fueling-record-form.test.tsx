@@ -120,6 +120,7 @@ describe('CreateFuelingRecordForm', () => {
         reason: 'ACTIVE_RESERVATION',
         normalized_plate_number: 'А123ВС777',
         reservation_id: 'reservation-id',
+        allocation_id: 'allocation-id',
         fuel_type: 'AI_95',
         fuel_preference_mode: 'EXACT',
         matched_fuel_type: 'AI_95',
@@ -171,6 +172,7 @@ describe('CreateFuelingRecordForm', () => {
         reason: 'ACTIVE_RESERVATION',
         normalized_plate_number: 'А123ВС777',
         reservation_id: 'reservation-id',
+        allocation_id: 'allocation-id',
         fuel_type: 'AI_95',
         fuel_preference_mode: 'ANY_GASOLINE',
         matched_fuel_type: 'AI_92',
@@ -185,6 +187,88 @@ describe('CreateFuelingRecordForm', () => {
 
     expect(fuelSelect).toBeDisabled()
     expect(within(fuelSelect).getByText('АИ-92')).toBeInTheDocument()
+  })
+
+  it('submits effective liters from the access check instead of requested liters', async () => {
+    mocks.checkVehicleAccess.mockResolvedValue({
+      data: {
+        status: 'ALLOWED',
+        reason: 'ACTIVE_RESERVATION',
+        normalized_plate_number: '\u0410123\u0412\u0421777',
+        reservation_id: 'reservation-id',
+        allocation_id: 'allocation-id',
+        fuel_type: 'AI_95',
+        fuel_preference_mode: 'EXACT',
+        matched_fuel_type: 'AI_95',
+        requested_liters: 40,
+        effective_liters: 20,
+      },
+      error: null,
+    })
+    mocks.createFuelingRecord.mockResolvedValue({
+      data: {
+        id: 'fueling-id',
+        date: '2026-07-09',
+        station_id: STATIONS[0].id,
+        vehicle_id: 'vehicle-id',
+        driver_id: null,
+        reservation_id: 'reservation-id',
+        allocation_id: 'allocation-id',
+        queue_entry_id: 'reservation-id',
+        preferential_queue_entry_id: null,
+        fuel_type: 'AI_95',
+        liters: 20,
+        is_manual_override: false,
+        override_id: null,
+        client_mutation_id: 'mutation-id',
+        sync_status: 'SYNCED',
+        fueled_at: '2026-07-09T00:00:00.000Z',
+      },
+      error: null,
+    })
+
+    const { container } = renderWithQueryClient(<CreateFuelingRecordForm />)
+    await checkPlate()
+    const submitButton = container.querySelector<HTMLButtonElement>('button[type="submit"]')!
+
+    await waitFor(() => {
+      expect(submitButton).toBeEnabled()
+    })
+    await userEvent.click(submitButton)
+
+    await waitFor(() => {
+      expect(mocks.createFuelingRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allocationId: 'allocation-id',
+          liters: 20,
+        }),
+      )
+    })
+  })
+
+  it('does not submit a normal queue fueling without an allocation id', async () => {
+    mocks.checkVehicleAccess.mockResolvedValue({
+      data: {
+        status: 'ALLOWED',
+        reason: 'ACTIVE_RESERVATION',
+        normalized_plate_number: '\u0410123\u0412\u0421777',
+        reservation_id: 'reservation-id',
+        fuel_type: 'AI_95',
+        fuel_preference_mode: 'EXACT',
+        matched_fuel_type: 'AI_95',
+        requested_liters: 20,
+      },
+      error: null,
+    })
+
+    const { container } = renderWithQueryClient(<CreateFuelingRecordForm />)
+    await checkPlate()
+
+    const submitButton = container.querySelector<HTMLButtonElement>('button[type="submit"]')!
+    expect(submitButton).toBeDisabled()
+    await userEvent.click(submitButton)
+
+    expect(mocks.createFuelingRecord).not.toHaveBeenCalled()
   })
 
   it('keeps fuel select enabled for manual override without reservation', async () => {

@@ -17,6 +17,8 @@ const reasonLabels: Record<VehicleAccessReason, string> = {
     'Автомобиль не попадает в сегодняшний лимит своей очереди.',
   PROFILE_NOT_FOUND: 'Профиль пользователя не найден.',
   PREFERENTIAL_QUEUE_ACTIVE: 'Льготная очередь.',
+  RESERVATION_AT_OTHER_STATION:
+    'Выбрана не та АЗС. Автомобиль назначен на другую АЗС.',
   REFUEL_COOLDOWN_ACTIVE:
     'После последней заправки ещё не прошёл установленный интервал.',
   RPC_ERROR: 'Не удалось выполнить серверную проверку.',

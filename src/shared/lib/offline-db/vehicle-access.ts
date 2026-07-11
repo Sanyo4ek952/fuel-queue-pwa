@@ -212,6 +212,31 @@ export function evaluateVehicleAccessOffline(
     reservation.station_id === stationId &&
     Boolean(reservation.allocation_id)
 
+  if (
+    reservation.allocation_status === 'ACTIVE' &&
+    reservation.date === checkDate &&
+    reservation.station_id !== stationId &&
+    Boolean(reservation.allocation_id)
+  ) {
+    return makeBlockedResult('RESERVATION_AT_OTHER_STATION', normalizedPlateNumber, {
+      vehicle_id: vehicle.id,
+      reservation_id: reservation.id,
+      allocation_id: reservation.allocation_id,
+      queue_entry_id: reservation.queue_entry_id,
+      station_id: stationId,
+      reservation_station_id: reservation.station_id,
+      date: checkDate,
+      queue_number: reservation.queue_number,
+      fuel_type: reservation.fuel_type,
+      preferred_fuel_type: reservation.fuel_type,
+      fuel_preference_mode: reservation.fuel_preference_mode ?? 'EXACT',
+      matched_fuel_type: reservation.assigned_fuel_type ?? reservation.matched_fuel_type ?? null,
+      is_within_today_limit: false,
+      is_callable_now: false,
+      call_unavailable_reason: 'RESERVATION_AT_OTHER_STATION',
+    })
+  }
+
   if (!isActiveSavedAllocation) {
     return makeBlockedResult('OUTSIDE_TODAY_LIMIT', normalizedPlateNumber, {
       vehicle_id: vehicle.id,

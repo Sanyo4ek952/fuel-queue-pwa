@@ -70,7 +70,8 @@ const reasonLabels: Record<string, string> = {
     'Автомобиль не попадает в сегодняшний лимит своей очереди.',
   PROFILE_NOT_FOUND: 'Профиль пользователя не найден.',
   PREFERENTIAL_QUEUE_ACTIVE: 'Льготная очередь.',
-  RESERVATION_AT_OTHER_STATION: 'Запись найдена на другой АЗС.',
+  RESERVATION_AT_OTHER_STATION:
+    'Выбрана не та АЗС. Автомобиль назначен на другую АЗС.',
   RPC_ERROR: 'Не удалось выполнить серверную проверку.',
   STATION_ACCESS_DENIED: 'Нет доступа к выбранной АЗС.',
   VEHICLE_BLOCKED: 'Автомобиль заблокирован.',
@@ -80,8 +81,15 @@ function canCreateFuelingRecord(
   result?: VehicleAccessResult,
   normalizedPlateNumber?: string,
 ) {
-  if (!result || result.normalized_plate_number !== normalizedPlateNumber) {
+  if (
+    !result ||
+    normalizePlateNumber(result.normalized_plate_number) !== normalizedPlateNumber
+  ) {
     return false
+  }
+
+  if (result.reason === 'ACTIVE_RESERVATION') {
+    return Boolean(result.allocation_id)
   }
 
   return result.status === 'ALLOWED' || result.offline_decision === 'ALLOWED'
@@ -191,6 +199,13 @@ function AccessResultCard({
                 <dd className="font-semibold">{result.requested_liters} л</dd>
               </div>
             ) : null}
+            {result.effective_liters &&
+            result.effective_liters !== result.requested_liters ? (
+              <div>
+                <dt className="opacity-70">Разрешено</dt>
+                <dd className="font-semibold">{result.effective_liters} л</dd>
+              </div>
+            ) : null}
           </dl>
           {result.offline ? (
             <p className="text-sm opacity-80">
@@ -268,8 +283,10 @@ export function CreateFuelingRecordForm() {
       checkDate: getTodayDateInputValue(),
     })
 
-    if (result.requested_liters) {
-      form.setValue('liters', result.requested_liters, { shouldValidate: true })
+    const allowedLiters = result.effective_liters ?? result.requested_liters
+
+    if (allowedLiters) {
+      form.setValue('liters', allowedLiters, { shouldValidate: true })
     }
 
     const actualFuelType = result.matched_fuel_type ?? result.fuel_type
