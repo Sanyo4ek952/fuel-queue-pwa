@@ -21,7 +21,6 @@ export const fuelingScheduleItemSchema = z.object({
 
 export const fuelingScheduleFormSchema = z.object({
   targetDate: z.string().min(1, 'Выберите дату'),
-  stationId: z.string().uuid('Выберите АЗС'),
   schedules: z.array(fuelingScheduleItemSchema),
 })
 

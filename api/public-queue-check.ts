@@ -1,27 +1,46 @@
+import type { IncomingHttpHeaders } from 'node:http'
+
 const requestTimeoutMs = 9_000
 
-function normalizeSupabaseUrl(url) {
+type VercelRequestLike = AsyncIterable<Buffer | string> & {
+  method?: string
+  headers: IncomingHttpHeaders
+  body?: unknown
+}
+
+type VercelResponseLike = {
+  status: (statusCode: number) => VercelResponseLike
+  setHeader: (key: string, value: string) => VercelResponseLike
+  end: (body: string) => void
+}
+
+type SupabaseConfig = {
+  url: string | undefined
+  anonKey: string | undefined
+}
+
+function normalizeSupabaseUrl(url: string | undefined) {
   return url?.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '')
 }
 
-function getSupabaseConfig() {
+function getSupabaseConfig(): SupabaseConfig {
   return {
     url: normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
     anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
   }
 }
 
-function sendJson(response, statusCode, payload) {
+function sendJson(response: VercelResponseLike, statusCode: number, payload: unknown) {
   response.status(statusCode).setHeader('content-type', 'application/json')
   response.setHeader('cache-control', 'no-store')
   response.end(JSON.stringify(payload))
 }
 
-function firstHeaderValue(value) {
+function firstHeaderValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value
 }
 
-function getForwardedIp(request) {
+function getForwardedIp(request: VercelRequestLike) {
   return (
     firstHeaderValue(request.headers['x-forwarded-for']) ||
     firstHeaderValue(request.headers['x-real-ip']) ||
@@ -30,7 +49,7 @@ function getForwardedIp(request) {
   )
 }
 
-async function readBody(request) {
+async function readBody(request: VercelRequestLike) {
   if (request.body && typeof request.body === 'object') {
     return request.body
   }
@@ -38,15 +57,15 @@ async function readBody(request) {
   const chunks = []
 
   for await (const chunk of request) {
-    chunks.push(chunk)
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
   }
 
   const rawBody = Buffer.concat(chunks).toString('utf8')
 
-  return rawBody ? JSON.parse(rawBody) : {}
+  return rawBody ? (JSON.parse(rawBody) as unknown) : {}
 }
 
-async function fetchWithTimeout(url, init) {
+async function fetchWithTimeout(url: string, init: RequestInit) {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
 
@@ -60,7 +79,7 @@ async function fetchWithTimeout(url, init) {
   }
 }
 
-export default async function handler(request, response) {
+export default async function handler(request: VercelRequestLike, response: VercelResponseLike) {
   if (request.method !== 'POST') {
     sendJson(response, 405, { error: 'Method not allowed.' })
     return
@@ -75,8 +94,9 @@ export default async function handler(request, response) {
 
   try {
     const body = await readBody(request)
-    const plateNumber = typeof body.plateNumber === 'string' ? body.plateNumber : ''
-    const phoneLast4 = typeof body.phoneLast4 === 'string' ? body.phoneLast4 : ''
+    const requestBody = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+    const plateNumber = typeof requestBody.plateNumber === 'string' ? requestBody.plateNumber : ''
+    const phoneLast4 = typeof requestBody.phoneLast4 === 'string' ? requestBody.phoneLast4 : ''
     const forwardedIp = getForwardedIp(request)
     const supabaseResponse = await fetchWithTimeout(
       `${url}/rest/v1/rpc/check_public_queue_position`,
@@ -99,7 +119,7 @@ export default async function handler(request, response) {
     if (!supabaseResponse.ok) {
       sendJson(response, supabaseResponse.status, {
         error:
-          responseBody && typeof responseBody.message === 'string'
+          responseBody && typeof responseBody === 'object' && 'message' in responseBody && typeof responseBody.message === 'string'
             ? responseBody.message
             : 'Public queue check failed.',
       })

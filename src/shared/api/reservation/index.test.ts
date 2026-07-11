@@ -106,6 +106,38 @@ describe('daily allocation queue API', () => {
     expect(page.summary.callable_count).toBe(0)
   })
 
+  it('does not expose paused assigned fuel as the current matched fuel', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: {
+        rows: [{
+          ...allocationRow,
+          allocation_status: 'PAUSED_BY_LIMIT',
+          is_within_today_limit: false,
+          is_callable_now: false,
+          call_unavailable_reason: 'PAUSED_BY_LIMIT',
+        }],
+        next_cursor: null,
+        summary: {
+          total_count: 1, callable_count: 0, contacted_count: 0, no_answer_count: 0,
+          category_counts: { GASOLINE: 1, DIESEL: 0, GAS: 0 },
+          callable_category_counts: { GASOLINE: 0, DIESEL: 0, GAS: 0 },
+        },
+      },
+      error: null,
+    })
+
+    const page = await listTodayQueueRowsPage()
+
+    expect(page.rows[0]).toMatchObject({
+      fuel_type: 'AI_95',
+      preferred_fuel_type: 'AI_95',
+      fuel_preference_mode: 'ANY_GASOLINE',
+      assigned_fuel_type: undefined,
+      matched_fuel_type: null,
+      is_within_today_limit: false,
+    })
+  })
+
   it('loads author filters from the server', async () => {
     mocks.rpc.mockResolvedValue({
       data: [{ user_id: 'profile-id', display_name: 'Оператор', role: 'cashier', signature_name: null }],

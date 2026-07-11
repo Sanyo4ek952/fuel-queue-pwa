@@ -156,6 +156,35 @@ describe('PublicQueueCheckForm', () => {
     expect(screen.queryByText('1234')).not.toBeInTheDocument()
   })
 
+  it('shows a clear inactive message for completed or cancelled queue entries', async () => {
+    mocks.checkPublicQueuePosition.mockResolvedValue({
+      data: {
+        status: 'FOUND',
+        queue_number: 2847,
+        ticket_number: 2847,
+        current_position: null,
+        people_ahead: null,
+        preferred_fuel_type: 'DIESEL',
+        public_status: 'COMPLETED_OR_CANCELLED',
+        is_within_today_limit: false,
+        is_callable_now: false,
+        remaining_attempts: 4,
+      },
+      error: null,
+    })
+
+    renderWithQueryClient(<PublicQueueCheckForm />)
+    await userEvent.type(screen.getByLabelText('Госномер'), 'A123BC777')
+    await userEvent.type(screen.getByLabelText('Последние 4 цифры телефона'), '1234')
+    await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
+
+    expect(await screen.findByText('Запись уже не активна')).toBeInTheDocument()
+    expect(screen.getByText(/Постоянный номер №2847./)).toBeInTheDocument()
+    expect(screen.getByText(/уже завершена, отменена или больше не участвует в очереди/)).toBeInTheDocument()
+    expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
+    expect(screen.queryByText('1234')).not.toBeInTheDocument()
+  })
+
   it('shows configured no-show grace days after a successful check', async () => {
     mocks.getNoShowGrace.mockResolvedValue({
       data: {

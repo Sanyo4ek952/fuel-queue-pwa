@@ -63,7 +63,17 @@ function makeQueueRow(overrides: Partial<TodayQueueRow> = {}): TodayQueueRow {
   }
 }
 
-function renderCard(row = makeQueueRow()) {
+function renderCard(
+  row = makeQueueRow(),
+  props: Partial<
+    Pick<
+      Parameters<typeof QueueRowCard>[0],
+      | 'isFuelPreferenceUpdateUnavailable'
+      | 'isFuelPreferenceLockedByGasolineLimit'
+      | 'isUpdatingFuelPreference'
+    >
+  > = {},
+) {
   const onLogCall = vi.fn()
   const onUpdateFuelPreference = vi.fn()
   const onCancel = vi.fn()
@@ -73,9 +83,13 @@ function renderCard(row = makeQueueRow()) {
       row={row}
       estimatedArrivalTime={null}
       isLoggingCall={false}
-      isUpdatingFuelPreference={false}
-      isFuelPreferenceUpdateUnavailable={false}
-      isFuelPreferenceLockedByGasolineLimit={false}
+      isUpdatingFuelPreference={props.isUpdatingFuelPreference ?? false}
+      isFuelPreferenceUpdateUnavailable={
+        props.isFuelPreferenceUpdateUnavailable ?? false
+      }
+      isFuelPreferenceLockedByGasolineLimit={
+        props.isFuelPreferenceLockedByGasolineLimit ?? false
+      }
       canCancel
       isCancelling={false}
       onLogCall={onLogCall}
@@ -161,6 +175,27 @@ describe('QueueRowCard', () => {
     renderCard()
 
     expect(screen.getByText('Серверное назначение АЗС отсутствует')).toBeInTheDocument()
+  })
+
+  it('shows a warning dialog when fuel edit is clicked during fueling', async () => {
+    renderCard(makeQueueRow({ status: 'FUELING' }), {
+      isFuelPreferenceLockedByGasolineLimit: true,
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Открыть детали' }))
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Пока идет розлив, менять вид топлива нельзя',
+      }),
+    )
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Нельзя изменить топливо' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Пока идет розлив, менять вид топлива нельзя/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Марка топлива' })).not.toBeInTheDocument()
   })
 
   it('cancels only the selected reservation row', async () => {

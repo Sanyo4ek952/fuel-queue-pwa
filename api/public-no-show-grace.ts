@@ -1,23 +1,41 @@
+import type { IncomingHttpHeaders } from 'node:http'
+
 const requestTimeoutMs = 9_000
 
-function normalizeSupabaseUrl(url) {
+type VercelRequestLike = {
+  method?: string
+  headers: IncomingHttpHeaders
+}
+
+type VercelResponseLike = {
+  status: (statusCode: number) => VercelResponseLike
+  setHeader: (key: string, value: string) => VercelResponseLike
+  end: (body: string) => void
+}
+
+type SupabaseConfig = {
+  url: string | undefined
+  anonKey: string | undefined
+}
+
+function normalizeSupabaseUrl(url: string | undefined) {
   return url?.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '')
 }
 
-function getSupabaseConfig() {
+function getSupabaseConfig(): SupabaseConfig {
   return {
     url: normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
     anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
   }
 }
 
-function sendJson(response, statusCode, payload) {
+function sendJson(response: VercelResponseLike, statusCode: number, payload: unknown) {
   response.status(statusCode).setHeader('content-type', 'application/json')
   response.setHeader('cache-control', 'public, max-age=60, stale-while-revalidate=300')
   response.end(JSON.stringify(payload))
 }
 
-async function fetchWithTimeout(url, init) {
+async function fetchWithTimeout(url: string, init: RequestInit) {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
 
@@ -31,7 +49,7 @@ async function fetchWithTimeout(url, init) {
   }
 }
 
-export default async function handler(request, response) {
+export default async function handler(request: VercelRequestLike, response: VercelResponseLike) {
   if (request.method !== 'GET') {
     sendJson(response, 405, { error: 'Method not allowed.' })
     return
@@ -62,7 +80,7 @@ export default async function handler(request, response) {
     if (!supabaseResponse.ok) {
       sendJson(response, supabaseResponse.status, {
         error:
-          responseBody && typeof responseBody.message === 'string'
+          responseBody && typeof responseBody === 'object' && 'message' in responseBody && typeof responseBody.message === 'string'
             ? responseBody.message
             : 'Public no-show grace check failed.',
       })

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarDays, Info, Save } from 'lucide-react'
+import { CalendarDays, Info, Save, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type FieldPath } from 'react-hook-form'
 
@@ -18,13 +18,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { StationSelectField } from '@/shared/ui/station-select-field'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shared/ui/select'
 
 const fuelTypeLabels: Record<QueueFuelType, string> = {
   AI_92: 'АИ-92',
@@ -75,7 +68,10 @@ export function CreateDailyLimitForm() {
   }, [form, stations])
 
   async function handleFuelTypeSubmit(index: number) {
-    const fuelTypeLimit = form.getValues(`fuelTypeLimits.${index}`)
+    const fuelTypeLimit = {
+      ...form.getValues(`fuelTypeLimits.${index}`),
+      status: 'OPEN' as const,
+    }
     const fuelType = fuelTypeLimit.fuelType as QueueFuelType
     const selectedStationId = form.getValues('stationId')
 
@@ -119,6 +115,66 @@ export function CreateDailyLimitForm() {
         fuelTypeLimits: [parsed.data.fuelTypeLimit],
         clientMutationId: crypto.randomUUID(),
       })
+      form.setValue(`fuelTypeLimits.${index}.status`, 'OPEN', { shouldValidate: true })
+      setSavedFuelType(fuelType)
+    } catch {
+      setFailedFuelType(fuelType)
+    } finally {
+      setSavingFuelType(null)
+    }
+  }
+
+  async function handleFuelTypeReset(index: number) {
+    const fuelTypeLimit = {
+      ...form.getValues(`fuelTypeLimits.${index}`),
+      status: 'PAUSED' as const,
+      litersLimit: null,
+    }
+    const fuelType = fuelTypeLimit.fuelType as QueueFuelType
+    const selectedStationId = form.getValues('stationId')
+
+    form.clearErrors()
+    setSavedFuelType(null)
+    setFailedFuelType(null)
+
+    const parsed = saveDailyFuelTypeLimitSchema.safeParse({
+      targetDate: form.getValues('targetDate'),
+      stationId: selectedStationId,
+      fuelTypeLimit,
+    })
+
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        if (issue.path[0] === 'targetDate') {
+          form.setError('targetDate', { message: issue.message })
+        }
+
+        if (issue.path[0] === 'stationId') {
+          form.setError('stationId', { message: issue.message })
+        }
+
+        if (issue.path[0] === 'fuelTypeLimit' && typeof issue.path[1] === 'string') {
+          const field = issue.path[1] as FuelTypeLimitField
+          form.setError(`fuelTypeLimits.${index}.${field}` as FieldPath<CreateDailyLimitFormInput>, {
+            message: issue.message,
+          })
+        }
+      }
+
+      return
+    }
+
+    setSavingFuelType(fuelType)
+
+    try {
+      await createDailyLimitMutation.mutateAsync({
+        targetDate: parsed.data.targetDate,
+        stationId: parsed.data.stationId,
+        fuelTypeLimits: [parsed.data.fuelTypeLimit],
+        clientMutationId: crypto.randomUUID(),
+      })
+      form.setValue(`fuelTypeLimits.${index}.status`, 'PAUSED', { shouldValidate: true })
+      form.setValue(`fuelTypeLimits.${index}.litersLimit`, null, { shouldValidate: true })
       setSavedFuelType(fuelType)
     } catch {
       setFailedFuelType(fuelType)
@@ -180,7 +236,7 @@ export function CreateDailyLimitForm() {
                 return (
                   <div
                     key={fuelType}
-                    className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-[1fr_160px_140px_140px]"
+                    className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-[1fr_140px_220px]"
                   >
                     <div>
                       <p className="text-sm font-medium text-slate-900">
@@ -197,26 +253,6 @@ export function CreateDailyLimitForm() {
                         {...form.register(`fuelTypeLimits.${index}.vehicleLimit`)}
                       />
                     </div>
-
-                    <FormItem>
-                      <FormLabel htmlFor={`limitMode-${fuelType}`}>Режим</FormLabel>
-                      <Select
-                        value={item.status}
-                        onValueChange={(value) =>
-                          form.setValue(`fuelTypeLimits.${index}.status`, value as 'OPEN' | 'PAUSED', {
-                            shouldValidate: true,
-                          })
-                        }
-                      >
-                        <SelectTrigger id={`limitMode-${fuelType}`} className="h-10 w-full bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent position="popper" align="start">
-                          <SelectItem value="OPEN">Выдача открыта</SelectItem>
-                          <SelectItem value="PAUSED">Выдача остановлена</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
 
                     <FormItem>
                         <FormLabel htmlFor={`litersLimit-${fuelType}`}>Литров</FormLabel>
@@ -245,6 +281,17 @@ export function CreateDailyLimitForm() {
                       >
                         <Save className="size-4" aria-hidden="true" />
                         {isSaving ? 'Сохраняем...' : 'Сохранить'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 w-full gap-2 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                        aria-label={`Обнулить ${fuelTypeLabels[fuelType]}`}
+                        disabled={createDailyLimitMutation.isPending}
+                        onClick={() => void handleFuelTypeReset(index)}
+                      >
+                        <XCircle className="size-4" aria-hidden="true" />
+                        Обнулить лимит
                       </Button>
 
                       {isSaved && createDailyLimitMutation.data ? (

@@ -106,6 +106,9 @@ export async function refreshVehicleAccessCache({
           const allocation = toRows<SupabaseRow>(allocationsResult.data).find(
             (candidate) => candidate.queue_entry_id === row.id,
           )
+          const allocationStatus = allocation?.status
+          const activeAssignedFuelType =
+            allocationStatus === 'ACTIVE' ? allocation?.assigned_fuel_type : undefined
           return ({
           ...row,
           id: allocation?.id ?? row.id,
@@ -116,16 +119,16 @@ export async function refreshVehicleAccessCache({
           fuel_type: row.preferred_fuel_type,
           date: allocation?.allocation_date,
           station_id: allocation?.station_id,
-          assigned_fuel_type: allocation?.assigned_fuel_type,
-          matched_fuel_type: allocation?.assigned_fuel_type,
+          assigned_fuel_type: activeAssignedFuelType,
+          matched_fuel_type: activeAssignedFuelType,
           daily_position: allocation?.daily_position,
           current_position: allocation?.daily_position,
           station_position: allocation?.station_position,
           station_fuel_position: allocation?.station_fuel_position,
           arrival_at: allocation?.arrival_at,
-          allocation_status: allocation?.status,
-          is_within_today_limit: allocation?.status === 'ACTIVE',
-          is_callable_now: allocation?.status === 'ACTIVE',
+          allocation_status: allocationStatus,
+          is_within_today_limit: allocationStatus === 'ACTIVE',
+          is_callable_now: allocationStatus === 'ACTIVE',
           latest_call_status: allocation?.call_status,
           normalized_plate_number:
             typeof row.vehicles === 'object' && row.vehicles && !Array.isArray(row.vehicles)

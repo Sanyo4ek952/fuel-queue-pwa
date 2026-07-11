@@ -12,6 +12,7 @@ import { useDailyFuelingSchedule, useSetDailyFuelingSchedule } from '../model/us
 import type { FuelQueueCategory } from '@/shared/constants'
 import { useCurrentProfile } from '@/entities/profile'
 import { getTodayDateInputValue } from '@/shared/lib/date'
+import { useProfileStationSelection } from '@/shared/lib/station-selection'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -50,13 +51,12 @@ export function FuelingScheduleSettingsCard({ canEdit }: FuelingScheduleSettings
     resolver: zodResolver(fuelingScheduleFormSchema),
     defaultValues: {
       targetDate: getTodayDateInputValue(),
-      stationId: stations[0]?.id ?? '',
       schedules: buildDefaultSchedules(),
     },
   })
   const targetDate = form.watch('targetDate')
-  const stationId = form.watch('stationId')
-  const scheduleQuery = useDailyFuelingSchedule(targetDate, stationId || null)
+  const [selectedStationId, setSelectedStationId] = useProfileStationSelection(stations)
+  const scheduleQuery = useDailyFuelingSchedule(targetDate, selectedStationId || null)
   const setScheduleMutation = useSetDailyFuelingSchedule()
 
   useEffect(() => {
@@ -68,7 +68,6 @@ export function FuelingScheduleSettingsCard({ canEdit }: FuelingScheduleSettings
 
     form.reset({
       targetDate,
-      stationId,
       schedules: fuelCategories.map((fuelCategory) => {
         const row = rowsByCategory.get(fuelCategory)
 
@@ -80,18 +79,16 @@ export function FuelingScheduleSettingsCard({ canEdit }: FuelingScheduleSettings
         }
       }),
     })
-  }, [form, scheduleQuery.data, stationId, targetDate])
-
-  useEffect(() => {
-    if (!stationId && stations[0]?.id) {
-      form.setValue('stationId', stations[0].id, { shouldValidate: true })
-    }
-  }, [form, stationId, stations])
+  }, [form, scheduleQuery.data, targetDate])
 
   async function handleSubmit(values: FuelingScheduleFormValues) {
+    if (!selectedStationId) {
+      return
+    }
+
     await setScheduleMutation.mutateAsync({
       targetDate: values.targetDate,
-      stationId: values.stationId,
+      stationId: selectedStationId,
       schedules: values.schedules,
       clientMutationId: crypto.randomUUID(),
     })
@@ -156,13 +153,10 @@ export function FuelingScheduleSettingsCard({ canEdit }: FuelingScheduleSettings
 
               <StationSelectField
                 id="fuelingScheduleStation"
-                value={stationId}
+                value={selectedStationId}
                 stations={stations}
-                onValueChange={(value) => form.setValue('stationId', value, { shouldValidate: true })}
+                onValueChange={setSelectedStationId}
               />
-              {form.formState.errors.stationId ? (
-                <FormMessage>{form.formState.errors.stationId.message}</FormMessage>
-              ) : null}
 
               <div className="grid gap-3">
                 {form.watch('schedules').map((schedule, index) => (
@@ -243,7 +237,7 @@ export function FuelingScheduleSettingsCard({ canEdit }: FuelingScheduleSettings
               <Button
                 type="submit"
                 className="h-11 w-full gap-2"
-                disabled={setScheduleMutation.isPending || scheduleQuery.isLoading}
+                disabled={!selectedStationId || setScheduleMutation.isPending || scheduleQuery.isLoading}
               >
                 <Save className="size-4" aria-hidden="true" />
                 {setScheduleMutation.isPending ? 'Сохраняем...' : 'Сохранить расписание'}

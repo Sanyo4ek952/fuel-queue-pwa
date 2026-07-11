@@ -102,6 +102,8 @@ export function QueueRowCard({
   onCancel,
 }: QueueRowCardProps) {
   const [isFuelDialogOpen, setIsFuelDialogOpen] = useState(false)
+  const [isFuelingWarningDialogOpen, setIsFuelingWarningDialogOpen] =
+    useState(false)
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false)
   const fuelPreferenceForm = useForm<UpdateReservationFuelPreferenceFormValues>({
     resolver: zodResolver(updateReservationFuelPreferenceSchema),
@@ -126,14 +128,20 @@ export function QueueRowCard({
   const callActionsDisabled = isLoggingCall || row.is_offline || !callableNow
   const contactedActionDisabled =
     isLoggingCall || row.is_offline || (!callableNow && !canResetContacted)
+  const isFuelingInProgress = row.status === 'FUELING'
+  const fuelPreferenceEditButtonDisabled = isFuelingInProgress
+    ? false
+    : isFuelPreferenceUpdateUnavailable ||
+      isFuelPreferenceLockedByGasolineLimit ||
+      row.is_offline ||
+      isUpdatingFuelPreference
   const fuelPreferenceActionsDisabled =
-    isFuelPreferenceUpdateUnavailable ||
-    isFuelPreferenceLockedByGasolineLimit ||
-    row.is_offline ||
-    isUpdatingFuelPreference
-  const fuelPreferenceEditLabel = isFuelPreferenceLockedByGasolineLimit
-    ? 'Топливо нельзя изменить, пока по бензину установлен ненулевой лимит'
-    : 'Изменить марку топлива'
+    fuelPreferenceEditButtonDisabled || isFuelingInProgress
+  const fuelPreferenceEditLabel = isFuelingInProgress
+    ? 'Пока идет розлив, менять вид топлива нельзя'
+    : isFuelPreferenceLockedByGasolineLimit
+      ? 'Топливо нельзя изменить, пока по бензину установлен ненулевой лимит'
+      : 'Изменить марку топлива'
   const hasPendingCallSync = row.latest_call_sync_status === 'PENDING'
   const callTime = formatCallTime(row.latest_called_at)
   const quickCallStatus: ReservationCallStatus = isContacted ? 'NOT_CALLED' : 'CONTACTED'
@@ -177,6 +185,15 @@ export function QueueRowCard({
   function handleFuelPreferenceSubmit(values: UpdateReservationFuelPreferenceFormValues) {
     onUpdateFuelPreference(row, values)
     setIsFuelDialogOpen(false)
+  }
+
+  function handleFuelDialogOpenChange(isOpen: boolean) {
+    if (isOpen && isFuelingInProgress) {
+      setIsFuelingWarningDialogOpen(true)
+      return
+    }
+
+    setIsFuelDialogOpen(isOpen)
   }
 
   function handleCancelSubmit(values: CancelReservationFormValues) {
@@ -438,7 +455,7 @@ export function QueueRowCard({
                 <dt className="text-slate-500">Топливо</dt>
                 <dd className="flex items-center gap-2 font-medium text-slate-950">
                   <span>{fuelTypeLabels[row.fuel_type as FuelType] ?? row.fuel_type}</span>
-                  <Dialog open={isFuelDialogOpen} onOpenChange={setIsFuelDialogOpen}>
+                  <Dialog open={isFuelDialogOpen} onOpenChange={handleFuelDialogOpenChange}>
                     <DialogTrigger asChild>
                       <Button
                         type="button"
@@ -447,7 +464,7 @@ export function QueueRowCard({
                         className="size-7 text-slate-500 hover:text-slate-900"
                         aria-label={fuelPreferenceEditLabel}
                         title={fuelPreferenceEditLabel}
-                        disabled={fuelPreferenceActionsDisabled}
+                        disabled={fuelPreferenceEditButtonDisabled}
                       >
                         <Pencil className="size-4" aria-hidden="true" />
                       </Button>
@@ -545,6 +562,28 @@ export function QueueRowCard({
                           </Button>
                         </DialogFooter>
                       </form>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog
+                    open={isFuelingWarningDialogOpen}
+                    onOpenChange={setIsFuelingWarningDialogOpen}
+                  >
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Нельзя изменить топливо</DialogTitle>
+                        <DialogDescription>
+                          Пока идет розлив, менять вид топлива нельзя. Дождитесь
+                          завершения операции.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          type="button"
+                          onClick={() => setIsFuelingWarningDialogOpen(false)}
+                        >
+                          Понятно
+                        </Button>
+                      </DialogFooter>
                     </DialogContent>
                   </Dialog>
                 </dd>

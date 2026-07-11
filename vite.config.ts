@@ -3,8 +3,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'node:path'
+import type { IncomingMessage } from 'node:http'
+import type { Connect } from 'vite'
 
 import currentProfileHandler from './api/current-profile.js'
+import publicNoShowGraceHandler from './api/public-no-show-grace.js'
+import publicQueueCheckHandler from './api/public-queue-check.js'
 
 type LocalApiResponse = {
   statusCode: number
@@ -12,6 +16,11 @@ type LocalApiResponse = {
   setHeader: (key: string, value: string) => LocalApiResponse
   end: (body: string) => void
 }
+
+type LocalApiHandler = (
+  request: IncomingMessage,
+  response: LocalApiResponse,
+) => Promise<void> | void
 
 function applyServerEnv(mode: string) {
   const env = loadEnv(mode, process.cwd(), '')
@@ -21,22 +30,59 @@ function applyServerEnv(mode: string) {
   }
 }
 
-function createLocalApiResponse(end: (statusCode: number, body: string) => void): LocalApiResponse {
+function createLocalApiResponse(
+  end: (statusCode: number, headers: Record<string, string>, body: string) => void,
+): LocalApiResponse {
+  const headers: Record<string, string> = {}
   const response: LocalApiResponse = {
     statusCode: 200,
     status(statusCode) {
       response.statusCode = statusCode
       return response
     },
-    setHeader() {
+    setHeader(key, value) {
+      headers[key.toLowerCase()] = value
       return response
     },
     end(body) {
-      end(response.statusCode, body)
+      end(response.statusCode, headers, body)
     },
   }
 
   return response
+}
+
+function mountLocalApiHandler(
+  middlewares: Connect.Server,
+  route: string,
+  handler: LocalApiHandler,
+  fallbackMessage: string,
+) {
+  middlewares.use(route, async (request, response) => {
+    try {
+      await handler(
+        request,
+        createLocalApiResponse((statusCode, headers, body) => {
+          response.statusCode = statusCode
+
+          for (const [key, value] of Object.entries(headers)) {
+            response.setHeader(key, value)
+          }
+
+          response.end(body)
+        }),
+      )
+    } catch (error) {
+      response.statusCode = 500
+      response.setHeader('content-type', 'application/json')
+      response.setHeader('cache-control', 'no-store')
+      response.end(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : fallbackMessage,
+        }),
+      )
+    }
+  })
 }
 
 function localApiPlugin(mode: string): Plugin {
@@ -45,30 +91,24 @@ function localApiPlugin(mode: string): Plugin {
     configureServer(server) {
       applyServerEnv(mode)
 
-      server.middlewares.use('/api/current-profile', async (request, response) => {
-        try {
-          await currentProfileHandler(
-            {
-              method: request.method,
-              headers: request.headers,
-            },
-            createLocalApiResponse((statusCode, body) => {
-              response.statusCode = statusCode
-              response.setHeader('content-type', 'application/json')
-              response.setHeader('cache-control', 'no-store')
-              response.end(body)
-            }),
-          )
-        } catch (error) {
-          response.statusCode = 500
-          response.setHeader('content-type', 'application/json')
-          response.end(
-            JSON.stringify({
-              error: error instanceof Error ? error.message : 'Local current profile request failed.',
-            }),
-          )
-        }
-      })
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/current-profile',
+        currentProfileHandler,
+        'Local current profile request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/public-queue-check',
+        publicQueueCheckHandler,
+        'Local public queue check request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/public-no-show-grace',
+        publicNoShowGraceHandler,
+        'Local public no-show grace request failed.',
+      )
     },
   }
 }

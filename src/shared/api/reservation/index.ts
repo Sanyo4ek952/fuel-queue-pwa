@@ -293,6 +293,11 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
   const currentPosition = toNullableNumber(row.current_position)
   const fuelQueuePosition = toNullableNumber(row.fuel_queue_position)
   const peopleAhead = toNullableNumber(row.people_ahead)
+  const allocationStatus = (row.allocation_status ?? undefined) as
+    | DailyQueueAllocationStatus
+    | undefined
+  const activeAssignedFuelType =
+    allocationStatus === 'ACTIVE' ? (row.assigned_fuel_type ?? row.matched_fuel_type) : null
 
   return {
     id: row.id,
@@ -318,8 +323,8 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     station_position: toNullableNumber(row.station_position) ?? undefined,
     station_fuel_position: toNullableNumber(row.station_fuel_position) ?? undefined,
     arrival_at: row.arrival_at ?? '',
-    allocation_status: (row.allocation_status ?? undefined) as DailyQueueAllocationStatus | undefined,
-    assigned_fuel_type: row.assigned_fuel_type ?? row.matched_fuel_type ?? row.fuel_type,
+    allocation_status: allocationStatus,
+    assigned_fuel_type: activeAssignedFuelType ?? undefined,
     normalized_plate_number: row.normalized_plate_number ?? vehicle?.normalized_plate_number ?? '',
     driver_full_name: row.driver_full_name ?? driver?.full_name ?? '',
     driver_phone: row.driver_phone ?? driver?.phone ?? null,
@@ -335,7 +340,7 @@ function toTodayQueueRow(row: ReservationRow): TodayQueueRow {
     is_within_today_limit: Boolean(row.is_within_today_limit),
     is_callable_now: Boolean(row.is_callable_now ?? row.is_within_today_limit),
     call_unavailable_reason: row.call_unavailable_reason ?? null,
-    matched_fuel_type: row.matched_fuel_type ?? null,
+    matched_fuel_type: activeAssignedFuelType ?? null,
     latest_call_status: (row.latest_call_status ?? null) as ReservationCallStatus | null,
     latest_called_by_profile_id: row.latest_called_by_profile_id ?? null,
     latest_called_by_full_name: row.latest_called_by_full_name ?? '',
@@ -353,6 +358,9 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
   const ticketNumber = row.ticket_number ?? row.queue_number
   const currentPosition = row.current_position ?? ticketNumber
   const peopleAhead = row.people_ahead ?? Math.max(currentPosition - 1, 0)
+  const allocationStatus = row.allocation_status ?? 'ACTIVE'
+  const activeAssignedFuelType =
+    allocationStatus === 'ACTIVE' ? (row.assigned_fuel_type ?? row.matched_fuel_type) : null
 
   return {
     id: row.id,
@@ -377,8 +385,8 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     station_position: row.station_position ?? 0,
     station_fuel_position: row.station_fuel_position ?? 0,
     arrival_at: row.arrival_at ?? '',
-    allocation_status: row.allocation_status ?? 'ACTIVE',
-    assigned_fuel_type: row.assigned_fuel_type ?? row.matched_fuel_type ?? row.fuel_type,
+    allocation_status: allocationStatus,
+    assigned_fuel_type: activeAssignedFuelType ?? undefined,
     normalized_plate_number: row.normalized_plate_number ?? '',
     driver_full_name: row.driver_full_name ?? '',
     driver_phone: row.driver_phone ?? null,
@@ -394,7 +402,7 @@ export function toTodayQueueRowFromLocal(row: LocalReservation): TodayQueueRow {
     is_within_today_limit: Boolean(row.is_within_today_limit),
     is_callable_now: Boolean(row.is_callable_now ?? row.is_within_today_limit),
     call_unavailable_reason: row.call_unavailable_reason ?? null,
-    matched_fuel_type: row.matched_fuel_type ?? null,
+    matched_fuel_type: activeAssignedFuelType ?? null,
     latest_call_status: row.latest_call_status ?? null,
     latest_called_by_profile_id: row.latest_called_by_profile_id ?? null,
     latest_called_by_full_name: row.latest_called_by_full_name ?? '',

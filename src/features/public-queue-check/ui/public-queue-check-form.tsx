@@ -114,6 +114,7 @@ export function PublicQueueCheckForm() {
   const isInCallList = isFound && result.public_status === 'IN_CALL_LIST'
   const isWaitingFuel = isFound && result.public_status === 'WAITING_FOR_PREFERRED_FUEL'
   const isPausedByLimit = isFound && result.public_status === 'PAUSED_BY_LIMIT'
+  const isCompletedOrCancelled = isFound && result.public_status === 'COMPLETED_OR_CANCELLED'
   const isQueueNotReady =
     isFound &&
     (result.public_status === 'QUEUE_NOT_READY' || result.public_status === 'WAIT_FOR_CALL')
@@ -254,6 +255,22 @@ export function PublicQueueCheckForm() {
                     peopleAhead={result.people_ahead}
                   />
                   Сейчас нет подходящей марки топлива для вашей записи.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {isCompletedOrCancelled ? (
+              <Alert className="border-slate-200 bg-slate-50 text-slate-950">
+                <TriangleAlert className="size-4" aria-hidden="true" />
+                <AlertTitle>Запись уже не активна</AlertTitle>
+                <AlertDescription>
+                  <QueuePositionSummary
+                    ticketNumber={foundTicketNumber}
+                    currentPosition={result.current_position}
+                    peopleAhead={result.people_ahead}
+                  />
+                  Эта запись уже завершена, отменена или больше не участвует в очереди. Если вы
+                  считаете это ошибкой, обратитесь к оператору.
                 </AlertDescription>
               </Alert>
             ) : null}
