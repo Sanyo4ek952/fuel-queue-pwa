@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(59);
 
 select has_table('public', 'fuel_queue_entries', 'persistent queue entries exist');
 select has_table('public', 'daily_queue_allocations', 'daily allocations exist');
@@ -910,6 +910,242 @@ select lives_ok(
     select public.allocate_daily_queue(date '2026-07-10', true)
   $test$,
   'two-argument allocate_daily_queue remains callable without a default argument'
+);
+
+delete from public.daily_queue_allocations
+where allocation_date = date '2026-07-11';
+
+delete from public.daily_fueling_schedules
+where date = date '2026-07-11'
+  and station_id = '10000000-1000-4000-8000-000000000001';
+
+delete from public.daily_limits
+where date = date '2026-07-11'
+  and station_id = '10000000-1000-4000-8000-000000000001';
+
+insert into public.vehicles (id, plate_number, normalized_plate_number)
+values
+  ('40000000-1000-4000-8000-000000000013', 'A013AA777', 'A013AA777'),
+  ('40000000-1000-4000-8000-000000000014', 'A014AA777', 'A014AA777'),
+  ('40000000-1000-4000-8000-000000000015', 'A015AA777', 'A015AA777')
+on conflict (id) do update
+set plate_number = excluded.plate_number,
+    normalized_plate_number = excluded.normalized_plate_number;
+
+insert into public.drivers (id, full_name, phone)
+values
+  ('50000000-1000-4000-8000-000000000013', 'Driver Thirteen', '+70000000013'),
+  ('50000000-1000-4000-8000-000000000014', 'Driver Fourteen', '+70000000014'),
+  ('50000000-1000-4000-8000-000000000015', 'Driver Fifteen', '+70000000015')
+on conflict (id) do update
+set full_name = excluded.full_name,
+    phone = excluded.phone;
+
+insert into public.fuel_queue_entries (
+  id,
+  permanent_number,
+  vehicle_id,
+  driver_id,
+  preferred_fuel_type,
+  fuel_preference_mode,
+  requested_liters,
+  status,
+  operator_id,
+  client_mutation_id,
+  sync_status
+)
+values (
+  '60000000-1000-4000-8000-000000000013',
+  900013,
+  '40000000-1000-4000-8000-000000000013',
+  '50000000-1000-4000-8000-000000000013',
+  'AI_95',
+  'EXACT',
+  400,
+  'WAITING',
+  '30000000-1000-4000-8000-000000000001',
+  '61000000-1000-4000-8000-000000000013',
+  'SYNCED'
+),
+(
+  '60000000-1000-4000-8000-000000000014',
+  900014,
+  '40000000-1000-4000-8000-000000000014',
+  '50000000-1000-4000-8000-000000000014',
+  'AI_95',
+  'EXACT',
+  60,
+  'CANCELLED',
+  '30000000-1000-4000-8000-000000000001',
+  '61000000-1000-4000-8000-000000000014',
+  'SYNCED'
+),
+(
+  '60000000-1000-4000-8000-000000000015',
+  900015,
+  '40000000-1000-4000-8000-000000000015',
+  '50000000-1000-4000-8000-000000000015',
+  'AI_95',
+  'EXACT',
+  60,
+  'CANCELLED',
+  '30000000-1000-4000-8000-000000000001',
+  '61000000-1000-4000-8000-000000000015',
+  'SYNCED'
+)
+on conflict (id) do update
+set permanent_number = excluded.permanent_number,
+    requested_liters = excluded.requested_liters,
+    status = excluded.status;
+
+update public.fuel_queue_entries
+set status = 'CANCELLED'
+where status = 'WAITING'
+  and id <> '60000000-1000-4000-8000-000000000013';
+
+select lives_ok(
+  $test$
+    select public.create_daily_limit(
+      date '2026-07-11',
+      '[{"fuel_type":"AI_95","status":"OPEN","liters_limit":400}]'::jsonb,
+      '35000000-1000-4000-8000-000000000015',
+      '10000000-1000-4000-8000-000000000001'
+    );
+
+    select public.create_fueling_record_for_allocation(
+      (
+        select id
+        from public.daily_queue_allocations
+        where allocation_date = date '2026-07-11'
+          and queue_entry_id = '60000000-1000-4000-8000-000000000013'
+      ),
+      400,
+      timestamp with time zone '2026-07-11 09:05:00+03',
+      null,
+      '62000000-1000-4000-8000-000000000013'
+    );
+
+    select public.create_daily_limit(
+      date '2026-07-11',
+      '[{"fuel_type":"AI_95","status":"PAUSED","liters_limit":null}]'::jsonb,
+      '35000000-1000-4000-8000-000000000016',
+      '10000000-1000-4000-8000-000000000001'
+    );
+
+    select public.create_daily_limit(
+      date '2026-07-11',
+      '[{"fuel_type":"AI_95","status":"OPEN","liters_limit":100}]'::jsonb,
+      '35000000-1000-4000-8000-000000000017',
+      '10000000-1000-4000-8000-000000000001'
+    );
+  $test$,
+  'reopening a paused fuel limit starts a new liters session'
+);
+
+select is(
+  (
+    select dftl.liters_limit
+    from public.daily_limits dl
+    join public.daily_fuel_type_limits dftl on dftl.daily_limit_id = dl.id
+    where dl.date = date '2026-07-11'
+      and dl.station_id = '10000000-1000-4000-8000-000000000001'
+      and dftl.fuel_type = 'AI_95'
+  ),
+  100::numeric,
+  'reopened paused fuel limit stores entered liters as the new capacity'
+);
+
+select is(
+  (
+    select dftl.liters_used_baseline
+    from public.daily_limits dl
+    join public.daily_fuel_type_limits dftl on dftl.daily_limit_id = dl.id
+    where dl.date = date '2026-07-11'
+      and dl.station_id = '10000000-1000-4000-8000-000000000001'
+      and dftl.fuel_type = 'AI_95'
+  ),
+  400::numeric,
+  'reopened paused fuel limit stores already fueled liters as the session baseline'
+);
+
+select is(
+  (
+    select (category_value ->> 'remaining_liters')::numeric
+    from jsonb_array_elements(public.get_daily_limit_overview(date '2026-07-11') -> 'station_overviews') station_value
+    cross join jsonb_array_elements(station_value -> 'category_overviews') category_value
+    where station_value ->> 'station_id' = '10000000-1000-4000-8000-000000000001'
+      and category_value ->> 'fuel_type' = 'AI_95'
+  ),
+  100::numeric,
+  'daily limit overview ignores pre-baseline liters before new queue allocation'
+);
+
+select lives_ok(
+  $test$
+    update public.fuel_queue_entries
+    set status = 'WAITING'
+    where id in (
+      '60000000-1000-4000-8000-000000000014',
+      '60000000-1000-4000-8000-000000000015'
+    );
+
+    select public.allocate_daily_queue(date '2026-07-11');
+  $test$,
+  'allocator uses only the reopened fuel limit capacity after the baseline'
+);
+
+select is(
+  (
+    select jsonb_agg(
+      jsonb_build_object(
+        'entry', dqa.queue_entry_id,
+        'status', dqa.status
+      )
+      order by fqe.permanent_number
+    )
+    from public.daily_queue_allocations dqa
+    join public.fuel_queue_entries fqe on fqe.id = dqa.queue_entry_id
+    where dqa.allocation_date = date '2026-07-11'
+      and dqa.queue_entry_id in (
+        '60000000-1000-4000-8000-000000000014',
+        '60000000-1000-4000-8000-000000000015'
+      )
+  ),
+  jsonb_build_array(
+    jsonb_build_object('entry', '60000000-1000-4000-8000-000000000014', 'status', 'ACTIVE'),
+    jsonb_build_object('entry', '60000000-1000-4000-8000-000000000015', 'status', 'PAUSED_BY_LIMIT')
+  ),
+  'allocator does not expand the reopened 100 liter limit to the previously fueled 400 liters'
+);
+
+select lives_ok(
+  $test$
+    select public.create_fueling_record_for_allocation(
+      (
+        select id
+        from public.daily_queue_allocations
+        where allocation_date = date '2026-07-11'
+          and queue_entry_id = '60000000-1000-4000-8000-000000000014'
+      ),
+      60,
+      timestamp with time zone '2026-07-11 10:05:00+03',
+      null,
+      '62000000-1000-4000-8000-000000000014'
+    )
+  $test$,
+  'fueling after reopen checks liters against the post-baseline session capacity'
+);
+
+select is(
+  (
+    select (category_value ->> 'remaining_liters')::numeric
+    from jsonb_array_elements(public.get_daily_limit_overview(date '2026-07-11') -> 'station_overviews') station_value
+    cross join jsonb_array_elements(station_value -> 'category_overviews') category_value
+    where station_value ->> 'station_id' = '10000000-1000-4000-8000-000000000001'
+      and category_value ->> 'fuel_type' = 'AI_95'
+  ),
+  40::numeric,
+  'daily limit overview shows remaining liters in the current reopened session'
 );
 
 select * from finish();

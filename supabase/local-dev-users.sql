@@ -29,9 +29,9 @@ begin
 
   insert into public.stations (id, name, address, is_active, allocation_order)
   values
-    (station_ids[1], 'AZS #1', 'Main station #1', true, 1),
-    (station_ids[2], 'AZS #2', 'Main station #2', true, 2),
-    (station_ids[3], 'AZS #3', 'Main station #3', true, 3)
+    (station_ids[1], 'АТАН АЗС №076 (нижняя)', 'Восточное шоссе, 2', true, 1),
+    (station_ids[2], 'АТАН АЗС №077 (верхняя)', 'Феодосийское шоссе, 14', true, 2),
+    (station_ids[3], 'ТЭС АЗС №37', 'Феодосийское шоссе, 12А', true, 3)
   on conflict (id) do update
   set
     name = excluded.name,

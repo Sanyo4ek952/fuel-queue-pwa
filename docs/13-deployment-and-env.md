@@ -146,13 +146,13 @@ rejected-cashier@example.local
 Быстрые проверки номеров на текущую дату:
 
 ```text
-A111AA777 -> ALLOWED на AZS #1
-A222AA777 -> RESERVATION_AT_OTHER_STATION на AZS #1, ALLOWED на AZS #2
+A111AA777 -> ALLOWED на АТАН АЗС №076 (нижняя)
+A222AA777 -> RESERVATION_AT_OTHER_STATION на АТАН АЗС №076 (нижняя), ALLOWED на АТАН АЗС №077 (верхняя)
 A333AA777 -> ALREADY_FUELED
 A444AA777 -> VEHICLE_BLOCKED
 A555AA777 -> NO_ACTIVE_RESERVATION
-A666AA777 -> MANUAL_OVERRIDE_ACTIVE на AZS #1
-A777AA777 -> LITERS_LIMIT_EXCEEDED на AZS #1
+A666AA777 -> MANUAL_OVERRIDE_ACTIVE на АТАН АЗС №076 (нижняя)
+A777AA777 -> LITERS_LIMIT_EXCEEDED на АТАН АЗС №076 (нижняя)
 ```
 
 Ограничение: скрипт рассчитан на безопасное первичное заполнение hosted-теста. После ручной фиксации заправок через UI повторный запуск может остановиться защитной проверкой, чтобы не перезаписать пользовательские тестовые действия.
