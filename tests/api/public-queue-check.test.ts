@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import handler from './public-queue-check.js'
+import handler from '../../api/public-queue-check.js'
 
 function createResponse() {
   const response = {

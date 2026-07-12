@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { finalizeDailyQueue, getPreviousMoscowDate } from './finalize-daily-queue.js'
+import { finalizeDailyQueue, getPreviousMoscowDate } from '../../../../api/cron/_lib/finalize-daily-queue.js'
 
 afterEach(() => vi.unstubAllGlobals())
 

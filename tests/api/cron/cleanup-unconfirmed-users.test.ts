@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import handler from './cleanup-unconfirmed-users.js'
-import { cleanupUnconfirmedUsers } from './_lib/cleanup-unconfirmed-users.js'
+import handler from '../../../api/cron/cleanup-unconfirmed-users.js'
+import { cleanupUnconfirmedUsers } from '../../../api/cron/_lib/cleanup-unconfirmed-users.js'
 
-vi.mock('./_lib/cleanup-unconfirmed-users.js', () => ({
+vi.mock('../../../api/cron/_lib/cleanup-unconfirmed-users.js', () => ({
   cleanupUnconfirmedUsers: vi.fn(),
 }))
 

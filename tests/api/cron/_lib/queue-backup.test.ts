@@ -6,7 +6,7 @@ import {
   getQueueBackupFileName,
   isQueueBackupDate,
   selectOldQueueBackupFileIds,
-} from './queue-backup.js'
+} from '../../../../api/cron/_lib/queue-backup.js'
 
 describe('queue backup csv', () => {
   it('builds an Excel-friendly semicolon CSV with callable queue fields', () => {

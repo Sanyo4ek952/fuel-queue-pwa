@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import handler from './backup-queue.js'
-import { runQueueBackup } from './_lib/run-queue-backup.js'
+import handler from '../../../api/cron/backup-queue.js'
+import { runQueueBackup } from '../../../api/cron/_lib/run-queue-backup.js'
 
-vi.mock('./_lib/run-queue-backup.js', () => ({
+vi.mock('../../../api/cron/_lib/run-queue-backup.js', () => ({
   runQueueBackup: vi.fn(),
 }))
 

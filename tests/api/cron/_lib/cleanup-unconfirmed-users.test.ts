@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { cleanupUnconfirmedUsers, type CleanupUnconfirmedUsersEnv } from './cleanup-unconfirmed-users.js'
+import {
+  cleanupUnconfirmedUsers,
+  type CleanupUnconfirmedUsersEnv,
+} from '../../../../api/cron/_lib/cleanup-unconfirmed-users.js'
 
 const env: CleanupUnconfirmedUsersEnv = {
   supabaseUrl: 'https://example.supabase.co',

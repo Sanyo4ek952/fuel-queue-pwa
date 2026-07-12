@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import handler from './current-profile.js'
+import handler from '../../api/current-profile.js'
 
 function createResponse() {
   const response = {
