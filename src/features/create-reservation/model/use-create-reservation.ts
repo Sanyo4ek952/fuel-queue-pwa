@@ -17,6 +17,8 @@ export type { CreateReservationParams, CreateReservationResult, OfflineReservati
 export type CreateReservationMutationResult = CreateReservationResult | OfflineReservationResult
 
 const createReservationErrorMessages: Record<string, string> = {
+  REFUEL_COOLDOWN_ACTIVE:
+    'Для этого автомобиля еще действует ограничение после заправки.',
   ACTIVE_RESERVATION_ALREADY_EXISTS:
     'Автомобиль уже есть в очереди. Повторная запись запрещена.',
   INVALID_DRIVER_PHONE: 'Введите телефон водителя.',
