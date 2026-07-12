@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(23);
 
 insert into public.stations (id, name, address, is_active, allocation_order)
 values
@@ -412,7 +412,7 @@ values
     '77900000-3000-4000-8000-000000000004',
     date '2026-07-20',
     '77700000-3000-4000-8000-000000000008',
-    '77000000-3000-4000-8000-000000000002',
+    '77000000-3000-4000-8000-000000000001',
     'AI_95',
     20,
     4,
@@ -547,8 +547,24 @@ select throws_ok(
   'staff cannot update fuel preference while reservation is active in the daily limit'
 );
 
+update public.daily_queue_allocations
+set call_status = 'CONTACTED'
+where id = '77900000-3000-4000-8000-000000000004';
+
 select lives_ok(
-  $$select public.update_reservation_fuel_preference('77700000-3000-4000-8000-000000000008', 'GAS', 'EXACT', '77800000-3000-4000-8000-000000000403')$$,
+  $$select public.create_reservation_call_log('77900000-3000-4000-8000-000000000004', 'NOT_CALLED', null, '77800000-3000-4000-8000-000000000403')$$,
+  'staff can reset a contacted paused allocation outside the daily limit'
+);
+
+select throws_ok(
+  $$select public.create_reservation_call_log('77900000-3000-4000-8000-000000000004', 'CONTACTED', null, '77800000-3000-4000-8000-000000000404')$$,
+  'P0001',
+  'ALLOCATION_NOT_ACTIVE',
+  'staff cannot add a new contacted mark to a paused allocation outside the daily limit'
+);
+
+select lives_ok(
+  $$select public.update_reservation_fuel_preference('77700000-3000-4000-8000-000000000008', 'GAS', 'EXACT', '77800000-3000-4000-8000-000000000405')$$,
   'staff can update fuel preference for a waiting reservation paused outside the daily limit'
 );
 

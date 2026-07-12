@@ -28,11 +28,36 @@ const fuelTypeLabels: Record<QueueFuelType, string> = {
 }
 
 const defaultFuelTypeLimits = [
-  { fuelType: 'AI_92' as const, status: 'PAUSED' as const, vehicleLimit: 0, litersLimit: null },
-  { fuelType: 'AI_95' as const, status: 'OPEN' as const, vehicleLimit: 0, litersLimit: 400 },
-  { fuelType: 'AI_100' as const, status: 'PAUSED' as const, vehicleLimit: 0, litersLimit: null },
-  { fuelType: 'DIESEL' as const, status: 'OPEN' as const, vehicleLimit: 0, litersLimit: 400 },
-  { fuelType: 'GAS' as const, status: 'OPEN' as const, vehicleLimit: 0, litersLimit: 400 },
+  {
+    fuelType: 'AI_92' as const,
+    status: 'PAUSED' as const,
+    vehicleLimit: 0,
+    litersLimit: null,
+  },
+  {
+    fuelType: 'AI_95' as const,
+    status: 'OPEN' as const,
+    vehicleLimit: 0,
+    litersLimit: null,
+  },
+  {
+    fuelType: 'AI_100' as const,
+    status: 'PAUSED' as const,
+    vehicleLimit: 0,
+    litersLimit: null,
+  },
+  {
+    fuelType: 'DIESEL' as const,
+    status: 'OPEN' as const,
+    vehicleLimit: 0,
+    litersLimit: null,
+  },
+  {
+    fuelType: 'GAS' as const,
+    status: 'OPEN' as const,
+    vehicleLimit: 0,
+    litersLimit: null,
+  },
 ]
 
 type FuelTypeLimitField = 'fuelType' | 'status' | 'vehicleLimit' | 'litersLimit'
