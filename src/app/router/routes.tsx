@@ -4,7 +4,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useCurrentProfile } from '@/entities/profile'
 import { useLogout } from '@/features/auth'
 import { AppHeader } from '@/widgets/app-header'
-import { BottomNavigation } from '@/widgets/bottom-navigation'
+import { BottomNavigation, getVisibleBottomNavItems } from '@/widgets/bottom-navigation'
 import { OfflineBanner } from '@/widgets/offline-banner'
 import { useSupabaseAuth } from '@/app/providers/supabase-provider/auth-context'
 import { PUBLIC_ROUTES, ROUTES } from '@/shared/config/routes'
@@ -185,13 +185,20 @@ function getRouteForAccess(pathname: string) {
 
 function AppShell() {
   const currentProfileQuery = useCurrentProfile()
+  const visibleBottomNavItems = getVisibleBottomNavItems(currentProfileQuery.data?.role)
+  const hasBottomNavigation = visibleBottomNavItems.length > 1
   const isProfileFromCache = Boolean(currentProfileQuery.data?.is_from_cache)
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
       <OfflineBanner />
       <AppHeader />
-      <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-4">
+      <main
+        className={[
+          'mx-auto w-full max-w-3xl px-4 pt-4',
+          hasBottomNavigation ? 'pb-24' : 'pb-6',
+        ].join(' ')}
+      >
         {isProfileFromCache ? (
           <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-950">
             <AlertTitle>Профиль загружен из локального кэша</AlertTitle>
