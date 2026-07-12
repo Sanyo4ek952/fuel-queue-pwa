@@ -1,6 +1,6 @@
-import type { QueueAuthorOption } from '@/entities/reservation'
+import { PlateNumberInput } from '@/entities/vehicle'
 import type { QueueFuelType } from '@/shared/constants'
-import { Input } from '@/shared/ui/input'
+import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import {
   Select,
   SelectContent,
@@ -11,7 +11,6 @@ import {
 
 import { fuelTypeLabels, getCallFilterLabel } from '../model/labels'
 import {
-  ALL_AUTHORS_FILTER,
   ALL_GASOLINE_FILTER,
   CALL_FILTERS,
   GASOLINE_FUEL_FILTERS,
@@ -24,27 +23,27 @@ type QueueFiltersProps = {
   callFilter: CallFilter
   plateSearch: string
   gasolineFuelFilter: GasolineFuelFilter
-  authorFilter: string
-  authorOptions: QueueAuthorOption[]
   callFilterCounts: Record<(typeof callFiltersWithCounters)[number], number>
   onCallFilterChange: (value: CallFilter) => void
   onPlateSearchChange: (value: string) => void
   onGasolineFuelFilterChange: (value: GasolineFuelFilter) => void
-  onAuthorFilterChange: (value: string) => void
 }
 
 export function QueueFilters({
   callFilter,
   plateSearch,
   gasolineFuelFilter,
-  authorFilter,
-  authorOptions,
   callFilterCounts,
   onCallFilterChange,
   onPlateSearchChange,
   onGasolineFuelFilterChange,
-  onAuthorFilterChange,
 }: QueueFiltersProps) {
+  function handlePlateSearchChange(value: string) {
+    const normalizedValue = normalizePlateNumber(value)
+
+    onPlateSearchChange(/^\d+$/.test(normalizedValue) ? normalizedValue : value)
+  }
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5">
@@ -84,11 +83,11 @@ export function QueueFilters({
         <label htmlFor="queuePlateSearch" className="text-sm font-medium text-slate-700">
           Поиск по госномеру
         </label>
-        <Input
+        <PlateNumberInput
           id="queuePlateSearch"
+          className="h-8"
           value={plateSearch}
-          onChange={(event) => onPlateSearchChange(event.target.value)}
-          placeholder="А123ВС777"
+          onChange={handlePlateSearchChange}
           autoComplete="off"
         />
       </div>
@@ -109,25 +108,6 @@ export function QueueFilters({
             {GASOLINE_FUEL_FILTERS.map((fuelType) => (
               <SelectItem key={fuelType} value={fuelType}>
                 {fuelTypeLabels[fuelType as QueueFuelType]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-1.5">
-        <label htmlFor="queueAuthorFilter" className="text-sm font-medium text-slate-700">
-          Кто добавил
-        </label>
-        <Select value={authorFilter} onValueChange={onAuthorFilterChange}>
-          <SelectTrigger id="queueAuthorFilter" className="h-8 w-full">
-            <SelectValue placeholder="Все авторы" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_AUTHORS_FILTER}>Все авторы</SelectItem>
-            {authorOptions.map((author) => (
-              <SelectItem key={author.userId} value={author.userId}>
-                {author.displayName}
               </SelectItem>
             ))}
           </SelectContent>

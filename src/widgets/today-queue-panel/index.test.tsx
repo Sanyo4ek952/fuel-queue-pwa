@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
   mutateCancel: vi.fn(),
   mutateFuelPreference: vi.fn(),
   useTodayQueue: vi.fn(),
-  useTodayQueueAuthors: vi.fn(),
   useDailyLimitOverview: vi.fn(),
   useDailyFuelingSchedule: vi.fn(),
   useLogReservationCall: vi.fn(),
@@ -27,7 +26,6 @@ vi.mock('@/entities/daily-limit', () => ({
 
 vi.mock('@/entities/reservation', () => ({
   useTodayQueue: mocks.useTodayQueue,
-  useTodayQueueAuthors: mocks.useTodayQueueAuthors,
 }))
 
 vi.mock('@/entities/profile', () => ({
@@ -68,6 +66,7 @@ import { TodayQueuePanel } from './index'
 
 const CALL_FILTER_NAME = '\u041e\u0431\u0437\u0432\u043e\u043d'
 const PLATE_SEARCH_NAME = '\u041f\u043e\u0438\u0441\u043a \u043f\u043e \u0433\u043e\u0441\u043d\u043e\u043c\u0435\u0440\u0443'
+const AUTHOR_FILTER_NAME = '\u041a\u0442\u043e \u0434\u043e\u0431\u0430\u0432\u0438\u043b'
 const TODAY_ARRIVALS_LABEL = '\u0421\u0435\u0433\u043e\u0434\u043d\u044f \u043f\u0440\u0438\u0435\u0434\u0443\u0442'
 const DETAILS_BUTTON_NAME = '\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0434\u0435\u0442\u0430\u043b\u0438'
 
@@ -217,12 +216,6 @@ describe('TodayQueuePanel', () => {
       fetchNextPage: vi.fn(),
       error: null,
     })
-    mocks.useTodayQueueAuthors.mockReturnValue({
-      data: [],
-      isLoading: false,
-      isFetching: false,
-      error: null,
-    })
     mocks.useDailyLimitOverview.mockReturnValue({
       data: {
         exists: false,
@@ -280,6 +273,12 @@ describe('TodayQueuePanel', () => {
     render(<TodayQueuePanel />)
 
     expect(screen.getByText('В общей очереди нет активных записей.')).toBeInTheDocument()
+  })
+
+  it('does not render the author filter', () => {
+    render(<TodayQueuePanel />)
+
+    expect(screen.queryByRole('combobox', { name: AUTHOR_FILTER_NAME })).not.toBeInTheDocument()
   })
 
   it('shows all rows by default', () => {
@@ -419,8 +418,20 @@ describe('TodayQueuePanel', () => {
         expect.objectContaining({ plateSearch: '123' }),
       ),
     )
-    expect(mocks.useTodayQueueAuthors).toHaveBeenLastCalledWith(
-      expect.objectContaining({ plateSearch: '123' }),
+  })
+
+  it('formats a full latin plate number in the queue search filter', async () => {
+    const user = userEvent.setup()
+
+    render(<TodayQueuePanel />)
+
+    await user.type(screen.getByLabelText(PLATE_SEARCH_NAME), 'a123bc777')
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(PLATE_SEARCH_NAME)).toHaveValue('\u0410 123 \u0412\u0421 777'),
+    )
+    expect(mocks.useTodayQueue).toHaveBeenLastCalledWith(
+      expect.objectContaining({ plateSearch: '\u0410 123 \u0412\u0421 777' }),
     )
   })
 

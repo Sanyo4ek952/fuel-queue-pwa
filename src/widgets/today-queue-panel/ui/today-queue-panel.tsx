@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { CloudOff, ListChecks } from 'lucide-react'
 
@@ -6,7 +6,6 @@ import { useDailyLimitOverview } from '@/entities/daily-limit'
 import { useCurrentProfile } from '@/entities/profile'
 import {
   useTodayQueue,
-  useTodayQueueAuthors,
   type TodayQueueRow,
 } from '@/entities/reservation'
 import type { CancelReservationFormValues } from '@/features/cancel-reservation'
@@ -39,7 +38,6 @@ import {
 } from '../model/queue-model'
 import { formatArrivalAt } from '../model/format'
 import {
-  ALL_AUTHORS_FILTER,
   ALL_GASOLINE_FILTER,
   categoryOrder,
   type CallFilter,
@@ -72,19 +70,12 @@ function getQueueActionErrorMessage(error: Error) {
 export function TodayQueuePanel() {
   const todayDate = getTodayDateInputValue()
   const [plateSearch, setPlateSearch] = useState('')
-  const [authorFilter, setAuthorFilter] = useState(ALL_AUTHORS_FILTER)
   const [gasolineFuelFilter, setGasolineFuelFilter] =
     useState<GasolineFuelFilter>(ALL_GASOLINE_FILTER)
   const [callFilter, setCallFilter] = useState<CallFilter>('all')
   const [activeFuelCategory, setActiveFuelCategory] = useState<FuelQueueCategory>('GASOLINE')
   const currentProfileQuery = useCurrentProfile()
   const queue = useTodayQueue({
-    plateSearch,
-    createdByProfileId: authorFilter === ALL_AUTHORS_FILTER ? null : authorFilter,
-    callFilter,
-    gasolineFuelFilter,
-  })
-  const authorsQuery = useTodayQueueAuthors({
     plateSearch,
     callFilter,
     gasolineFuelFilter,
@@ -99,7 +90,6 @@ export function TodayQueuePanel() {
     dailyLimitOverview.data?.category_overviews,
   )
   const normalizedPlateSearch = normalizePlateNumber(plateSearch)
-  const authorOptions = authorsQuery.data ?? []
   const rowsMatchingBaseFilters = queue.rows
   const filteredRows = queue.rows
   const callFilterCounts = useMemo(
@@ -122,7 +112,6 @@ export function TodayQueuePanel() {
     queue.isOnline ? (queue.summary?.category_counts[fuelCategory] ?? rowsCount) : rowsCount
   const hasActiveFilters =
     normalizedPlateSearch.length > 0 ||
-    authorFilter !== ALL_AUTHORS_FILTER ||
     gasolineFuelFilter !== ALL_GASOLINE_FILTER ||
     callFilter !== 'all'
   const activeCategoryPagination = queue.categoryPagination?.[activeFuelCategory] ?? {
@@ -130,16 +119,6 @@ export function TodayQueuePanel() {
     isFetchingNextPage: queue.isFetchingNextPage,
     fetchNextPage: queue.fetchNextPage,
   }
-
-  useEffect(() => {
-    if (
-      authorFilter !== ALL_AUTHORS_FILTER &&
-      authorsQuery.data &&
-      !authorsQuery.data.some((author) => author.userId === authorFilter)
-    ) {
-      setAuthorFilter(ALL_AUTHORS_FILTER)
-    }
-  }, [authorFilter, authorsQuery.data])
 
   function handleLogCall(row: TodayQueueRow, status: ReservationCallStatus) {
     logReservationCall.mutate({ reservation: row, status })
@@ -200,13 +179,10 @@ export function TodayQueuePanel() {
             callFilter={callFilter}
             plateSearch={plateSearch}
             gasolineFuelFilter={gasolineFuelFilter}
-            authorFilter={authorFilter}
-            authorOptions={authorOptions}
             callFilterCounts={callFilterCounts}
             onCallFilterChange={setCallFilter}
             onPlateSearchChange={setPlateSearch}
             onGasolineFuelFilterChange={setGasolineFuelFilter}
-            onAuthorFilterChange={setAuthorFilter}
           />
         </CardContent>
       </Card>
@@ -215,13 +191,6 @@ export function TodayQueuePanel() {
         <Alert variant="destructive">
           <AlertTitle>Очередь не загружена</AlertTitle>
           <AlertDescription>{queue.error.message}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {authorsQuery.error ? (
-        <Alert variant="destructive">
-          <AlertTitle>Авторы очереди не загружены</AlertTitle>
-          <AlertDescription>{authorsQuery.error.message}</AlertDescription>
         </Alert>
       ) : null}
 
