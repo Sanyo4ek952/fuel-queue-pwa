@@ -2,6 +2,7 @@
 import '@testing-library/jest-dom/vitest'
 
 import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -23,6 +24,12 @@ const mocks = vi.hoisted(() => ({
   queueStatusError: null as Error | null,
   todayFuelingStatusError: null as Error | null,
   vehiclesError: null as Error | null,
+  unlinkVehicleMutation: {
+    isPending: false,
+    mutate: vi.fn(),
+    reset: vi.fn(),
+    error: null as Error | null,
+  },
 }))
 
 vi.mock('@/features/cancel-consumer-reservation', () => ({
@@ -57,6 +64,7 @@ vi.mock('@/features/manage-consumer-vehicles', () => ({
     isLoading: false,
     refetch: vi.fn(),
   }),
+  useUnlinkConsumerVehicle: () => mocks.unlinkVehicleMutation,
 }))
 
 vi.mock('@/features/update-reservation-fuel-preference', async () => {
@@ -115,6 +123,13 @@ describe('ConsumerDashboardPanel', () => {
     mocks.queueStatusError = null
     mocks.todayFuelingStatusError = null
     mocks.vehiclesError = null
+    mocks.unlinkVehicleMutation.isPending = false
+    mocks.unlinkVehicleMutation.error = null
+    mocks.unlinkVehicleMutation.mutate.mockReset()
+    mocks.unlinkVehicleMutation.reset.mockReset()
+    vi.stubGlobal('crypto', {
+      randomUUID: vi.fn(() => 'unlink-mutation-id'),
+    })
   })
 
   afterEach(() => {
@@ -244,5 +259,50 @@ describe('ConsumerDashboardPanel', () => {
     expect(
       screen.queryByText('Unexpected get_my_today_fueling_status response.'),
     ).not.toBeInTheDocument()
+  })
+
+  it('asks for confirmation before unlinking a vehicle', async () => {
+    const user = userEvent.setup()
+
+    render(<ConsumerDashboardPanel />)
+
+    await user.click(screen.getByLabelText('Отвязать номер А123ВС777'))
+
+    expect(screen.getByRole('dialog', { name: 'Отвязать номер?' })).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Номер А123ВС777 исчезнет из личного кабинета. Его нельзя отвязать, пока автомобиль стоит в активной очереди.',
+      ),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Отвязать' }))
+
+    expect(mocks.unlinkVehicleMutation.mutate).toHaveBeenCalledWith(
+      {
+        profileVehicleId: 'profile-vehicle-id',
+        clientMutationId: 'unlink-mutation-id',
+      },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+      }),
+    )
+  })
+
+  it('shows active queue unlinking errors in the confirmation dialog', async () => {
+    const user = userEvent.setup()
+    mocks.unlinkVehicleMutation.error = new Error(
+      'Номер нельзя отвязать, пока автомобиль стоит в активной очереди. Сначала отмените запись или дождитесь завершения.',
+    )
+
+    render(<ConsumerDashboardPanel />)
+
+    await user.click(screen.getByLabelText('Отвязать номер А123ВС777'))
+
+    expect(screen.getByText('Номер не отвязан')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Номер нельзя отвязать, пока автомобиль стоит в активной очереди. Сначала отмените запись или дождитесь завершения.',
+      ),
+    ).toBeInTheDocument()
   })
 })

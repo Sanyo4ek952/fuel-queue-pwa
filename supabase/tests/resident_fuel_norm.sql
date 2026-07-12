@@ -64,8 +64,8 @@ values
     true,
     'approved'
   )
-on conflict (id) do update
-set auth_user_id = excluded.auth_user_id,
+on conflict (auth_user_id) do update
+set id = excluded.id,
     full_name = excluded.full_name,
     role = excluded.role,
     is_active = excluded.is_active,

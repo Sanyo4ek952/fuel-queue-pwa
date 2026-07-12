@@ -1,5 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertTriangle, Car, Clock, MapPin, Pencil, RefreshCw, Ticket, XCircle } from 'lucide-react'
+import {
+  AlertTriangle,
+  Car,
+  Clock,
+  MapPin,
+  Pencil,
+  RefreshCw,
+  Ticket,
+  Trash2,
+  XCircle,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
@@ -11,7 +21,9 @@ import {
 } from '@/features/create-consumer-reservation'
 import {
   AddConsumerVehicleForm,
+  type ConsumerVehicle,
   useConsumerVehicles,
+  useUnlinkConsumerVehicle,
 } from '@/features/manage-consumer-vehicles'
 import {
   type UpdateReservationFuelPreferenceFormValues,
@@ -32,6 +44,7 @@ import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -113,7 +126,9 @@ export function ConsumerDashboardPanel() {
   const todayFuelingStatusQuery = useMyTodayFuelingStatus()
   const cancelReservationMutation = useCancelConsumerReservation()
   const updateFuelPreferenceMutation = useUpdateReservationFuelPreference()
+  const unlinkVehicleMutation = useUnlinkConsumerVehicle()
   const [isFuelDialogOpen, setIsFuelDialogOpen] = useState(false)
+  const [selectedUnlinkVehicle, setSelectedUnlinkVehicle] = useState<ConsumerVehicle | null>(null)
   const vehicles = vehiclesQuery.data ?? []
   const activeReservation = queueStatusQuery.data
   const todayFuelingStatus = todayFuelingStatusQuery.data
@@ -185,6 +200,24 @@ export function ConsumerDashboardPanel() {
         onSuccess: () => {
           setIsFuelDialogOpen(false)
           void queueStatusQuery.refetch()
+        },
+      },
+    )
+  }
+
+  function handleUnlinkVehicle() {
+    if (!selectedUnlinkVehicle) {
+      return
+    }
+
+    unlinkVehicleMutation.mutate(
+      {
+        profileVehicleId: selectedUnlinkVehicle.profile_vehicle_id,
+        clientMutationId: crypto.randomUUID(),
+      },
+      {
+        onSuccess: () => {
+          setSelectedUnlinkVehicle(null)
         },
       },
     )
@@ -625,14 +658,75 @@ export function ConsumerDashboardPanel() {
                 <span className="font-medium text-slate-950">
                   {vehicle.normalized_plate_number}
                 </span>
-                <Badge variant="outline" className="rounded-md bg-white">
-                  Действует
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="rounded-md bg-white">
+                    Действует
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-slate-500 hover:text-red-700"
+                    disabled={unlinkVehicleMutation.isPending}
+                    onClick={() => {
+                      unlinkVehicleMutation.reset()
+                      setSelectedUnlinkVehicle(vehicle)
+                    }}
+                    title="Отвязать номер"
+                    aria-label={`Отвязать номер ${vehicle.normalized_plate_number}`}
+                  >
+                    <Trash2 className="size-4" aria-hidden="true" />
+                  </Button>
+                </div>
               </div>
             ))
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={Boolean(selectedUnlinkVehicle)}
+        onOpenChange={(open) => {
+          if (!open) {
+            unlinkVehicleMutation.reset()
+            setSelectedUnlinkVehicle(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Отвязать номер?</DialogTitle>
+            <DialogDescription>
+              {selectedUnlinkVehicle
+                ? `Номер ${selectedUnlinkVehicle.normalized_plate_number} исчезнет из личного кабинета. Его нельзя отвязать, пока автомобиль стоит в активной очереди.`
+                : 'Номер исчезнет из личного кабинета.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {unlinkVehicleMutation.error ? (
+            <Alert variant="destructive">
+              <AlertTitle>Номер не отвязан</AlertTitle>
+              <AlertDescription>{unlinkVehicleMutation.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={unlinkVehicleMutation.isPending}>
+                Отмена
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!selectedUnlinkVehicle || unlinkVehicleMutation.isPending}
+              onClick={handleUnlinkVehicle}
+            >
+              {unlinkVehicleMutation.isPending ? 'Отвязываем...' : 'Отвязать'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {canAddVehicle ? (
         <AddConsumerVehicleForm disabled={vehiclesQuery.isLoading} />

@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(6);
+select plan(10);
 
 insert into auth.users (
   id,
@@ -203,6 +203,13 @@ select throws_ok(
   'a new consumer cannot claim a vehicle assigned to another consumer while it is waiting in queue'
 );
 
+select throws_ok(
+  $$select public.unlink_my_vehicle('74000000-1000-4000-8000-000000000001', '76000000-1000-4000-8000-000000000016')$$,
+  'P0001',
+  'CONSUMER_VEHICLE_NOT_FOUND',
+  'a consumer cannot unlink another consumer vehicle'
+);
+
 select set_config('request.jwt.claim.sub', '71000000-1000-4000-8000-000000000001', true);
 
 select lives_ok(
@@ -210,9 +217,27 @@ select lives_ok(
   'the consumer who linked the vehicle before queue creation can keep using it'
 );
 
+select throws_ok(
+  $$select public.unlink_my_vehicle('74000000-1000-4000-8000-000000000001', '76000000-1000-4000-8000-000000000017')$$,
+  'P0001',
+  'VEHICLE_IN_ACTIVE_QUEUE',
+  'a consumer cannot unlink a vehicle while it is waiting in queue'
+);
+
 update public.fuel_queue_entries
 set status = 'FUELED'
 where id = '75000000-1000-4000-8000-000000000001';
+
+select lives_ok(
+  $$select public.unlink_my_vehicle('74000000-1000-4000-8000-000000000001', '76000000-1000-4000-8000-000000000018')$$,
+  'a consumer can unlink a vehicle after it leaves the active queue'
+);
+
+select is(
+  jsonb_array_length(public.list_my_vehicles()),
+  0,
+  'an unlinked vehicle is hidden from my vehicle list'
+);
 
 select set_config('request.jwt.claim.sub', '71000000-1000-4000-8000-000000000002', true);
 

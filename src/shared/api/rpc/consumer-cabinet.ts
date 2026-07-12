@@ -29,6 +29,11 @@ export type CreateConsumerVehicleParams = {
   clientMutationId: string
 }
 
+export type UnlinkMyVehicleParams = {
+  profileVehicleId: string
+  clientMutationId: string
+}
+
 export type ConsumerReservation = {
   id: string
   queue_entry_id: string
@@ -384,6 +389,44 @@ export async function createConsumerVehicle({
     return {
       data: null,
       error: 'Не удалось добавить автомобиль.',
+    }
+  }
+
+  return {
+    data: parsed,
+    error: null,
+  }
+}
+
+export async function unlinkMyVehicle({
+  profileVehicleId,
+  clientMutationId,
+}: UnlinkMyVehicleParams): Promise<RpcResult<ConsumerVehicle>> {
+  if (!isSupabaseConfigured) {
+    return {
+      data: null,
+      error: 'Не удалось подключиться к серверу.',
+    }
+  }
+
+  const { data, error } = await supabase.rpc('unlink_my_vehicle', {
+    profile_vehicle_id: profileVehicleId,
+    client_mutation_id: clientMutationId,
+  })
+
+  if (error) {
+    return {
+      data: null,
+      error: error.message,
+    }
+  }
+
+  const parsed = parseConsumerVehicle(data)
+
+  if (!parsed) {
+    return {
+      data: null,
+      error: 'Не удалось отвязать автомобиль.',
     }
   }
 
