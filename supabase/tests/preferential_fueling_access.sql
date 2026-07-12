@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(11);
 
 insert into auth.users (
   id,
@@ -214,6 +214,16 @@ select lives_ok(
     )
   $test$,
   'preferential fueling succeeds when no daily limit exists'
+);
+
+select is(
+  (
+    select (allocation_id is null and queue_entry_id is null and preferential_queue_entry_id = '89000000-2000-4000-8000-000000000001')::text
+    from public.fueling_records
+    where client_mutation_id = '8b000000-2000-4000-8000-000000000004'
+  ),
+  'true',
+  'preferential fueling record is valid without regular allocation fields'
 );
 
 select lives_ok(
