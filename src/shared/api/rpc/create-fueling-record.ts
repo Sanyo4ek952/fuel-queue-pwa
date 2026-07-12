@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import type { FuelType, SyncStatus } from '@/shared/constants'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type CreateFuelingRecordParams = {
   allocationId?: string
@@ -108,22 +108,62 @@ export async function createFuelingRecord({
   void targetDate
 
   if (preferentialQueueEntryId) {
-    const { data, error } = await supabase.rpc('create_fueling_record_for_preferential_entry', {
-      preferential_queue_entry_id: preferentialQueueEntryId,
-      station_id: stationId,
-      liters,
-      fueled_at: fueledAt,
-      comment: comment ?? null,
-      client_mutation_id: clientMutationId,
-    })
+    try {
+      const data = await requestProtectedRpcApi(
+        '/api/create-fueling-record-for-preferential-entry',
+        {
+          preferentialQueueEntryId,
+          stationId,
+          liters,
+          fueledAt,
+          comment: comment ?? null,
+          clientMutationId,
+        },
+        'Create preferential fueling record request failed.',
+      )
+      const parsed = parseCreateFuelingRecordResult(data)
 
-    if (error) {
+      if (!parsed) {
+        return {
+          data: null,
+          error: 'Unexpected create_fueling_record response.',
+        }
+      }
+
+      return {
+        data: parsed,
+        error: null,
+      }
+    } catch (error) {
       return {
         data: null,
-        error: error.message,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Create preferential fueling record request failed.',
       }
     }
+  }
 
+  if (!allocationId) {
+    return {
+      data: null,
+      error: 'Active daily allocation is required for fueling.',
+    }
+  }
+
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/create-fueling-record-for-allocation',
+      {
+        allocationId,
+        liters,
+        fueledAt,
+        comment: comment ?? null,
+        clientMutationId,
+      },
+      'Create fueling record request failed.',
+    )
     const parsed = parseCreateFuelingRecordResult(data)
 
     if (!parsed) {
@@ -137,41 +177,10 @@ export async function createFuelingRecord({
       data: parsed,
       error: null,
     }
-  }
-
-  if (!allocationId) {
+  } catch (error) {
     return {
       data: null,
-      error: 'Active daily allocation is required for fueling.',
+      error: error instanceof Error ? error.message : 'Create fueling record request failed.',
     }
-  }
-
-  const { data, error } = await supabase.rpc('create_fueling_record_for_allocation', {
-    allocation_id: allocationId,
-    liters,
-    fueled_at: fueledAt,
-    comment: comment ?? null,
-    client_mutation_id: clientMutationId,
-  })
-
-  if (error) {
-    return {
-      data: null,
-      error: error.message,
-    }
-  }
-
-  const parsed = parseCreateFuelingRecordResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected create_fueling_record response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

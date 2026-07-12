@@ -6,12 +6,21 @@ import path from 'node:path'
 import type { IncomingMessage } from 'node:http'
 import type { Connect } from 'vite'
 
+import cancelReservationHandler from './api/cancel-reservation.js'
+import checkVehicleAccessHandler from './api/check-vehicle-access.js'
+import createFuelingRecordForAllocationHandler from './api/create-fueling-record-for-allocation.js'
+import createFuelingRecordForPreferentialEntryHandler from './api/create-fueling-record-for-preferential-entry.js'
 import currentProfileHandler from './api/current-profile.js'
 import dailyLimitOverviewHandler from './api/daily-limit-overview.js'
 import publicNoShowGraceHandler from './api/public-no-show-grace.js'
 import publicQueueCheckHandler from './api/public-queue-check.js'
+import reservationCallLogHandler from './api/reservation-call-log.js'
+import syncOfflineMutationHandler from './api/sync-offline-mutation.js'
 import todayQueueHandler from './api/today-queue.js'
 import todayQueueAuthorsHandler from './api/today-queue-authors.js'
+import updateReservationFuelPreferenceHandler from './api/update-reservation-fuel-preference.js'
+import vehicleFuelingHistoryHandler from './api/vehicle-fueling-history.js'
+import vehicleRecentFuelingHistoryHandler from './api/vehicle-recent-fueling-history.js'
 
 type LocalApiResponse = {
   statusCode: number
@@ -129,6 +138,60 @@ function localApiPlugin(mode: string): Plugin {
         '/api/daily-limit-overview',
         dailyLimitOverviewHandler,
         'Local daily limit overview request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/check-vehicle-access',
+        checkVehicleAccessHandler,
+        'Local check vehicle access request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/vehicle-fueling-history',
+        vehicleFuelingHistoryHandler,
+        'Local vehicle fueling history request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/vehicle-recent-fueling-history',
+        vehicleRecentFuelingHistoryHandler,
+        'Local vehicle recent fueling history request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/create-fueling-record-for-allocation',
+        createFuelingRecordForAllocationHandler,
+        'Local create fueling record request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/create-fueling-record-for-preferential-entry',
+        createFuelingRecordForPreferentialEntryHandler,
+        'Local create preferential fueling record request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/reservation-call-log',
+        reservationCallLogHandler,
+        'Local reservation call log request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/update-reservation-fuel-preference',
+        updateReservationFuelPreferenceHandler,
+        'Local update reservation fuel preference request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/cancel-reservation',
+        cancelReservationHandler,
+        'Local cancel reservation request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/sync-offline-mutation',
+        syncOfflineMutationHandler,
+        'Local sync offline mutation request failed.',
       )
     },
   }

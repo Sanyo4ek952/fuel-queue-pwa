@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import type { SyncStatus } from '@/shared/constants'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type SyncOfflineMutationParams = {
   clientMutationId: string
@@ -56,30 +56,33 @@ export async function syncOfflineMutation({
     }
   }
 
-  const { data, error } = await supabase.rpc('sync_offline_mutation', {
-    client_mutation_id: clientMutationId,
-    operation_type: operationType,
-    payload,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/sync-offline-mutation',
+      {
+        clientMutationId,
+        operationType,
+        payload,
+      },
+      'Sync offline mutation request failed.',
+    )
+    const parsed = parseSyncOfflineMutationResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected sync_offline_mutation response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Sync offline mutation request failed.',
     }
-  }
-
-  const parsed = parseSyncOfflineMutationResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected sync_offline_mutation response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

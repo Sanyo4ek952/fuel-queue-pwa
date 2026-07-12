@@ -59,24 +59,18 @@ function getNoShowGraceDescription(days: number | undefined) {
 }
 
 function QueuePositionSummary({
-  ticketNumber,
   currentPosition,
   peopleAhead,
 }: {
-  ticketNumber: number | null
   currentPosition: number | null
   peopleAhead: number | null
 }) {
-  if (ticketNumber === null) {
-    return null
-  }
-
   return (
     <span className="block">
-      Постоянный номер №{ticketNumber}.
-      {currentPosition !== null && peopleAhead !== null
-        ? ` Дневная позиция: ${currentPosition}, впереди: ${peopleAhead}.`
-        : ''}
+      {currentPosition !== null
+        ? `Ваш текущий номер в очереди №${currentPosition}.`
+        : 'Запись найдена, текущий дневной номер ещё не назначен.'}
+      {peopleAhead !== null ? ` Впереди: ${peopleAhead}.` : ''}
     </span>
   )
 }
@@ -193,7 +187,6 @@ export function PublicQueueCheckForm() {
                 <AlertTitle>Оператор подтвердил возможность приехать</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
                   />
@@ -209,7 +202,6 @@ export function PublicQueueCheckForm() {
                 <AlertTitle>Запись включена в список обзвона</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
                   />
@@ -250,7 +242,6 @@ export function PublicQueueCheckForm() {
                 <AlertTitle>Ожидается выбранное топливо</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
                   />
@@ -265,7 +256,6 @@ export function PublicQueueCheckForm() {
                 <AlertTitle>Запись уже не активна</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
                   />
@@ -278,10 +268,9 @@ export function PublicQueueCheckForm() {
             {isQueueNotReady ? (
               <Alert className="border-amber-200 bg-amber-50 text-amber-950">
                 <TriangleAlert className="size-4" aria-hidden="true" />
-                <AlertTitle>Постоянный номер №{foundTicketNumber} ожидает распределения</AlertTitle>
+                <AlertTitle>Текущий номер ещё не назначен</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    ticketNumber={foundTicketNumber}
                     currentPosition={result.current_position}
                     peopleAhead={result.people_ahead}
                   />

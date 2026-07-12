@@ -1,5 +1,4 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import type {
   GetVehicleFuelingHistoryParams,
@@ -10,6 +9,7 @@ import type {
 } from '@/shared/types/vehicle-fueling-history'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type { GetVehicleFuelingHistoryParams, VehicleFuelingHistoryResult }
 
@@ -148,31 +148,34 @@ export async function getVehicleFuelingHistory({
     }
   }
 
-  const { data, error } = await supabase.rpc('get_vehicle_fueling_history', {
-    plate_number: normalizePlateNumber(plateNumber),
-    page_limit: pageLimit,
-    page_offset: pageOffset,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/vehicle-fueling-history',
+      {
+        plateNumber: normalizePlateNumber(plateNumber),
+        pageLimit,
+        pageOffset,
+      },
+      'Vehicle fueling history request failed.',
+    )
+    const parsed = parseVehicleFuelingHistory(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected get_vehicle_fueling_history response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Vehicle fueling history request failed.',
     }
-  }
-
-  const parsed = parseVehicleFuelingHistory(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected get_vehicle_fueling_history response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }
 
@@ -188,28 +191,34 @@ export async function getVehicleRecentFuelingHistory({
     }
   }
 
-  const { data, error } = await supabase.rpc('get_vehicle_recent_fueling_history', {
-    plate_number: normalizePlateNumber(plateNumber),
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/vehicle-recent-fueling-history',
+      {
+        plateNumber: normalizePlateNumber(plateNumber),
+      },
+      'Vehicle recent fueling history request failed.',
+    )
+    const parsed = parseVehicleFuelingHistory(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected get_vehicle_recent_fueling_history response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Vehicle recent fueling history request failed.',
     }
-  }
-
-  const parsed = parseVehicleFuelingHistory(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected get_vehicle_recent_fueling_history response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

@@ -1,5 +1,4 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 import type {
   CheckVehicleAccessParams,
@@ -7,6 +6,7 @@ import type {
 } from '@/shared/types/vehicle-access'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type { CheckVehicleAccessParams, VehicleAccessResult }
 
@@ -40,30 +40,33 @@ export async function checkVehicleAccess({
     }
   }
 
-  const { data, error } = await supabase.rpc('check_vehicle_access', {
-    plate_number: normalizePlateNumber(plateNumber),
-    station_id: stationId,
-    check_date: checkDate,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/check-vehicle-access',
+      {
+        plateNumber: normalizePlateNumber(plateNumber),
+        stationId,
+        checkDate,
+      },
+      'Check vehicle access request failed.',
+    )
+    const parsed = toVehicleAccessResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected check_vehicle_access response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Check vehicle access request failed.',
     }
-  }
-
-  const parsed = toVehicleAccessResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected check_vehicle_access response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

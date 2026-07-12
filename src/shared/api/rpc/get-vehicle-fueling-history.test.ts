@@ -1,27 +1,55 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/shared/api/supabase', () => ({
-  supabase: {
-    rpc: vi.fn(),
-  },
+const mocks = vi.hoisted(() => ({
+  getAuthSession: vi.fn(),
 }))
 
+vi.mock('@/shared/api/auth', () => ({ getAuthSession: mocks.getAuthSession }))
 vi.mock('@/shared/config/env', () => ({
   isSupabaseConfigured: true,
 }))
 
-import { supabase } from '@/shared/api/supabase'
-
 import {
+  getVehicleFuelingHistory,
   getVehicleRecentFuelingHistory,
   parseVehicleFuelingHistory,
 } from './get-vehicle-fueling-history'
+
+function createJsonResponse(value: unknown, status = 200) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
+function createHistoryResponse() {
+  return {
+    normalized_plate_number: 'A123BC777',
+    vehicle_id: 'vehicle-id',
+    vehicle_found: true,
+    total_fueling_count: 4,
+    regular_fueling_count: 4,
+    manual_override_fueling_count: 0,
+    total_liters: '160',
+    first_fueled_at: '2026-07-01T10:00:00.000Z',
+    last_fueled_at: '2026-07-04T10:00:00.000Z',
+    station_summaries: [],
+    fuel_type_summaries: [],
+    records: [],
+    has_more: true,
+  }
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.clearAllMocks()
+})
 
 describe('parseVehicleFuelingHistory', () => {
   it('parses a vehicle fueling history response', () => {
     expect(
       parseVehicleFuelingHistory({
-        normalized_plate_number: 'А123ВС777',
+        normalized_plate_number: 'A123BC777',
         vehicle_id: 'vehicle-id',
         vehicle_found: true,
         total_fueling_count: '3',
@@ -33,7 +61,7 @@ describe('parseVehicleFuelingHistory', () => {
         station_summaries: [
           {
             station_id: 'station-id',
-            station_name: 'АЗС №1',
+            station_name: 'Station 1',
             fueling_count: '3',
             total_liters: '120.5',
           },
@@ -61,17 +89,17 @@ describe('parseVehicleFuelingHistory', () => {
         has_more: true,
       }),
     ).toMatchObject({
-      normalized_plate_number: 'А123ВС777',
+      normalized_plate_number: 'A123BC777',
       total_fueling_count: 3,
       total_liters: 120.5,
-      station_summaries: [{ station_name: 'АЗС №1', fueling_count: 3 }],
+      station_summaries: [{ station_name: 'Station 1', fueling_count: 3 }],
     })
   })
 
   it('parses a missing vehicle response', () => {
     expect(
       parseVehicleFuelingHistory({
-        normalized_plate_number: 'А123ВС777',
+        normalized_plate_number: 'A123BC777',
         vehicle_id: null,
         vehicle_found: false,
         total_fueling_count: 0,
@@ -93,7 +121,7 @@ describe('parseVehicleFuelingHistory', () => {
   it('parses paginated fueling records', () => {
     expect(
       parseVehicleFuelingHistory({
-        normalized_plate_number: 'А123ВС777',
+        normalized_plate_number: 'A123BC777',
         vehicle_id: 'vehicle-id',
         vehicle_found: true,
         total_fueling_count: 11,
@@ -136,39 +164,69 @@ describe('parseVehicleFuelingHistory', () => {
     expect(parseVehicleFuelingHistory({ total_fueling_count: 1 })).toBeNull()
   })
 
-  it('loads recent fueling history through the preview RPC without pagination params', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: {
-        normalized_plate_number: 'А123ВС777',
-        vehicle_id: 'vehicle-id',
-        vehicle_found: true,
-        total_fueling_count: 4,
-        regular_fueling_count: 4,
-        manual_override_fueling_count: 0,
-        total_liters: '160',
-        first_fueled_at: '2026-07-01T10:00:00.000Z',
-        last_fueled_at: '2026-07-04T10:00:00.000Z',
-        station_summaries: [],
-        fuel_type_summaries: [],
-        records: [],
-        has_more: true,
-      },
-      error: null,
-      success: true,
-      count: null,
-      status: 200,
-      statusText: 'OK',
-    })
+  it('loads paginated fueling history through the protected API', async () => {
+    const normalizedPlateNumber = '\u0410123\u0412\u0421777'
 
-    await expect(getVehicleRecentFuelingHistory({ plateNumber: 'а123вс777' })).resolves.toMatchObject({
+    mocks.getAuthSession.mockResolvedValue({
+      data: { access_token: 'access-token' },
+      error: null,
+    })
+    const fetchMock = vi.fn().mockResolvedValue(createJsonResponse(createHistoryResponse()))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      getVehicleFuelingHistory({
+        plateNumber: ' a 123 bc 777 ',
+        pageLimit: 10,
+        pageOffset: 20,
+      }),
+    ).resolves.toMatchObject({
       data: {
-        normalized_plate_number: 'А123ВС777',
+        normalized_plate_number: 'A123BC777',
         has_more: true,
       },
       error: null,
     })
-    expect(supabase.rpc).toHaveBeenCalledWith('get_vehicle_recent_fueling_history', {
-      plate_number: 'А123ВС777',
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/vehicle-fueling-history',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        body: JSON.stringify({
+          plateNumber: normalizedPlateNumber,
+          pageLimit: 10,
+          pageOffset: 20,
+        }),
+      }),
+    )
+  })
+
+  it('loads recent fueling history through the protected preview API without pagination params', async () => {
+    const normalizedPlateNumber = '\u0410123\u0412\u0421777'
+
+    mocks.getAuthSession.mockResolvedValue({
+      data: { access_token: 'access-token' },
+      error: null,
     })
+    const fetchMock = vi.fn().mockResolvedValue(createJsonResponse(createHistoryResponse()))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getVehicleRecentFuelingHistory({ plateNumber: ' a 123 bc 777 ' })).resolves.toMatchObject({
+      data: {
+        normalized_plate_number: 'A123BC777',
+        has_more: true,
+      },
+      error: null,
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/vehicle-recent-fueling-history',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        body: JSON.stringify({
+          plateNumber: normalizedPlateNumber,
+        }),
+      }),
+    )
   })
 })

@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { FuelPreferenceMode, QueueFuelType, ReservationStatus, SyncStatus } from '@/shared/constants'
-import { supabase } from '@/shared/api/supabase'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type UpdateReservationFuelPreferenceParams = {
   reservationId: string
@@ -82,31 +82,35 @@ export async function updateReservationFuelPreference({
     }
   }
 
-  const { data, error } = await supabase.rpc('update_reservation_fuel_preference', {
-    reservation_id: reservationId,
-    fuel_type: fuelType,
-    fuel_preference_mode: fuelPreferenceMode,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/update-reservation-fuel-preference',
+      {
+        reservationId,
+        fuelType,
+        fuelPreferenceMode,
+        clientMutationId,
+      },
+      'Update reservation fuel preference request failed.',
+    )
+    const parsed = parseUpdateReservationFuelPreferenceResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected update_reservation_fuel_preference response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error:
+        error instanceof Error ? error.message : 'Update reservation fuel preference request failed.',
     }
-  }
-
-  const parsed = parseUpdateReservationFuelPreferenceResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected update_reservation_fuel_preference response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

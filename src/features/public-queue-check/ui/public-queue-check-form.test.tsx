@@ -117,8 +117,9 @@ describe('PublicQueueCheckForm', () => {
 
     expect(await screen.findByText('Запись включена в список обзвона')).toBeInTheDocument()
     expect(
-      screen.getByText(/Постоянный номер №2847. Дневная позиция: 71, впереди: 70./),
+      screen.getByText(/Ваш текущий номер в очереди №71. Впереди: 70./),
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Постоянный номер №2847/)).not.toBeInTheDocument()
     expect(screen.getByText(/Ожидайте звонка оператора, доступно АИ-95./)).toBeInTheDocument()
     expect(screen.queryByText(/Если вы не заправитесь/)).not.toBeInTheDocument()
     expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
@@ -131,8 +132,8 @@ describe('PublicQueueCheckForm', () => {
         status: 'FOUND',
         queue_number: 2847,
         ticket_number: 2847,
-        current_position: 71,
-        people_ahead: 70,
+        current_position: null,
+        people_ahead: null,
         preferred_fuel_type: 'DIESEL',
         public_status: 'QUEUE_NOT_READY',
         is_within_today_limit: false,
@@ -147,10 +148,11 @@ describe('PublicQueueCheckForm', () => {
     await userEvent.type(screen.getByLabelText('Последние 4 цифры телефона'), '1234')
     await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
 
-    expect(await screen.findByText('Постоянный номер №2847 ожидает распределения')).toBeInTheDocument()
+    expect(await screen.findByText('Текущий номер ещё не назначен')).toBeInTheDocument()
     expect(
-      screen.getByText(/Постоянный номер №2847. Дневная позиция: 71, впереди: 70./),
+      screen.getByText(/Запись найдена, текущий дневной номер ещё не назначен./),
     ).toBeInTheDocument()
+    expect(screen.queryByText(/Постоянный номер №2847/)).not.toBeInTheDocument()
     expect(screen.queryByText(/аннулирована/)).not.toBeInTheDocument()
     expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
     expect(screen.queryByText('1234')).not.toBeInTheDocument()
@@ -179,7 +181,8 @@ describe('PublicQueueCheckForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
 
     expect(await screen.findByText('Запись уже не активна')).toBeInTheDocument()
-    expect(screen.getByText(/Постоянный номер №2847./)).toBeInTheDocument()
+    expect(screen.getByText(/Запись найдена, текущий дневной номер ещё не назначен./)).toBeInTheDocument()
+    expect(screen.queryByText(/Постоянный номер №2847/)).not.toBeInTheDocument()
     expect(screen.getByText(/уже завершена, отменена или больше не участвует в очереди/)).toBeInTheDocument()
     expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
     expect(screen.queryByText('1234')).not.toBeInTheDocument()

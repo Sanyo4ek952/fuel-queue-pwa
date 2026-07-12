@@ -1,21 +1,28 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/shared/api/supabase', () => ({
-  supabase: {
-    rpc: vi.fn(),
-  },
+const mocks = vi.hoisted(() => ({
+  getAuthSession: vi.fn(),
 }))
 
-vi.mock('@/shared/config/env', () => ({
-  isSupabaseConfigured: true,
-}))
-
-import { supabase } from '@/shared/api/supabase'
+vi.mock('@/shared/api/auth', () => ({ getAuthSession: mocks.getAuthSession }))
+vi.mock('@/shared/config/env', () => ({ isSupabaseConfigured: true }))
 
 import {
   parseUpdateReservationFuelPreferenceResult,
   updateReservationFuelPreference,
 } from './update-reservation-fuel-preference'
+
+function createJsonResponse(value: unknown, status = 200) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.clearAllMocks()
+})
 
 describe('parseUpdateReservationFuelPreferenceResult', () => {
   it('parses a valid update_reservation_fuel_preference response', () => {
@@ -48,9 +55,13 @@ describe('parseUpdateReservationFuelPreferenceResult', () => {
 })
 
 describe('updateReservationFuelPreference', () => {
-  it('calls the RPC with reservation fuel preference parameters', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: {
+  it('calls the protected API with reservation fuel preference parameters', async () => {
+    mocks.getAuthSession.mockResolvedValue({
+      data: { access_token: 'access-token' },
+      error: null,
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      createJsonResponse({
         id: 'reservation-id',
         date: '2026-07-08',
         station_id: 'station-id',
@@ -62,9 +73,9 @@ describe('updateReservationFuelPreference', () => {
         client_mutation_id: 'mutation-id',
         sync_status: 'SYNCED',
         updated_at: '2026-07-08T10:00:00.000Z',
-      },
-      error: null,
-    } as never)
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
 
     const result = await updateReservationFuelPreference({
       reservationId: 'reservation-id',
@@ -73,12 +84,19 @@ describe('updateReservationFuelPreference', () => {
       clientMutationId: 'mutation-id',
     })
 
-    expect(supabase.rpc).toHaveBeenCalledWith('update_reservation_fuel_preference', {
-      reservation_id: 'reservation-id',
-      fuel_type: 'AI_100',
-      fuel_preference_mode: 'EXACT',
-      client_mutation_id: 'mutation-id',
-    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/update-reservation-fuel-preference',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        body: JSON.stringify({
+          reservationId: 'reservation-id',
+          fuelType: 'AI_100',
+          fuelPreferenceMode: 'EXACT',
+          clientMutationId: 'mutation-id',
+        }),
+      }),
+    )
     expect(result.data).toMatchObject({
       id: 'reservation-id',
       fuel_type: 'AI_100',
@@ -86,11 +104,12 @@ describe('updateReservationFuelPreference', () => {
     expect(result.error).toBeNull()
   })
 
-  it('returns the RPC error message', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: null,
-      error: { message: 'RESERVATION_NOT_ACTIVE' },
-    } as never)
+  it('returns the protected API error message', async () => {
+    mocks.getAuthSession.mockResolvedValue({
+      data: { access_token: 'access-token' },
+      error: null,
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(createJsonResponse({ error: 'RESERVATION_NOT_ACTIVE' }, 409)))
 
     const result = await updateReservationFuelPreference({
       reservationId: 'reservation-id',
@@ -105,11 +124,17 @@ describe('updateReservationFuelPreference', () => {
     })
   })
 
-  it('returns the open limit lock error from the RPC', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: null,
-      error: { message: 'FUEL_PREFERENCE_LOCKED_BY_OPEN_LIMIT' },
-    } as never)
+  it('returns the open limit lock error from the protected API', async () => {
+    mocks.getAuthSession.mockResolvedValue({
+      data: { access_token: 'access-token' },
+      error: null,
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        createJsonResponse({ error: 'FUEL_PREFERENCE_LOCKED_BY_OPEN_LIMIT' }, 409),
+      ),
+    )
 
     const result = await updateReservationFuelPreference({
       reservationId: 'reservation-id',

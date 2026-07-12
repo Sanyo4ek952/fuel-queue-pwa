@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { ReservationStatus, SyncStatus } from '@/shared/constants'
-import { supabase } from '@/shared/api/supabase'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export const CANCEL_RESERVATION_REASONS = ['OWNER_CANCELLED', 'OTHER'] as const
 
@@ -84,31 +84,34 @@ export async function cancelReservation({
     }
   }
 
-  const { data, error } = await supabase.rpc('cancel_reservation', {
-    reservation_id: reservationId,
-    reason,
-    comment,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/cancel-reservation',
+      {
+        reservationId,
+        reason,
+        comment,
+        clientMutationId,
+      },
+      'Cancel reservation request failed.',
+    )
+    const parsed = parseCancelReservationResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected cancel_reservation response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Cancel reservation request failed.',
     }
-  }
-
-  const parsed = parseCancelReservationResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected cancel_reservation response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

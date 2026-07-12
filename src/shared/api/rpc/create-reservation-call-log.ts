@@ -1,9 +1,9 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { UserRole } from '@/shared/config/roles'
 import type { ReservationCallStatus, SyncStatus } from '@/shared/constants'
-import { supabase } from '@/shared/api/supabase'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type CreateReservationCallLogParams = {
   allocationId?: string
@@ -116,31 +116,34 @@ export async function createReservationCallLog({
     }
   }
 
-  const { data, error } = await supabase.rpc('create_reservation_call_log', {
-    reservation_id: resolvedAllocationId,
-    status,
-    comment: comment ?? null,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/reservation-call-log',
+      {
+        allocationId: resolvedAllocationId,
+        status,
+        comment: comment ?? null,
+        clientMutationId,
+      },
+      'Create reservation call log request failed.',
+    )
+    const parsed = parseCreateReservationCallLogResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected create_reservation_call_log response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Create reservation call log request failed.',
     }
-  }
-
-  const parsed = parseCreateReservationCallLogResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected create_reservation_call_log response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }
