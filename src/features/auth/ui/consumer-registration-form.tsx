@@ -19,6 +19,8 @@ import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { useHcaptchaToken } from '@/shared/ui/hcaptcha'
 import { Input } from '@/shared/ui/input'
 
+import { PersonalDataConsentCheckbox } from './personal-data-consent-checkbox'
+
 const EMAIL_RESEND_COOLDOWN_SECONDS = 60
 
 export function ConsumerRegistrationForm() {
@@ -38,6 +40,7 @@ export function ConsumerRegistrationForm() {
       middleName: '',
       phone: '',
       captchaToken: '',
+      personalDataConsentAccepted: false,
     },
   })
   const isResendDisabled =
@@ -88,6 +91,7 @@ export function ConsumerRegistrationForm() {
         middleName: values.middleName,
         phone: values.phone,
         captchaToken: hcaptcha.token,
+        personalDataConsentAccepted: values.personalDataConsentAccepted,
       })
     } catch (error) {
       if (isAuthRateLimitError(error)) {
@@ -228,6 +232,15 @@ export function ConsumerRegistrationForm() {
                 ) : null}
               </FormItem>
             </div>
+
+            <PersonalDataConsentCheckbox
+              id="consumerPersonalDataConsent"
+              checked={Boolean(form.watch('personalDataConsentAccepted'))}
+              error={form.formState.errors.personalDataConsentAccepted?.message}
+              onChange={(checked) =>
+                form.setValue('personalDataConsentAccepted', checked, { shouldValidate: true })
+              }
+            />
 
             <FormItem>
               <div className="min-h-[78px]">

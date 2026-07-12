@@ -2,6 +2,11 @@ import type { Session } from '@supabase/supabase-js'
 
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
+import {
+  createPersonalDataConsentSnapshot,
+  type PersonalDataConsentRegistrationRole,
+  type PersonalDataConsentSnapshot,
+} from '@/shared/config/personal-data-consent'
 
 export type AuthResult<TData> = {
   data: TData | null
@@ -26,6 +31,7 @@ export type SignUpWithPasswordParams = {
   requestedRole: 'cashier' | 'mayor_assistant'
   requestedStationId?: string
   captchaToken?: string
+  personalDataConsentAccepted: true
 }
 
 export type SignUpConsumerWithPasswordParams = {
@@ -36,6 +42,7 @@ export type SignUpConsumerWithPasswordParams = {
   middleName?: string
   phone?: string
   captchaToken?: string
+  personalDataConsentAccepted: true
 }
 
 export type ResendSignupConfirmationEmailParams = {
@@ -48,6 +55,27 @@ function getAuthErrorMeta(error: { status?: number; code?: string } | null | und
     status: error?.status,
     code: error?.code,
   }
+}
+
+function toConsentMetadata(snapshot: PersonalDataConsentSnapshot) {
+  return {
+    personal_data_consent_accepted: true,
+    personal_data_consent_version: snapshot.documentVersion,
+    personal_data_consent_document_hash: snapshot.documentHash,
+    personal_data_consent_accepted_at: snapshot.acceptedAt,
+    personal_data_consent_source: snapshot.source,
+    personal_data_consent_registration_role: snapshot.registrationRole,
+    personal_data_consent_user_agent: snapshot.userAgent ?? '',
+  }
+}
+
+function createSignupConsentMetadata(registrationRole: PersonalDataConsentRegistrationRole) {
+  return toConsentMetadata(
+    createPersonalDataConsentSnapshot({
+      registrationRole,
+      source: 'email_password',
+    }),
+  )
 }
 
 async function clearSignupSession(session: Session | null): Promise<AuthResult<Session>> {
@@ -150,6 +178,7 @@ export async function signUpWithPassword({
   requestedRole,
   requestedStationId,
   captchaToken,
+  personalDataConsentAccepted,
 }: SignUpWithPasswordParams): Promise<AuthResult<Session>> {
   if (!isSupabaseConfigured) {
     return {
@@ -171,6 +200,7 @@ export async function signUpWithPassword({
         signature_name: signatureName,
         requested_role: requestedRole,
         requested_station_id: requestedRole === 'cashier' ? (requestedStationId ?? '') : '',
+        ...(personalDataConsentAccepted ? createSignupConsentMetadata(requestedRole) : {}),
       },
     },
   })
@@ -194,6 +224,7 @@ export async function signUpConsumerWithPassword({
   middleName,
   phone,
   captchaToken,
+  personalDataConsentAccepted,
 }: SignUpConsumerWithPasswordParams): Promise<AuthResult<Session>> {
   if (!isSupabaseConfigured) {
     return {
@@ -213,6 +244,7 @@ export async function signUpConsumerWithPassword({
         middle_name: middleName ?? '',
         phone: phone ?? '',
         requested_role: 'consumer',
+        ...(personalDataConsentAccepted ? createSignupConsentMetadata('consumer') : {}),
       },
     },
   })

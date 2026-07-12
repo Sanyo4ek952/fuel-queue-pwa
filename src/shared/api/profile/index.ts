@@ -40,6 +40,8 @@ export type CurrentProfile = {
   deactivated_by: string | null
   deactivated_at: string | null
   deactivation_reason: string | null
+  personal_data_consent_version?: string | null
+  personal_data_consented_at?: string | null
   stations: ProfileStation[]
   is_from_cache?: boolean
 }
@@ -85,6 +87,8 @@ type ProfileRow = {
   deactivated_by: string | null
   deactivated_at: string | null
   deactivation_reason: string | null
+  personal_data_consent_version?: string | null
+  personal_data_consented_at?: string | null
 }
 
 function isUserRole(value: string): value is UserRole {
@@ -125,6 +129,8 @@ function toProfile(value: ProfileRow, stations: ProfileStation[]): CurrentProfil
     deactivated_by: value.deactivated_by,
     deactivated_at: value.deactivated_at,
     deactivation_reason: value.deactivation_reason,
+    personal_data_consent_version: value.personal_data_consent_version ?? null,
+    personal_data_consented_at: value.personal_data_consented_at ?? null,
     stations,
   }
 }
@@ -225,6 +231,8 @@ function toManagedProfile(value: unknown): ManagedProfile | null {
       deactivated_by_name: row.deactivated_by_name ?? null,
       deactivated_at: row.deactivated_at ?? null,
       deactivation_reason: row.deactivation_reason ?? null,
+      personal_data_consent_version: row.personal_data_consent_version ?? null,
+      personal_data_consented_at: row.personal_data_consented_at ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at,
       stations: Array.isArray(row.stations) ? row.stations.filter(isProfileStation) : [],

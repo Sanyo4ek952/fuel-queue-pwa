@@ -12,13 +12,25 @@ import { AuthCallbackPage } from './index'
 
 const mocks = vi.hoisted(() => ({
   getAuthSession: vi.fn(),
+  recordPersonalDataConsent: vi.fn(),
   signOut: vi.fn(),
+  clearPendingYandexPersonalDataConsent: vi.fn(),
+  readPendingYandexPersonalDataConsent: vi.fn(),
   useCurrentProfile: vi.fn(),
 }))
 
 vi.mock('@/shared/api/auth', () => ({
   getAuthSession: mocks.getAuthSession,
   signOut: mocks.signOut,
+}))
+
+vi.mock('@/shared/api/rpc', () => ({
+  recordPersonalDataConsent: mocks.recordPersonalDataConsent,
+}))
+
+vi.mock('@/shared/lib/personal-data-consent', () => ({
+  clearPendingYandexPersonalDataConsent: mocks.clearPendingYandexPersonalDataConsent,
+  readPendingYandexPersonalDataConsent: mocks.readPendingYandexPersonalDataConsent,
 }))
 
 vi.mock('@/entities/profile', () => ({
@@ -61,6 +73,8 @@ const consumerProfile: CurrentProfile = {
   deactivated_by: null,
   deactivated_at: null,
   deactivation_reason: null,
+  personal_data_consent_version: null,
+  personal_data_consented_at: null,
   stations: [],
 }
 
@@ -114,6 +128,29 @@ describe('AuthCallbackPage', () => {
     mocks.signOut.mockResolvedValue({
       data: true,
       error: null,
+    })
+    mocks.recordPersonalDataConsent.mockReset()
+    mocks.recordPersonalDataConsent.mockResolvedValue({
+      data: {
+        id: 'consent-id',
+        profile_id: 'profile-id',
+        auth_user_id: 'auth-user-id',
+        document_version: '2026-07-12',
+        document_hash: 'hash',
+        accepted_at: '2026-07-12T00:00:00.000Z',
+      },
+      error: null,
+    })
+    mocks.clearPendingYandexPersonalDataConsent.mockReset()
+    mocks.readPendingYandexPersonalDataConsent.mockReset()
+    mocks.readPendingYandexPersonalDataConsent.mockReturnValue({
+      accepted: true,
+      documentVersion: '2026-07-12',
+      documentHash: 'hash',
+      acceptedAt: '2026-07-12T00:00:00.000Z',
+      source: 'yandex_oauth',
+      registrationRole: 'consumer',
+      userAgent: 'test-agent',
     })
     mocks.useCurrentProfile.mockReset()
     mocks.useCurrentProfile.mockReturnValue({
@@ -181,6 +218,8 @@ describe('AuthCallbackPage', () => {
     renderCallback()
 
     await screen.findByText('dashboard page')
+    expect(mocks.recordPersonalDataConsent).toHaveBeenCalledTimes(1)
+    expect(mocks.clearPendingYandexPersonalDataConsent).toHaveBeenCalledTimes(1)
     expect(mocks.signOut).not.toHaveBeenCalled()
   })
 

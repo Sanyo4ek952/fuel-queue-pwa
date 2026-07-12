@@ -57,6 +57,9 @@ const PromoPage = lazy(() => import('@/pages/promo').then((m) => ({ default: m.P
 const PublicQueueCheckPage = lazy(() =>
   import('@/pages/public-queue-check').then((m) => ({ default: m.PublicQueueCheckPage })),
 )
+const PersonalDataPage = lazy(() =>
+  import('@/pages/personal-data').then((m) => ({ default: m.PersonalDataPage })),
+)
 const LoginPage = lazy(() => import('@/pages/login').then((m) => ({ default: m.LoginPage })))
 const AuthCallbackPage = lazy(() =>
   import('@/pages/auth-callback').then((m) => ({ default: m.AuthCallbackPage })),
@@ -312,7 +315,13 @@ export function AppRoutes() {
   if (PUBLIC_ROUTES.includes(normalizedPathname as (typeof PUBLIC_ROUTES)[number])) {
     return (
       <Suspense fallback={<LoadingScreen />}>
-        {normalizedPathname === ROUTES.queueCheck ? <PublicQueueCheckPage /> : <PromoPage />}
+        {normalizedPathname === ROUTES.queueCheck ? (
+          <PublicQueueCheckPage />
+        ) : normalizedPathname === ROUTES.personalData ? (
+          <PersonalDataPage />
+        ) : (
+          <PromoPage />
+        )}
       </Suspense>
     )
   }

@@ -25,6 +25,8 @@ const profileColumns = [
   'deactivated_by',
   'deactivated_at',
   'deactivation_reason',
+  'personal_data_consent_version',
+  'personal_data_consented_at',
 ].join(',')
 
 type VercelRequestLike = {

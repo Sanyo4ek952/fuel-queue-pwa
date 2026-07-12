@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LoginForm } from './login-form'
@@ -30,7 +31,11 @@ function renderWithQueryClient(children: ReactNode) {
     },
   })
 
-  return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>)
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>,
+  )
 }
 
 describe('LoginForm', () => {
@@ -54,10 +59,22 @@ describe('LoginForm', () => {
   it('starts Yandex ID login from the separate button', async () => {
     renderWithQueryClient(<LoginForm />)
 
+    fireEvent.click(screen.getByLabelText(/Я согласен на обработку персональных данных/i))
     fireEvent.click(screen.getByRole('button', { name: /Яндекс ID/i }))
 
     await waitFor(() => expect(mocks.signInWithYandex).toHaveBeenCalledTimes(1))
     expect(mocks.signInWithPassword).not.toHaveBeenCalled()
+  })
+
+  it('does not start Yandex ID login without personal data consent', async () => {
+    renderWithQueryClient(<LoginForm />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Яндекс ID/i }))
+
+    expect(mocks.signInWithYandex).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Подтвердите согласие на обработку персональных данных.'),
+    ).toBeInTheDocument()
   })
 
   it('keeps email login working', async () => {

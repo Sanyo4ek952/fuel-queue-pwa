@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ConsumerRegistrationForm } from './consumer-registration-form'
@@ -48,7 +49,11 @@ function renderWithQueryClient(children: ReactNode) {
     },
   })
 
-  return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>)
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>,
+  )
 }
 
 function createDeferred<T>() {
@@ -93,7 +98,7 @@ async function advanceCooldown(seconds = 65) {
   }
 }
 
-function fillStaffRegistrationForm() {
+function fillStaffRegistrationForm({ acceptConsent = true }: { acceptConsent?: boolean } = {}) {
   fireEvent.change(screen.getByLabelText('Фамилия'), { target: { value: 'Иванов' } })
   fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'Иван' } })
   fireEvent.change(screen.getByLabelText('Отчество'), { target: { value: 'Иванович' } })
@@ -102,9 +107,12 @@ function fillStaffRegistrationForm() {
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'cashier@example.local' } })
   fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'password123' } })
   fireEvent.change(screen.getByLabelText('Повтор пароля'), { target: { value: 'password123' } })
+  if (acceptConsent) {
+    fireEvent.click(screen.getByLabelText(/Я согласен на обработку персональных данных/i))
+  }
 }
 
-function fillConsumerRegistrationForm() {
+function fillConsumerRegistrationForm({ acceptConsent = true }: { acceptConsent?: boolean } = {}) {
   fireEvent.change(screen.getByLabelText('Фамилия'), { target: { value: 'Петров' } })
   fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'Петр' } })
   fireEvent.change(screen.getByLabelText('Отчество'), { target: { value: 'Петрович' } })
@@ -112,6 +120,9 @@ function fillConsumerRegistrationForm() {
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'resident@example.local' } })
   fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'password123' } })
   fireEvent.change(screen.getByLabelText('Повтор пароля'), { target: { value: 'password123' } })
+  if (acceptConsent) {
+    fireEvent.click(screen.getByLabelText(/Я согласен на обработку персональных данных/i))
+  }
 }
 
 describe.sequential('registration confirmation resend', () => {
@@ -258,5 +269,29 @@ describe.sequential('registration confirmation resend', () => {
     deferred.resolve({ data: null, error: null })
     await flushAsync()
     expect(screen.getByText('Регистрация отправлена')).toBeInTheDocument()
+  })
+
+  it('does not submit staff registration without personal data consent', async () => {
+    renderWithQueryClient(<RegistrationForm />)
+    fillStaffRegistrationForm({ acceptConsent: false })
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }))
+    await flushAsync()
+
+    expect(mocks.signUpWithPassword).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Подтвердите согласие на обработку персональных данных.'),
+    ).toBeInTheDocument()
+  })
+
+  it('does not submit consumer registration without personal data consent', async () => {
+    renderWithQueryClient(<ConsumerRegistrationForm />)
+    fillConsumerRegistrationForm({ acceptConsent: false })
+    fireEvent.click(screen.getByRole('button', { name: 'Зарегистрироваться' }))
+    await flushAsync()
+
+    expect(mocks.signUpConsumerWithPassword).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Подтвердите согласие на обработку персональных данных.'),
+    ).toBeInTheDocument()
   })
 })

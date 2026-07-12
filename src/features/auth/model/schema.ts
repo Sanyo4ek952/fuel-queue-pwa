@@ -7,6 +7,13 @@ const uuidLikeSchema = z.string().regex(
   'Выберите АЗС.',
 )
 
+const personalDataConsentAcceptedSchema = z.preprocess(
+  (value) => value,
+  z.literal(true, {
+    error: 'Подтвердите согласие на обработку персональных данных.',
+  }),
+)
+
 export const loginSchema = z.object({
   email: z.email('Введите корректный email.'),
   password: z.string().min(6, 'Пароль должен быть не короче 6 символов.'),
@@ -25,6 +32,7 @@ export const registerSchema = z
     requestedRole: z.enum(REGISTERABLE_ROLES),
     requestedStationId: z.union([uuidLikeSchema, z.literal('')]).optional(),
     captchaToken: z.string().optional(),
+    personalDataConsentAccepted: personalDataConsentAcceptedSchema,
   })
   .refine((value) => value.password === value.passwordConfirmation, {
     path: ['passwordConfirmation'],
@@ -45,6 +53,7 @@ export const consumerRegisterSchema = z
     middleName: z.string().trim().optional(),
     phone: z.string().trim().optional(),
     captchaToken: z.string().optional(),
+    personalDataConsentAccepted: personalDataConsentAcceptedSchema,
   })
   .refine((value) => value.password === value.passwordConfirmation, {
     path: ['passwordConfirmation'],

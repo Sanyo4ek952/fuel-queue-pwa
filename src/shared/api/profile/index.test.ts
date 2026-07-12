@@ -58,6 +58,8 @@ const profile: CurrentProfile = {
   deactivated_by: null,
   deactivated_at: null,
   deactivation_reason: null,
+  personal_data_consent_version: null,
+  personal_data_consented_at: null,
   stations: [{ id: 'station-id', name: 'AZS #1', address: null }],
 }
 

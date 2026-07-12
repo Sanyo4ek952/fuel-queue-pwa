@@ -43,6 +43,7 @@ describe('registerSchema', () => {
     signatureName: 'Ivanov I.I.',
     requestedRole: 'cashier',
     requestedStationId: '10000000-0000-0000-0000-000000000001',
+    personalDataConsentAccepted: true,
   }
 
   it('accepts a complete registration request', () => {
@@ -85,6 +86,15 @@ describe('registerSchema', () => {
 
     expect(result.success).toBe(false)
   })
+
+  it('rejects registration without personal data consent', () => {
+    const result = registerSchema.safeParse({
+      ...validRegistration,
+      personalDataConsentAccepted: false,
+    })
+
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('consumerRegisterSchema', () => {
@@ -96,6 +106,7 @@ describe('consumerRegisterSchema', () => {
     lastName: 'Resident',
     middleName: '',
     phone: '+79990000000',
+    personalDataConsentAccepted: true,
   }
 
   it('accepts a complete consumer registration request', () => {
@@ -106,6 +117,15 @@ describe('consumerRegisterSchema', () => {
     const result = consumerRegisterSchema.safeParse({
       ...validRegistration,
       passwordConfirmation: 'password456',
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects consumer registration without personal data consent', () => {
+    const result = consumerRegisterSchema.safeParse({
+      ...validRegistration,
+      personalDataConsentAccepted: false,
     })
 
     expect(result.success).toBe(false)

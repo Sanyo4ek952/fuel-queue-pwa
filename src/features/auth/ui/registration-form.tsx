@@ -29,6 +29,8 @@ import {
   SelectValue,
 } from '@/shared/ui/select'
 
+import { PersonalDataConsentCheckbox } from './personal-data-consent-checkbox'
+
 const EMAIL_RESEND_COOLDOWN_SECONDS = 60
 
 export function RegistrationForm() {
@@ -51,6 +53,7 @@ export function RegistrationForm() {
       requestedRole: 'cashier',
       requestedStationId: STATIONS[0]?.id ?? '',
       captchaToken: '',
+      personalDataConsentAccepted: false,
     },
   })
   const requestedRole = form.watch('requestedRole')
@@ -105,6 +108,7 @@ export function RegistrationForm() {
         requestedRole: values.requestedRole,
         requestedStationId: values.requestedRole === 'cashier' ? values.requestedStationId : undefined,
         captchaToken: hcaptcha.token,
+        personalDataConsentAccepted: values.personalDataConsentAccepted,
       })
     } catch (error) {
       if (isAuthRateLimitError(error)) {
@@ -306,6 +310,15 @@ export function RegistrationForm() {
                 ) : null}
               </FormItem>
             </div>
+
+            <PersonalDataConsentCheckbox
+              id="staffPersonalDataConsent"
+              checked={Boolean(form.watch('personalDataConsentAccepted'))}
+              error={form.formState.errors.personalDataConsentAccepted?.message}
+              onChange={(checked) =>
+                form.setValue('personalDataConsentAccepted', checked, { shouldValidate: true })
+              }
+            />
 
             <FormItem>
               <div className="min-h-[78px]">

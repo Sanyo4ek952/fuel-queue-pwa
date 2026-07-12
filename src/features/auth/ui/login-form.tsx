@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { LogIn } from 'lucide-react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import {
@@ -14,6 +15,10 @@ import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { createPersonalDataConsentSnapshot } from '@/shared/config/personal-data-consent'
+import { savePendingYandexPersonalDataConsent } from '@/shared/lib/personal-data-consent'
+
+import { PersonalDataConsentCheckbox } from './personal-data-consent-checkbox'
 
 type LoginFormProps = {
   onSuccess?: () => void
@@ -22,6 +27,8 @@ type LoginFormProps = {
 export function LoginForm({ onSuccess }: LoginFormProps) {
   const loginMutation = useLogin()
   const yandexLoginMutation = useYandexLogin()
+  const [isYandexConsentAccepted, setIsYandexConsentAccepted] = useState(false)
+  const [yandexConsentError, setYandexConsentError] = useState<string | undefined>()
   const form = useForm<LoginFormInput, unknown, LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -36,6 +43,18 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   }
 
   async function handleYandexLogin() {
+    if (!isYandexConsentAccepted) {
+      setYandexConsentError('Подтвердите согласие на обработку персональных данных.')
+      return
+    }
+
+    setYandexConsentError(undefined)
+    savePendingYandexPersonalDataConsent(
+      createPersonalDataConsentSnapshot({
+        registrationRole: 'consumer',
+        source: 'yandex_oauth',
+      }),
+    )
     await yandexLoginMutation.mutateAsync()
   }
 
@@ -84,6 +103,18 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
               <LogIn className="size-4" aria-hidden="true" />
               {loginMutation.isPending ? 'Входим...' : 'Войти'}
             </Button>
+
+            <PersonalDataConsentCheckbox
+              id="yandexPersonalDataConsent"
+              checked={isYandexConsentAccepted}
+              error={yandexConsentError}
+              onChange={(checked) => {
+                setIsYandexConsentAccepted(checked)
+                if (checked) {
+                  setYandexConsentError(undefined)
+                }
+              }}
+            />
 
             <Button
               type="button"

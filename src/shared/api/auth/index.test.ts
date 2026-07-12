@@ -69,6 +69,7 @@ describe('auth registration metadata', () => {
       middleName: '',
       phone: '+79990000000',
       captchaToken: 'consumer-captcha-token',
+      personalDataConsentAccepted: true,
     })
 
     expect(mocks.signUp).toHaveBeenCalledWith({
@@ -76,13 +77,18 @@ describe('auth registration metadata', () => {
       password: 'password123',
       options: {
         captchaToken: 'consumer-captcha-token',
-        data: {
+        data: expect.objectContaining({
           first_name: 'Ivan',
           last_name: 'Resident',
           middle_name: '',
           phone: '+79990000000',
           requested_role: 'consumer',
-        },
+          personal_data_consent_accepted: true,
+          personal_data_consent_version: '2026-07-12',
+          personal_data_consent_document_hash: 'personal-data-consent-2026-07-12-city-queue-v1',
+          personal_data_consent_source: 'email_password',
+          personal_data_consent_registration_role: 'consumer',
+        }),
       },
     })
     expect(mocks.signInWithPassword).not.toHaveBeenCalled()
@@ -103,6 +109,7 @@ describe('auth registration metadata', () => {
       requestedRole: 'cashier',
       requestedStationId: '10000000-0000-0000-0000-000000000001',
       captchaToken: 'staff-captcha-token',
+      personalDataConsentAccepted: true,
     })
 
     expect(mocks.signUp).toHaveBeenCalledWith({
@@ -110,7 +117,7 @@ describe('auth registration metadata', () => {
       password: 'password123',
       options: {
         captchaToken: 'staff-captcha-token',
-        data: {
+        data: expect.objectContaining({
           first_name: 'Ivan',
           last_name: 'Cashier',
           middle_name: '',
@@ -118,7 +125,12 @@ describe('auth registration metadata', () => {
           signature_name: 'Cashier I.',
           requested_role: 'cashier',
           requested_station_id: '10000000-0000-0000-0000-000000000001',
-        },
+          personal_data_consent_accepted: true,
+          personal_data_consent_version: '2026-07-12',
+          personal_data_consent_document_hash: 'personal-data-consent-2026-07-12-city-queue-v1',
+          personal_data_consent_source: 'email_password',
+          personal_data_consent_registration_role: 'cashier',
+        }),
       },
     })
     expect(mocks.signInWithPassword).not.toHaveBeenCalled()
@@ -141,6 +153,7 @@ describe('auth registration metadata', () => {
       middleName: '',
       phone: '+79990000000',
       captchaToken: 'consumer-captcha-token',
+      personalDataConsentAccepted: true,
     })
 
     expect(mocks.signInWithPassword).not.toHaveBeenCalled()
@@ -166,6 +179,7 @@ describe('auth registration metadata', () => {
       requestedRole: 'cashier',
       requestedStationId: '10000000-0000-0000-0000-000000000001',
       captchaToken: 'staff-captcha-token',
+      personalDataConsentAccepted: true,
     })
 
     expect(mocks.signInWithPassword).not.toHaveBeenCalled()

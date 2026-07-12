@@ -5,7 +5,12 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useCurrentProfile } from '@/entities/profile'
 import { isConsumerProfileComplete } from '@/shared/api/profile'
 import { getAuthSession, signOut } from '@/shared/api/auth'
+import { recordPersonalDataConsent } from '@/shared/api/rpc'
 import { ROUTES } from '@/shared/config/routes'
+import {
+  clearPendingYandexPersonalDataConsent,
+  readPendingYandexPersonalDataConsent,
+} from '@/shared/lib/personal-data-consent'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -51,6 +56,8 @@ export function AuthCallbackPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [isSessionLoading, setIsSessionLoading] = useState(true)
   const [isOAuthErrorRedirecting, setIsOAuthErrorRedirecting] = useState(false)
+  const [isConsentRecording, setIsConsentRecording] = useState(false)
+  const [consentError, setConsentError] = useState<string | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
   const currentProfileQuery = useCurrentProfile({
@@ -62,6 +69,7 @@ export function AuthCallbackPage() {
     const oauthError = readOAuthError(location.search, location.hash)
 
     if (oauthError) {
+      clearPendingYandexPersonalDataConsent()
       setIsOAuthErrorRedirecting(true)
       navigate(ROUTES.login, {
         replace: true,
@@ -119,6 +127,7 @@ export function AuthCallbackPage() {
     }
 
     if (profile.role !== 'consumer') {
+      clearPendingYandexPersonalDataConsent()
       void signOut().finally(() => {
         navigate(ROUTES.login, {
           replace: true,
@@ -131,9 +140,43 @@ export function AuthCallbackPage() {
       return
     }
 
-    navigate(isConsumerProfileComplete(profile) ? ROUTES.dashboard : ROUTES.profileSetup, {
-      replace: true,
-    })
+    const pendingConsent = readPendingYandexPersonalDataConsent()
+
+    if (!pendingConsent) {
+      void signOut().finally(() => {
+        navigate(ROUTES.login, {
+          replace: true,
+          state: {
+            authError:
+              'Для входа через Яндекс ID нужно подтвердить согласие на обработку персональных данных.',
+          },
+        })
+      })
+      return
+    }
+
+    setIsConsentRecording(true)
+    setConsentError(null)
+
+    recordPersonalDataConsent(pendingConsent)
+      .then((result) => {
+        if (result.error) {
+          setConsentError(result.error)
+          return
+        }
+
+        clearPendingYandexPersonalDataConsent()
+        navigate(isConsumerProfileComplete(profile) ? ROUTES.dashboard : ROUTES.profileSetup, {
+          replace: true,
+        })
+      })
+      .catch((error: unknown) => {
+        setConsentError(error instanceof Error ? error.message : 'Не удалось сохранить согласие.')
+      })
+      .finally(() => {
+        setIsConsentRecording(false)
+      })
+
   }, [
     currentProfileQuery.data,
     currentProfileQuery.isLoading,
@@ -147,7 +190,7 @@ export function AuthCallbackPage() {
     return <LoadingScreen />
   }
 
-  if (isSessionLoading || currentProfileQuery.isLoading) {
+  if (isSessionLoading || currentProfileQuery.isLoading || isConsentRecording) {
     return <LoadingScreen />
   }
 
@@ -170,6 +213,39 @@ export function AuthCallbackPage() {
             </Alert>
             <Button className="w-full" onClick={() => void currentProfileQuery.refetch()}>
               Повторить
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (consentError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <Card className="w-full max-w-md rounded-lg border-slate-200 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle>Согласие не сохранено</CardTitle>
+            <CardDescription>
+              Вход через Яндекс ID нельзя завершить, пока сервер не зафиксирует согласие на
+              обработку персональных данных.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Alert variant="destructive">
+              <AlertTitle>Ошибка сохранения</AlertTitle>
+              <AlertDescription>{consentError}</AlertDescription>
+            </Alert>
+            <Button
+              className="w-full"
+              onClick={() => {
+                setConsentError(null)
+                void signOut().finally(() => {
+                  navigate(ROUTES.login, { replace: true })
+                })
+              }}
+            >
+              Вернуться к входу
             </Button>
           </CardContent>
         </Card>
