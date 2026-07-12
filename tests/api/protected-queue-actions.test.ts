@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import cancelReservationHandler from '../../api/cancel-reservation.js'
-import reservationCallLogHandler from '../../api/reservation-call-log.js'
-import syncOfflineMutationHandler from '../../api/sync-offline-mutation.js'
-import updateReservationFuelPreferenceHandler from '../../api/update-reservation-fuel-preference.js'
+import protectedRpcHandler from '../../api/protected-rpc.js'
 
 type TestResponse = {
   statusCode: number
@@ -58,8 +55,14 @@ describe('protected queue action API proxy endpoints', () => {
     stubSupabaseEnv()
     const response = createResponse()
 
-    await reservationCallLogHandler(
-      { method: 'POST', headers: {}, body: {}, [Symbol.asyncIterator]: async function* () {} },
+    await protectedRpcHandler(
+      {
+        method: 'POST',
+        headers: {},
+        query: { action: 'reservation-call-log' },
+        body: {},
+        [Symbol.asyncIterator]: async function* () {},
+      },
       response,
     )
 
@@ -73,10 +76,11 @@ describe('protected queue action API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await reservationCallLogHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'reservation-call-log' },
         body: {
           allocationId: 'allocation-id',
           status: 'CONTACTED',
@@ -109,10 +113,11 @@ describe('protected queue action API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await updateReservationFuelPreferenceHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'update-reservation-fuel-preference' },
         body: {
           reservationId: 'reservation-id',
           fuelType: 'AI_92',
@@ -142,10 +147,11 @@ describe('protected queue action API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await cancelReservationHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'cancel-reservation' },
         body: {
           reservationId: 'reservation-id',
           reason: 'OTHER',
@@ -175,10 +181,11 @@ describe('protected queue action API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await syncOfflineMutationHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'sync-offline-mutation' },
         body: {
           clientMutationId: 'mutation-id',
           operationType: 'CREATE_ALLOCATION_CALL_LOG',
@@ -208,10 +215,11 @@ describe('protected queue action API proxy endpoints', () => {
     )
     const response = createResponse()
 
-    await cancelReservationHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'cancel-reservation' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
       },
@@ -230,10 +238,11 @@ describe('protected queue action API proxy endpoints', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeoutError))
     const response = createResponse()
 
-    await syncOfflineMutationHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'sync-offline-mutation' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
       },

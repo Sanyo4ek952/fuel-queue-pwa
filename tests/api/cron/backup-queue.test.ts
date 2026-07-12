@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import handler from '../../../api/cron/backup-queue.js'
+import handler from '../../../api/cron-runner.js'
 import { runQueueBackup } from '../../../api/cron/_lib/run-queue-backup.js'
 
 vi.mock('../../../api/cron/_lib/run-queue-backup.js', () => ({
@@ -52,7 +52,7 @@ describe('/api/cron/backup-queue', () => {
       {
         method: 'GET',
         headers: {},
-        query: { secret: 'cron-secret' },
+        query: { job: 'backup-queue', secret: 'cron-secret' },
       },
       response,
     )
@@ -70,13 +70,31 @@ describe('/api/cron/backup-queue', () => {
       {
         method: 'GET',
         headers: { authorization: 'Bearer wrong-secret' },
-        query: {},
+        query: { job: 'backup-queue' },
       },
       response,
     )
 
     expect(response.statusCode).toBe(401)
     expect(response.body).toEqual({ error: 'Unauthorized.' })
+    expect(runQueueBackup).not.toHaveBeenCalled()
+  })
+
+  it('rejects an unknown cron job', async () => {
+    stubCronEnv()
+    const response = createResponse()
+
+    await handler(
+      {
+        method: 'GET',
+        headers: { authorization: 'Bearer cron-secret' },
+        query: { job: 'unknown-job' },
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(404)
+    expect(response.body).toEqual({ error: 'Cron job not found.' })
     expect(runQueueBackup).not.toHaveBeenCalled()
   })
 
@@ -99,7 +117,7 @@ describe('/api/cron/backup-queue', () => {
       {
         method: 'GET',
         headers: { authorization: 'Bearer cron-secret' },
-        query: { date: '2026-07-09' },
+        query: { job: 'backup-queue', date: '2026-07-09' },
       },
       response,
     )

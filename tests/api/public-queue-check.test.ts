@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import handler from '../../api/public-queue-check.js'
+import handler from '../../api/public-api.js'
 
 function createResponse() {
   const response = {
@@ -55,6 +55,7 @@ describe('/api/public-queue-check', () => {
       {
         method: 'POST',
         headers: { 'x-forwarded-for': '203.0.113.5' },
+        query: { action: 'public-queue-check' },
         body: { plateNumber: 'A123BC777', phoneLast4: '1234' },
         [Symbol.asyncIterator]: async function* () {},
       },
@@ -65,6 +66,25 @@ describe('/api/public-queue-check', () => {
     expect(JSON.parse(response.body)).toEqual({
       error: 'Public queue rate limit is not configured.',
     })
+  })
+
+  it('rejects an unknown public API action', async () => {
+    stubPublicQueueEnv()
+    const response = createResponse()
+
+    await handler(
+      {
+        method: 'POST',
+        headers: { 'x-forwarded-for': '203.0.113.5' },
+        query: { action: 'unknown-action' },
+        body: {},
+        [Symbol.asyncIterator]: async function* () {},
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(404)
+    expect(JSON.parse(response.body)).toEqual({ error: 'Public API action not found.' })
   })
 
   it('hashes the server-observed IP and does not forward the raw IP', async () => {
@@ -84,6 +104,7 @@ describe('/api/public-queue-check', () => {
       {
         method: 'POST',
         headers: { 'x-forwarded-for': '203.0.113.5, 198.51.100.9' },
+        query: { action: 'public-queue-check' },
         body: { plateNumber: 'A123BC777', phoneLast4: '1234', clientIp: '1.1.1.1' },
         [Symbol.asyncIterator]: async function* () {},
       },
@@ -128,6 +149,7 @@ describe('/api/public-queue-check', () => {
       {
         method: 'POST',
         headers: { 'x-real-ip': '203.0.113.10' },
+        query: { action: 'public-queue-check' },
         body: { plateNumber: 'A123BC777', phoneLast4: '1234' },
         [Symbol.asyncIterator]: async function* () {},
       },

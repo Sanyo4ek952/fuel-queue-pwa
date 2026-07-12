@@ -6,21 +6,9 @@ import path from 'node:path'
 import type { IncomingMessage } from 'node:http'
 import type { Connect } from 'vite'
 
-import cancelReservationHandler from './api/cancel-reservation.js'
-import checkVehicleAccessHandler from './api/check-vehicle-access.js'
-import createFuelingRecordForAllocationHandler from './api/create-fueling-record-for-allocation.js'
-import createFuelingRecordForPreferentialEntryHandler from './api/create-fueling-record-for-preferential-entry.js'
 import currentProfileHandler from './api/current-profile.js'
-import dailyLimitOverviewHandler from './api/daily-limit-overview.js'
-import publicNoShowGraceHandler from './api/public-no-show-grace.js'
-import publicQueueCheckHandler from './api/public-queue-check.js'
-import reservationCallLogHandler from './api/reservation-call-log.js'
-import syncOfflineMutationHandler from './api/sync-offline-mutation.js'
-import todayQueueHandler from './api/today-queue.js'
-import todayQueueAuthorsHandler from './api/today-queue-authors.js'
-import updateReservationFuelPreferenceHandler from './api/update-reservation-fuel-preference.js'
-import vehicleFuelingHistoryHandler from './api/vehicle-fueling-history.js'
-import vehicleRecentFuelingHistoryHandler from './api/vehicle-recent-fueling-history.js'
+import protectedRpcHandler from './api/protected-rpc.js'
+import publicApiHandler from './api/public-api.js'
 
 type LocalApiResponse = {
   statusCode: number
@@ -30,7 +18,7 @@ type LocalApiResponse = {
 }
 
 type LocalApiHandler = (
-  request: IncomingMessage,
+  request: IncomingMessage & { query?: Record<string, string | string[] | undefined> },
   response: LocalApiResponse,
 ) => Promise<void> | void
 
@@ -69,11 +57,12 @@ function mountLocalApiHandler(
   route: string,
   handler: LocalApiHandler,
   fallbackMessage: string,
+  query?: Record<string, string | string[] | undefined>,
 ) {
   middlewares.use(route, async (request, response) => {
     try {
       await handler(
-        request,
+        Object.assign(request, { query }),
         createLocalApiResponse((statusCode, headers, body) => {
           response.statusCode = statusCode
 
@@ -112,86 +101,100 @@ function localApiPlugin(mode: string): Plugin {
       mountLocalApiHandler(
         server.middlewares,
         '/api/public-queue-check',
-        publicQueueCheckHandler,
+        publicApiHandler,
         'Local public queue check request failed.',
+        { action: 'public-queue-check' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/public-no-show-grace',
-        publicNoShowGraceHandler,
+        publicApiHandler,
         'Local public no-show grace request failed.',
+        { action: 'public-no-show-grace' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/today-queue',
-        todayQueueHandler,
+        protectedRpcHandler,
         'Local today queue request failed.',
+        { action: 'today-queue' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/today-queue-authors',
-        todayQueueAuthorsHandler,
+        protectedRpcHandler,
         'Local today queue authors request failed.',
+        { action: 'today-queue-authors' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/daily-limit-overview',
-        dailyLimitOverviewHandler,
+        protectedRpcHandler,
         'Local daily limit overview request failed.',
+        { action: 'daily-limit-overview' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/check-vehicle-access',
-        checkVehicleAccessHandler,
+        protectedRpcHandler,
         'Local check vehicle access request failed.',
+        { action: 'check-vehicle-access' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/vehicle-fueling-history',
-        vehicleFuelingHistoryHandler,
+        protectedRpcHandler,
         'Local vehicle fueling history request failed.',
+        { action: 'vehicle-fueling-history' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/vehicle-recent-fueling-history',
-        vehicleRecentFuelingHistoryHandler,
+        protectedRpcHandler,
         'Local vehicle recent fueling history request failed.',
+        { action: 'vehicle-recent-fueling-history' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/create-fueling-record-for-allocation',
-        createFuelingRecordForAllocationHandler,
+        protectedRpcHandler,
         'Local create fueling record request failed.',
+        { action: 'create-fueling-record-for-allocation' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/create-fueling-record-for-preferential-entry',
-        createFuelingRecordForPreferentialEntryHandler,
+        protectedRpcHandler,
         'Local create preferential fueling record request failed.',
+        { action: 'create-fueling-record-for-preferential-entry' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/reservation-call-log',
-        reservationCallLogHandler,
+        protectedRpcHandler,
         'Local reservation call log request failed.',
+        { action: 'reservation-call-log' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/update-reservation-fuel-preference',
-        updateReservationFuelPreferenceHandler,
+        protectedRpcHandler,
         'Local update reservation fuel preference request failed.',
+        { action: 'update-reservation-fuel-preference' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/cancel-reservation',
-        cancelReservationHandler,
+        protectedRpcHandler,
         'Local cancel reservation request failed.',
+        { action: 'cancel-reservation' },
       )
       mountLocalApiHandler(
         server.middlewares,
         '/api/sync-offline-mutation',
-        syncOfflineMutationHandler,
+        protectedRpcHandler,
         'Local sync offline mutation request failed.',
+        { action: 'sync-offline-mutation' },
       )
     },
   }

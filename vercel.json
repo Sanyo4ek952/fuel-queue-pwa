@@ -4,5 +4,24 @@
     { "path": "/api/cron/finalize-daily-queue", "schedule": "10 21 * * *" },
     { "path": "/api/cron/cleanup-unconfirmed-users", "schedule": "35 21 * * *" }
   ],
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/cancel-reservation", "destination": "/api/protected-rpc?action=cancel-reservation" },
+    { "source": "/api/check-vehicle-access", "destination": "/api/protected-rpc?action=check-vehicle-access" },
+    { "source": "/api/create-fueling-record-for-allocation", "destination": "/api/protected-rpc?action=create-fueling-record-for-allocation" },
+    { "source": "/api/create-fueling-record-for-preferential-entry", "destination": "/api/protected-rpc?action=create-fueling-record-for-preferential-entry" },
+    { "source": "/api/daily-limit-overview", "destination": "/api/protected-rpc?action=daily-limit-overview" },
+    { "source": "/api/reservation-call-log", "destination": "/api/protected-rpc?action=reservation-call-log" },
+    { "source": "/api/sync-offline-mutation", "destination": "/api/protected-rpc?action=sync-offline-mutation" },
+    { "source": "/api/today-queue", "destination": "/api/protected-rpc?action=today-queue" },
+    { "source": "/api/today-queue-authors", "destination": "/api/protected-rpc?action=today-queue-authors" },
+    { "source": "/api/update-reservation-fuel-preference", "destination": "/api/protected-rpc?action=update-reservation-fuel-preference" },
+    { "source": "/api/vehicle-fueling-history", "destination": "/api/protected-rpc?action=vehicle-fueling-history" },
+    { "source": "/api/vehicle-recent-fueling-history", "destination": "/api/protected-rpc?action=vehicle-recent-fueling-history" },
+    { "source": "/api/public-queue-check", "destination": "/api/public-api?action=public-queue-check" },
+    { "source": "/api/public-no-show-grace", "destination": "/api/public-api?action=public-no-show-grace" },
+    { "source": "/api/cron/backup-queue", "destination": "/api/cron-runner?job=backup-queue" },
+    { "source": "/api/cron/finalize-daily-queue", "destination": "/api/cron-runner?job=finalize-daily-queue" },
+    { "source": "/api/cron/cleanup-unconfirmed-users", "destination": "/api/cron-runner?job=cleanup-unconfirmed-users" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import checkVehicleAccessHandler from '../../api/check-vehicle-access.js'
-import createFuelingRecordForAllocationHandler from '../../api/create-fueling-record-for-allocation.js'
-import createFuelingRecordForPreferentialEntryHandler from '../../api/create-fueling-record-for-preferential-entry.js'
-import vehicleFuelingHistoryHandler from '../../api/vehicle-fueling-history.js'
-import vehicleRecentFuelingHistoryHandler from '../../api/vehicle-recent-fueling-history.js'
+import protectedRpcHandler from '../../api/protected-rpc.js'
 
 type TestResponse = {
   statusCode: number
@@ -59,13 +55,38 @@ describe('protected fueling API proxy endpoints', () => {
     stubSupabaseEnv()
     const response = createResponse()
 
-    await checkVehicleAccessHandler(
-      { method: 'POST', headers: {}, body: {}, [Symbol.asyncIterator]: async function* () {} },
+    await protectedRpcHandler(
+      {
+        method: 'POST',
+        headers: {},
+        query: { action: 'check-vehicle-access' },
+        body: {},
+        [Symbol.asyncIterator]: async function* () {},
+      },
       response,
     )
 
     expect(response.statusCode).toBe(401)
     expect(JSON.parse(response.body)).toEqual({ error: 'Authorization token is required.' })
+  })
+
+  it('rejects an unknown protected RPC action', async () => {
+    stubSupabaseEnv()
+    const response = createResponse()
+
+    await protectedRpcHandler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer access-token' },
+        query: { action: 'unknown-action' },
+        body: {},
+        [Symbol.asyncIterator]: async function* () {},
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(404)
+    expect(JSON.parse(response.body)).toEqual({ error: 'Protected RPC action not found.' })
   })
 
   it('/api/check-vehicle-access proxies check_vehicle_access', async () => {
@@ -74,10 +95,11 @@ describe('protected fueling API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await checkVehicleAccessHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'check-vehicle-access' },
         body: {
           plateNumber: 'A123BC777',
           stationId: 'station-id',
@@ -108,10 +130,11 @@ describe('protected fueling API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await vehicleFuelingHistoryHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'vehicle-fueling-history' },
         body: {
           plateNumber: 'A123BC777',
           pageLimit: 10,
@@ -139,10 +162,11 @@ describe('protected fueling API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await vehicleRecentFuelingHistoryHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'vehicle-recent-fueling-history' },
         body: { plateNumber: 'A123BC777' },
         [Symbol.asyncIterator]: async function* () {},
       },
@@ -162,10 +186,11 @@ describe('protected fueling API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await createFuelingRecordForAllocationHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'create-fueling-record-for-allocation' },
         body: {
           allocationId: 'allocation-id',
           liters: 20,
@@ -197,10 +222,11 @@ describe('protected fueling API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await createFuelingRecordForPreferentialEntryHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'create-fueling-record-for-preferential-entry' },
         body: {
           preferentialQueueEntryId: 'preferential-entry-id',
           stationId: 'station-id',
@@ -238,10 +264,11 @@ describe('protected fueling API proxy endpoints', () => {
     )
     const response = createResponse()
 
-    await createFuelingRecordForAllocationHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'create-fueling-record-for-allocation' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
       },
@@ -260,10 +287,11 @@ describe('protected fueling API proxy endpoints', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeoutError))
     const response = createResponse()
 
-    await vehicleFuelingHistoryHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'vehicle-fueling-history' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
       },

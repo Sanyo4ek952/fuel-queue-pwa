@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import handler from '../../../api/cron/cleanup-unconfirmed-users.js'
+import handler from '../../../api/cron-runner.js'
 import { cleanupUnconfirmedUsers } from '../../../api/cron/_lib/cleanup-unconfirmed-users.js'
 
 vi.mock('../../../api/cron/_lib/cleanup-unconfirmed-users.js', () => ({
@@ -49,7 +49,7 @@ describe('/api/cron/cleanup-unconfirmed-users', () => {
       {
         method: 'GET',
         headers: {},
-        query: { secret: 'cron-secret' },
+        query: { job: 'cleanup-unconfirmed-users', secret: 'cron-secret' },
       },
       response,
     )
@@ -67,7 +67,7 @@ describe('/api/cron/cleanup-unconfirmed-users', () => {
       {
         method: 'GET',
         headers: { authorization: 'Bearer wrong-secret' },
-        query: {},
+        query: { job: 'cleanup-unconfirmed-users' },
       },
       response,
     )
@@ -91,7 +91,7 @@ describe('/api/cron/cleanup-unconfirmed-users', () => {
       {
         method: 'POST',
         headers: { authorization: 'Bearer cron-secret' },
-        query: {},
+        query: { job: 'cleanup-unconfirmed-users' },
       },
       response,
     )

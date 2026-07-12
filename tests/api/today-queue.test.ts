@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import dailyLimitOverviewHandler from '../../api/daily-limit-overview.js'
-import todayQueueHandler from '../../api/today-queue.js'
-import todayQueueAuthorsHandler from '../../api/today-queue-authors.js'
+import protectedRpcHandler from '../../api/protected-rpc.js'
 
 type TestResponse = {
   statusCode: number
@@ -57,8 +55,14 @@ describe('protected queue API proxy endpoints', () => {
     stubSupabaseEnv()
     const response = createResponse()
 
-    await todayQueueHandler(
-      { method: 'POST', headers: {}, body: {}, [Symbol.asyncIterator]: async function* () {} },
+    await protectedRpcHandler(
+      {
+        method: 'POST',
+        headers: {},
+        query: { action: 'today-queue' },
+        body: {},
+        [Symbol.asyncIterator]: async function* () {},
+      },
       response,
     )
 
@@ -77,10 +81,11 @@ describe('protected queue API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await todayQueueHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'today-queue' },
         body: {
           targetDate: '2026-07-12',
           pageSize: 25,
@@ -122,10 +127,11 @@ describe('protected queue API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await todayQueueAuthorsHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'today-queue-authors' },
         body: {
           targetDate: '2026-07-12',
           plateSearch: 'A123BC777',
@@ -162,10 +168,11 @@ describe('protected queue API proxy endpoints', () => {
     vi.stubGlobal('fetch', fetchMock)
     const response = createResponse()
 
-    await dailyLimitOverviewHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'daily-limit-overview' },
         body: { date: '2026-07-12' },
         [Symbol.asyncIterator]: async function* () {},
       },
@@ -187,10 +194,11 @@ describe('protected queue API proxy endpoints', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeoutError))
     const response = createResponse()
 
-    await todayQueueHandler(
+    await protectedRpcHandler(
       {
         method: 'POST',
         headers: { authorization: 'Bearer access-token' },
+        query: { action: 'today-queue' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
       },
