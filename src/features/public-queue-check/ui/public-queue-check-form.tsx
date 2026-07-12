@@ -67,9 +67,15 @@ function QueuePositionSummary({
     <span className="block">
       {fuelQueuePosition !== null
         ? `Позиция в очереди топлива №${fuelQueuePosition}.`
-        : 'Позиция в очереди топлива ещё не рассчитана.'}
+        : 'Запись найдена, но позиция временно недоступна.'}
     </span>
   )
+}
+
+function getQueuePositionTitle(fuelQueuePosition: number | null) {
+  return fuelQueuePosition !== null
+    ? `Позиция в очереди топлива №${fuelQueuePosition}`
+    : 'Запись найдена, но позиция временно недоступна'
 }
 
 export function PublicQueueCheckForm() {
@@ -261,7 +267,7 @@ export function PublicQueueCheckForm() {
             {isQueueNotReady ? (
               <Alert className="border-amber-200 bg-amber-50 text-amber-950">
                 <TriangleAlert className="size-4" aria-hidden="true" />
-                <AlertTitle>Позиция в очереди топлива ещё не рассчитана</AlertTitle>
+                <AlertTitle>{getQueuePositionTitle(result.fuel_queue_position)}</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
                     fuelQueuePosition={result.fuel_queue_position}

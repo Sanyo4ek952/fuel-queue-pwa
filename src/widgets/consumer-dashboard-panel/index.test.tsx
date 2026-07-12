@@ -165,7 +165,7 @@ describe('ConsumerDashboardPanel', () => {
     expect(screen.queryByText('№3')).not.toBeInTheDocument()
   })
 
-  it('does not fall back to current_position when fuel queue position is missing', () => {
+  it('falls back to current_position when fuel queue position is missing', () => {
     mocks.activeReservation = makeActiveReservation({
       fuel_queue_position: null,
     })
@@ -173,8 +173,8 @@ describe('ConsumerDashboardPanel', () => {
     render(<ConsumerDashboardPanel />)
 
     expect(screen.getByText('Позиция в очереди топлива')).toBeInTheDocument()
-    expect(screen.getByText('Ожидает расчёта')).toBeInTheDocument()
-    expect(screen.queryByText('№3')).not.toBeInTheDocument()
+    expect(screen.getByText('№3')).toBeInTheDocument()
+    expect(screen.queryByText('Ожидает расчёта')).not.toBeInTheDocument()
   })
 
   it('shows daily distribution station context separately', () => {

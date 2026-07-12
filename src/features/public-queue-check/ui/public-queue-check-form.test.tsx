@@ -137,6 +137,39 @@ describe('PublicQueueCheckForm', () => {
         ticket_number: 2847,
         current_position: null,
         people_ahead: null,
+        fuel_queue_position: 23,
+        preferred_fuel_type: 'DIESEL',
+        public_status: 'QUEUE_NOT_READY',
+        is_within_today_limit: false,
+        is_callable_now: false,
+        remaining_attempts: 4,
+      },
+      error: null,
+    })
+
+    renderWithQueryClient(<PublicQueueCheckForm />)
+    await userEvent.type(screen.getByLabelText('Госномер'), 'A123BC777')
+    await userEvent.type(screen.getByLabelText('Последние 4 цифры телефона'), '1234')
+    await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
+
+    expect(await screen.findByText('Позиция в очереди топлива №23')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Позиция в очереди топлива №23./),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Постоянный номер №2847/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/аннулирована/)).not.toBeInTheDocument()
+    expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
+    expect(screen.queryByText('1234')).not.toBeInTheDocument()
+  })
+
+  it('shows a temporary unavailable message when a found queue entry has no fuel position', async () => {
+    mocks.checkPublicQueuePosition.mockResolvedValue({
+      data: {
+        status: 'FOUND',
+        queue_number: 2847,
+        ticket_number: 2847,
+        current_position: null,
+        people_ahead: null,
         fuel_queue_position: null,
         preferred_fuel_type: 'DIESEL',
         public_status: 'QUEUE_NOT_READY',
@@ -152,14 +185,11 @@ describe('PublicQueueCheckForm', () => {
     await userEvent.type(screen.getByLabelText('Последние 4 цифры телефона'), '1234')
     await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
 
-    expect(await screen.findByText('Позиция в очереди топлива ещё не рассчитана')).toBeInTheDocument()
     expect(
-      screen.getByText(/Позиция в очереди топлива ещё не рассчитана./),
+      await screen.findByText('Запись найдена, но позиция временно недоступна'),
     ).toBeInTheDocument()
-    expect(screen.queryByText(/Постоянный номер №2847/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/аннулирована/)).not.toBeInTheDocument()
-    expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
-    expect(screen.queryByText('1234')).not.toBeInTheDocument()
+    expect(screen.getByText(/Запись найдена, но позиция временно недоступна./)).toBeInTheDocument()
+    expect(screen.queryByText(/Позиция в очереди топлива ещё не рассчитана/)).not.toBeInTheDocument()
   })
 
   it('shows a clear inactive message for completed or cancelled queue entries', async () => {
@@ -186,7 +216,7 @@ describe('PublicQueueCheckForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /проверить очередь/i }))
 
     expect(await screen.findByText('Запись уже не активна')).toBeInTheDocument()
-    expect(screen.getByText(/Позиция в очереди топлива ещё не рассчитана./)).toBeInTheDocument()
+    expect(screen.getByText(/Запись найдена, но позиция временно недоступна./)).toBeInTheDocument()
     expect(screen.queryByText(/Постоянный номер №2847/)).not.toBeInTheDocument()
     expect(screen.getByText(/уже завершена, отменена или больше не участвует в очереди/)).toBeInTheDocument()
     expect(screen.queryByText('А123ВС777')).not.toBeInTheDocument()
