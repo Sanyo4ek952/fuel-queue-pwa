@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(36);
+select plan(41);
 
 select has_table('public', 'fuel_queue_entries', 'persistent queue entries exist');
 select has_table('public', 'daily_queue_allocations', 'daily allocations exist');
@@ -464,6 +464,190 @@ select is(
   ),
   1,
   'AI_95 ANY_GASOLINE can use an AI_92 limit'
+);
+
+delete from public.fueling_records
+where queue_entry_id in (
+  '60000000-1000-4000-8000-000000000006',
+  '60000000-1000-4000-8000-000000000007',
+  '60000000-1000-4000-8000-000000000008'
+);
+
+delete from public.daily_queue_allocations
+where allocation_date = date '2026-07-09';
+
+delete from public.daily_fueling_schedules
+where date = date '2026-07-09'
+  and station_id = '10000000-1000-4000-8000-000000000001';
+
+delete from public.daily_limits
+where date = date '2026-07-09'
+  and station_id = '10000000-1000-4000-8000-000000000001';
+
+insert into public.vehicles (id, plate_number, normalized_plate_number)
+values
+  ('40000000-1000-4000-8000-000000000006', 'A006AA777', 'A006AA777'),
+  ('40000000-1000-4000-8000-000000000007', 'A007AA777', 'A007AA777'),
+  ('40000000-1000-4000-8000-000000000008', 'A008AA777', 'A008AA777')
+on conflict (id) do update
+set plate_number = excluded.plate_number,
+    normalized_plate_number = excluded.normalized_plate_number;
+
+insert into public.drivers (id, full_name, phone)
+values
+  ('50000000-1000-4000-8000-000000000006', 'Driver Six', '+70000000006'),
+  ('50000000-1000-4000-8000-000000000007', 'Driver Seven', '+70000000007'),
+  ('50000000-1000-4000-8000-000000000008', 'Driver Eight', '+70000000008')
+on conflict (id) do update
+set full_name = excluded.full_name,
+    phone = excluded.phone;
+
+insert into public.fuel_queue_entries (
+  id,
+  permanent_number,
+  vehicle_id,
+  driver_id,
+  preferred_fuel_type,
+  fuel_preference_mode,
+  requested_liters,
+  status,
+  operator_id,
+  client_mutation_id,
+  sync_status
+)
+values
+  ('60000000-1000-4000-8000-000000000006', 900006, '40000000-1000-4000-8000-000000000006', '50000000-1000-4000-8000-000000000006', 'AI_95', 'EXACT', 20, 'WAITING', '30000000-1000-4000-8000-000000000001', '61000000-1000-4000-8000-000000000006', 'SYNCED'),
+  ('60000000-1000-4000-8000-000000000007', 900007, '40000000-1000-4000-8000-000000000007', '50000000-1000-4000-8000-000000000007', 'AI_95', 'EXACT', 20, 'WAITING', '30000000-1000-4000-8000-000000000001', '61000000-1000-4000-8000-000000000007', 'SYNCED'),
+  ('60000000-1000-4000-8000-000000000008', 900008, '40000000-1000-4000-8000-000000000008', '50000000-1000-4000-8000-000000000008', 'AI_95', 'EXACT', 20, 'WAITING', '30000000-1000-4000-8000-000000000001', '61000000-1000-4000-8000-000000000008', 'SYNCED')
+on conflict (id) do update
+set permanent_number = excluded.permanent_number,
+    requested_liters = excluded.requested_liters,
+    status = excluded.status;
+
+update public.fuel_queue_entries
+set status = 'CANCELLED'
+where status = 'WAITING'
+  and id not in (
+    '60000000-1000-4000-8000-000000000006',
+    '60000000-1000-4000-8000-000000000007',
+    '60000000-1000-4000-8000-000000000008'
+  );
+
+insert into public.daily_fueling_schedules (
+  date,
+  station_id,
+  fuel_category,
+  start_time,
+  interval_minutes,
+  vehicles_per_interval,
+  updated_by,
+  client_mutation_id
+)
+values (
+  date '2026-07-09',
+  '10000000-1000-4000-8000-000000000001',
+  'GASOLINE',
+  time '09:00',
+  10,
+  1,
+  '30000000-1000-4000-8000-000000000001',
+  '33000000-1000-4000-8000-000000000009'
+)
+on conflict (date, station_id, fuel_category) do update
+set start_time = excluded.start_time,
+    interval_minutes = excluded.interval_minutes,
+    vehicles_per_interval = excluded.vehicles_per_interval;
+
+select lives_ok(
+  $test$
+    select public.create_daily_limit(
+      date '2026-07-09',
+      '[{"fuel_type":"AI_95","status":"OPEN","liters_limit":60}]'::jsonb,
+      '35000000-1000-4000-8000-000000000009',
+      '10000000-1000-4000-8000-000000000001'
+    )
+  $test$,
+  'create_daily_limit allocates reset ETA scenario entries'
+);
+
+select lives_ok(
+  $test$
+    select public.create_fueling_record_for_allocation(
+      (
+        select id
+        from public.daily_queue_allocations
+        where allocation_date = date '2026-07-09'
+          and queue_entry_id = '60000000-1000-4000-8000-000000000006'
+      ),
+      20,
+      timestamp with time zone '2026-07-09 09:05:00+03',
+      null,
+      '62000000-1000-4000-8000-000000000009'
+    )
+  $test$,
+  'fueling one entry keeps normal allocator behavior available'
+);
+
+select is(
+  (
+    select array_agg(to_char(dqa.arrival_at at time zone 'Europe/Moscow', 'HH24:MI') order by fqe.permanent_number)
+    from public.daily_queue_allocations dqa
+    join public.fuel_queue_entries fqe on fqe.id = dqa.queue_entry_id
+    where dqa.allocation_date = date '2026-07-09'
+      and dqa.status = 'ACTIVE'
+      and dqa.queue_entry_id in (
+        '60000000-1000-4000-8000-000000000007',
+        '60000000-1000-4000-8000-000000000008'
+      )
+  ),
+  array['09:10', '09:20']::text[],
+  'normal fueling reallocation keeps fueled entries in the ETA schedule'
+);
+
+select lives_ok(
+  $test$
+    do $do$
+    begin
+      perform public.create_daily_limit(
+        date '2026-07-09',
+        '[{"fuel_type":"AI_95","status":"PAUSED","liters_limit":null}]'::jsonb,
+        '35000000-1000-4000-8000-000000000010',
+        '10000000-1000-4000-8000-000000000001'
+      );
+
+      perform public.set_daily_fueling_schedule(
+        date '2026-07-09',
+        '10000000-1000-4000-8000-000000000001',
+        '[{"fuel_category":"GASOLINE","start_time":"13:00","interval_minutes":10,"vehicles_per_interval":1}]'::jsonb,
+        '33000000-1000-4000-8000-000000000010'
+      );
+
+      perform public.create_daily_limit(
+        date '2026-07-09',
+        '[{"fuel_type":"AI_95","status":"OPEN","liters_limit":60}]'::jsonb,
+        '35000000-1000-4000-8000-000000000011',
+        '10000000-1000-4000-8000-000000000001'
+      );
+    end
+    $do$;
+  $test$,
+  'reopening a paused limit recalculates queue with the updated schedule'
+);
+
+select is(
+  (
+    select array_agg(to_char(dqa.arrival_at at time zone 'Europe/Moscow', 'HH24:MI') order by fqe.permanent_number)
+    from public.daily_queue_allocations dqa
+    join public.fuel_queue_entries fqe on fqe.id = dqa.queue_entry_id
+    where dqa.allocation_date = date '2026-07-09'
+      and dqa.status = 'ACTIVE'
+      and dqa.queue_entry_id in (
+        '60000000-1000-4000-8000-000000000007',
+        '60000000-1000-4000-8000-000000000008'
+      )
+  ),
+  array['13:00', '13:10']::text[],
+  'reopened paused limit starts active ETA from the configured start time'
 );
 
 select * from finish();
