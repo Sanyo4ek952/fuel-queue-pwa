@@ -45,6 +45,8 @@ export type PublicQueueCheckResult = {
   allocation_status: string | null
   arrival_at: string | null
   remaining_attempts: number
+  retry_after_seconds: number
+  error_code: string | null
 }
 
 export type CheckPublicQueueParams = {
@@ -95,6 +97,7 @@ export function parsePublicQueueCheckResult(value: unknown): PublicQueueCheckRes
 
   const result = value as Partial<PublicQueueCheckResult>
   const remainingAttempts = toNumber(result.remaining_attempts)
+  const retryAfterSeconds = toNumber(result.retry_after_seconds)
   const ticketNumber = toNullableNumber(result.ticket_number) ?? toNullableNumber(result.queue_number)
   const currentPosition = toNullableNumber(result.current_position)
   const peopleAhead = toNullableNumber(result.people_ahead)
@@ -112,6 +115,7 @@ export function parsePublicQueueCheckResult(value: unknown): PublicQueueCheckRes
     PUBLIC_QUEUE_CHECK_STATUSES.includes(result.status as PublicQueueCheckStatus) &&
     PUBLIC_QUEUE_STATUSES.includes(publicStatus as PublicQueueStatus) &&
     remainingAttempts !== null &&
+    retryAfterSeconds !== null &&
     (ticketNumber === null || ticketNumber > 0) &&
     (currentPosition === null || currentPosition > 0) &&
     (peopleAhead === null || peopleAhead >= 0)
@@ -132,6 +136,8 @@ export function parsePublicQueueCheckResult(value: unknown): PublicQueueCheckRes
       allocation_status: result.allocation_status ?? null,
       arrival_at: result.arrival_at ?? null,
       remaining_attempts: remainingAttempts,
+      retry_after_seconds: retryAfterSeconds,
+      error_code: typeof result.error_code === 'string' ? result.error_code : null,
     }
   }
 

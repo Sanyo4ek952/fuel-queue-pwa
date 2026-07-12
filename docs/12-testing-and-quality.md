@@ -92,3 +92,13 @@
 - ручная проверка ключевого сценария
 - нет нарушений FSD
 - нет прямых критичных insert/update в Supabase
+
+## npm commands
+
+- `npm ci`
+- `npm run dev`
+- `npm run typecheck`
+- `npm run lint`
+- `npm run check:architecture`
+- `npm run test`
+- `npm run build`

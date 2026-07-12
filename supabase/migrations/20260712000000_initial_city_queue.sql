@@ -2257,8 +2257,8 @@ CREATE OR REPLACE FUNCTION "public"."get_daily_limit_overview"("target_date" "da
       ('AI_92'::text, 'AI-92', 1),
       ('AI_95'::text, 'AI-95', 2),
       ('AI_100'::text, 'AI-100', 3),
-      ('DIESEL'::text, 'Р”РёР·РµР»СЊ', 4),
-      ('GAS'::text, 'Р“Р°Р·', 5)
+      ('DIESEL'::text, 'Дизель', 4),
+      ('GAS'::text, 'Газ', 5)
   ),
   active_stations as (
     select
@@ -2393,7 +2393,7 @@ CREATE OR REPLACE FUNCTION "public"."get_daily_limit_overview"("target_date" "da
     'id', null,
     'date', target_date,
     'station_id', null,
-    'station_name', 'Р’СЃРµ РђР—РЎ',
+    'station_name', 'Все АЗС',
     'station_address', null,
     'status', case when exists(select 1 from active_stations) then 'OPEN' else null end,
     'category_overviews', coalesce((select value from global_categories), '[]'::jsonb),
@@ -2412,13 +2412,13 @@ CREATE OR REPLACE FUNCTION "public"."get_fuel_preference_label"("fuel_type" "tex
   select case
     when fuel_preference_mode = 'ANY_GASOLINE'
       and fuel_type in ('AI_92', 'AI_95', 'AI_100')
-      then 'РџРѕРґРѕР№РґС‘С‚ РђР-92/95/100'
-    else 'РўРѕР»СЊРєРѕ ' || case fuel_type
-      when 'AI_92' then 'РђР-92'
-      when 'AI_95' then 'РђР-95'
-      when 'AI_100' then 'РђР-100'
-      when 'DIESEL' then 'РґРёР·РµР»СЊ'
-      when 'GAS' then 'РіР°Р·'
+      then 'Подойдёт АИ-92/95/100'
+    else 'Только ' || case fuel_type
+      when 'AI_92' then 'АИ-92'
+      when 'AI_95' then 'АИ-95'
+      when 'AI_100' then 'АИ-100'
+      when 'DIESEL' then 'дизель'
+      when 'GAS' then 'газ'
       else fuel_type
     end
   end
@@ -3129,7 +3129,7 @@ begin
     nullif(trim(meta->>'phone'), ''),
     avatar_url_value,
     provider_value,
-    coalesce(full_name_value, email_value, 'РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЇРЅРґРµРєСЃ ID'),
+    coalesce(full_name_value, email_value, 'Пользователь Яндекс ID'),
     first_name_value,
     last_name_value,
     middle_name_value,
@@ -3342,13 +3342,13 @@ CREATE OR REPLACE FUNCTION "public"."normalize_plate_number"("value" "text") RET
 declare
   normalized text;
 begin
-  normalized := upper(regexp_replace(coalesce(value, ''), '[^0-9A-Za-zРђР’Р•РљРњРќРћР РЎРўРЈРҐР°РІРµРєРјРЅРѕСЂСЃС‚СѓС…]', '', 'g'));
+  normalized := upper(regexp_replace(coalesce(value, ''), '[^0-9A-Za-zАВЕКМНОРСТУХавекмнорстух]', '', 'g'));
   normalized := translate(
     normalized,
     'ABEKMHOPCTYXabekmhopctyx',
-    'РђР’Р•РљРњРќРћР РЎРўРЈРҐРђР’Р•РљРњРќРћР РЎРўРЈРҐ'
+    'АВЕКМНОРСТУХАВЕКМНОРСТУХ'
   );
-  normalized := regexp_replace(normalized, '[^0-9РђР’Р•РљРњРќРћР РЎРўРЈРҐ]', '', 'g');
+  normalized := regexp_replace(normalized, '[^0-9АВЕКМНОРСТУХ]', '', 'g');
 
   return normalized;
 end;
@@ -4328,7 +4328,7 @@ ALTER TABLE ONLY "public"."user_stations"
 
 
 ALTER TABLE "public"."vehicles"
-    ADD CONSTRAINT "vehicles_normalized_plate_format" CHECK (("normalized_plate_number" ~ '^[РђР’Р•РљРњРќРћР РЎРўРЈРҐ][0-9]{3}[РђР’Р•РљРњРќРћР РЎРўРЈРҐ]{2}[0-9]{2,3}$'::"text")) NOT VALID;
+    ADD CONSTRAINT "vehicles_normalized_plate_format" CHECK (("normalized_plate_number" ~ '^[АВЕКМНОРСТУХ][0-9]{3}[АВЕКМНОРСТУХ]{2}[0-9]{2,3}$'::"text")) NOT VALID;
 
 
 

@@ -3,9 +3,8 @@
 Run these commands against the local Supabase database:
 
 ```bash
-npx supabase db reset
-npx supabase db query --local --file supabase/local-dev-users.sql
-npx supabase db query --local --file supabase/local-queue-250.sql
+npm run supabase:reset
+npm run supabase:seed:local
 ```
 
 Password for every local test account: `password123`.

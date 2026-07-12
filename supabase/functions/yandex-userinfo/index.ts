@@ -37,8 +37,7 @@ function getAccessToken(request: Request) {
     return bearerMatch[1].trim()
   }
 
-  const url = new URL(request.url)
-  return url.searchParams.get('access_token')?.trim() ?? ''
+  return ''
 }
 
 function getString(value: unknown) {
@@ -122,7 +121,7 @@ function normalizeYandexProfile(profile: YandexUserInfo) {
   }
 }
 
-Deno.serve(async (request) => {
+export async function handleYandexUserInfoRequest(request: Request) {
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -153,4 +152,12 @@ Deno.serve(async (request) => {
   }
 
   return jsonResponse(profile)
-})
+}
+
+type DenoRuntime = {
+  Deno?: {
+    serve: (handler: (request: Request) => Response | Promise<Response>) => void
+  }
+}
+
+;(globalThis as typeof globalThis & DenoRuntime).Deno?.serve(handleYandexUserInfoRequest)

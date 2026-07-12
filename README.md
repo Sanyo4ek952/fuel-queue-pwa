@@ -36,6 +36,22 @@
 - Zustand
 - Vercel
 
+## Package manager
+
+Use npm only.
+
+```bash
+npm ci
+npm run dev
+npm run typecheck
+npm run lint
+npm run check:architecture
+npm run test
+npm run build
+```
+
+The repository keeps `package-lock.json` as the only lock file. Do not commit `pnpm-lock.yaml`.
+
 ## Главные правила
 
 1. Главный идентификатор автомобиля — нормализованный госномер.

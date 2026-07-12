@@ -2,6 +2,7 @@
   "name": "fuel-queue-pwa",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "npm@10.8.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,13 +10,13 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "check:architecture": "node scripts/check-architecture.mjs",
+    "check:sql-encoding": "node scripts/check-sql-encoding.mjs",
     "test": "vitest run",
     "supabase:reset": "supabase db reset",
     "supabase:seed:local-users": "supabase db query --local --file supabase/local-dev-users.sql",
     "supabase:seed:local-queue": "supabase db query --local --file supabase/local-queue-250.sql",
     "supabase:seed:local": "npm run supabase:seed:local-users && npm run supabase:seed:local-queue",
     "supabase:reset:seed": "npm run supabase:reset && npm run supabase:seed:local",
-    "supabase:seed:linked": "supabase db query --linked --file supabase/production-consumer-queue-seed.sql",
     "format": "prettier --write .",
     "preview": "vite preview"
   },

@@ -10,7 +10,7 @@ Yandex ID используется только для жителей (`consumer
 Identifier: custom:yandex
 Authorization URL: https://oauth.yandex.ru/authorize
 Token URL: https://oauth.yandex.ru/token
-UserInfo URL: https://login.yandex.ru/info?format=json
+UserInfo URL: https://<project-ref>.supabase.co/functions/v1/yandex-userinfo
 Scopes: login:info login:email
 ```
 
@@ -88,6 +88,20 @@ Yandex может возвращать email как `default_email`, а иден
 - `first_name`, `last_name`, `display_name`, `real_name`, `name` только для предварительного заполнения профиля.
 
 Роль нельзя брать из `user_metadata`, query params или frontend.
+
+Supabase Custom OAuth должен обращаться к серверному адаптеру UserInfo:
+
+```text
+https://<project-ref>.supabase.co/functions/v1/yandex-userinfo
+```
+
+Edge Function `yandex-userinfo` принимает Yandex access token только из заголовка:
+
+```text
+Authorization: Bearer <YANDEX_ACCESS_TOKEN>
+```
+
+Передавать `access_token` в query-параметрах URL нельзя: такой запрос должен отклоняться и не отправляться в Yandex UserInfo.
 
 ## Ограничения
 

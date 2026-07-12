@@ -156,3 +156,7 @@ A777AA777 -> LITERS_LIMIT_EXCEEDED на AZS #1
 ```
 
 Ограничение: скрипт рассчитан на безопасное первичное заполнение hosted-теста. После ручной фиксации заправок через UI повторный запуск может остановиться защитной проверкой, чтобы не перезаписать пользовательские тестовые действия.
+
+## Package manager
+
+Use npm only. The repository keeps `package-lock.json` and `package.json#packageManager`; Vercel must install dependencies with npm based on those files. Do not commit `pnpm-lock.yaml`.

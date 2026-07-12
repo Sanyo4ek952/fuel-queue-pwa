@@ -18,6 +18,7 @@ describe('parsePublicQueueCheckResult', () => {
         people_ahead: '70',
         is_within_today_limit: true,
         remaining_attempts: '4',
+        retry_after_seconds: '0',
       }),
     ).toMatchObject({
       status: 'FOUND',
@@ -32,6 +33,8 @@ describe('parsePublicQueueCheckResult', () => {
       is_callable_now: null,
       matched_fuel_type: null,
       remaining_attempts: 4,
+      retry_after_seconds: 0,
+      error_code: null,
     })
   })
 
@@ -42,6 +45,7 @@ describe('parsePublicQueueCheckResult', () => {
         queue_number: '15',
         is_within_today_limit: false,
         remaining_attempts: '2',
+        retry_after_seconds: 0,
       }),
     ).toMatchObject({
       status: 'FOUND',
@@ -56,6 +60,8 @@ describe('parsePublicQueueCheckResult', () => {
       is_callable_now: null,
       matched_fuel_type: null,
       remaining_attempts: 2,
+      retry_after_seconds: 0,
+      error_code: null,
     })
   })
 
@@ -66,6 +72,7 @@ describe('parsePublicQueueCheckResult', () => {
         queue_number: null,
         is_within_today_limit: null,
         remaining_attempts: 3,
+        retry_after_seconds: 0,
       }),
     ).toMatchObject({
       status: 'NOT_FOUND',
@@ -80,6 +87,8 @@ describe('parsePublicQueueCheckResult', () => {
       is_callable_now: null,
       matched_fuel_type: null,
       remaining_attempts: 3,
+      retry_after_seconds: 0,
+      error_code: null,
     })
   })
 
@@ -90,6 +99,8 @@ describe('parsePublicQueueCheckResult', () => {
         queue_number: null,
         is_within_today_limit: null,
         remaining_attempts: 0,
+        retry_after_seconds: 1800,
+        error_code: 'PUBLIC_QUEUE_IP_RATE_LIMITED',
       }),
     ).toMatchObject({
       status: 'LIMIT_EXCEEDED',
@@ -104,6 +115,8 @@ describe('parsePublicQueueCheckResult', () => {
       is_callable_now: null,
       matched_fuel_type: null,
       remaining_attempts: 0,
+      retry_after_seconds: 1800,
+      error_code: 'PUBLIC_QUEUE_IP_RATE_LIMITED',
     })
   })
 

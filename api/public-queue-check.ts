@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import type { IncomingHttpHeaders } from 'node:http'
 
 const requestTimeoutMs = 9_000
@@ -6,6 +7,9 @@ type VercelRequestLike = AsyncIterable<Buffer | string> & {
   method?: string
   headers: IncomingHttpHeaders
   body?: unknown
+  socket?: {
+    remoteAddress?: string
+  }
 }
 
 type VercelResponseLike = {
@@ -16,7 +20,8 @@ type VercelResponseLike = {
 
 type SupabaseConfig = {
   url: string | undefined
-  anonKey: string | undefined
+  serviceRoleKey: string | undefined
+  rateLimitSalt: string | undefined
 }
 
 function normalizeSupabaseUrl(url: string | undefined) {
@@ -26,7 +31,8 @@ function normalizeSupabaseUrl(url: string | undefined) {
 function getSupabaseConfig(): SupabaseConfig {
   return {
     url: normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
-    anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    rateLimitSalt: process.env.PUBLIC_QUEUE_RATE_LIMIT_SALT,
   }
 }
 
@@ -41,12 +47,19 @@ function firstHeaderValue(value: string | string[] | undefined) {
 }
 
 function getForwardedIp(request: VercelRequestLike) {
-  return (
+  const forwardedIp = (
     firstHeaderValue(request.headers['x-forwarded-for']) ||
     firstHeaderValue(request.headers['x-real-ip']) ||
     firstHeaderValue(request.headers['cf-connecting-ip']) ||
+    request.socket?.remoteAddress ||
     ''
   )
+
+  return forwardedIp.split(',')[0]?.trim() ?? ''
+}
+
+function hashClientIp(clientIp: string, salt: string) {
+  return createHmac('sha256', salt).update(clientIp).digest('hex')
 }
 
 async function readBody(request: VercelRequestLike) {
@@ -85,10 +98,15 @@ export default async function handler(request: VercelRequestLike, response: Verc
     return
   }
 
-  const { url, anonKey } = getSupabaseConfig()
+  const { url, serviceRoleKey, rateLimitSalt } = getSupabaseConfig()
 
-  if (!url || !anonKey) {
+  if (!url || !serviceRoleKey) {
     sendJson(response, 500, { error: 'Supabase is not configured.' })
+    return
+  }
+
+  if (!rateLimitSalt) {
+    sendJson(response, 500, { error: 'Public queue rate limit is not configured.' })
     return
   }
 
@@ -98,19 +116,26 @@ export default async function handler(request: VercelRequestLike, response: Verc
     const plateNumber = typeof requestBody.plateNumber === 'string' ? requestBody.plateNumber : ''
     const phoneLast4 = typeof requestBody.phoneLast4 === 'string' ? requestBody.phoneLast4 : ''
     const forwardedIp = getForwardedIp(request)
+
+    if (!forwardedIp) {
+      sendJson(response, 400, { error: 'Client IP is unavailable.' })
+      return
+    }
+
+    const clientIpHash = hashClientIp(forwardedIp, rateLimitSalt)
     const supabaseResponse = await fetchWithTimeout(
       `${url}/rest/v1/rpc/check_public_queue_position`,
       {
         method: 'POST',
         headers: {
-          apikey: anonKey,
-          authorization: `Bearer ${anonKey}`,
+          apikey: serviceRoleKey,
+          authorization: `Bearer ${serviceRoleKey}`,
           'content-type': 'application/json',
-          ...(forwardedIp ? { 'x-forwarded-for': forwardedIp } : {}),
         },
         body: JSON.stringify({
           plate_number: plateNumber,
           phone_last4: phoneLast4,
+          client_ip_hash: clientIpHash,
         }),
       },
     )
