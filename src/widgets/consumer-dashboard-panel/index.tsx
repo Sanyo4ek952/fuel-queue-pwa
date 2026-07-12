@@ -321,9 +321,6 @@ export function ConsumerDashboardPanel() {
               <Ticket className="size-5 text-slate-500" aria-hidden="true" />
               Активная запись
             </CardTitle>
-            <CardDescription>
-              Постоянный номер в общей очереди №{activeReservation.permanent_number}
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid gap-2 text-sm sm:grid-cols-2">
@@ -338,10 +335,6 @@ export function ConsumerDashboardPanel() {
                 <p className="font-medium text-slate-950">
                   {reservationStatusLabels[activeReservation.status]}
                 </p>
-              </div>
-              <div>
-                <span className="text-slate-500">Общая очередь</span>
-                <p className="font-medium text-slate-950">№{activeReservation.permanent_number}</p>
               </div>
               <div>
                 <span className="text-slate-500">Топливо</span>
@@ -367,8 +360,7 @@ export function ConsumerDashboardPanel() {
                       <DialogHeader>
                         <DialogTitle>Марка топлива</DialogTitle>
                         <DialogDescription>
-                          Постоянный номер в общей очереди №{activeReservation.permanent_number}{' '}
-                          сохранится без изменения.
+                          Изменение марки топлива не меняет место автомобиля в активной очереди.
                         </DialogDescription>
                       </DialogHeader>
                       <Form {...fuelPreferenceForm}>

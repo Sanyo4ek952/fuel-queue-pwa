@@ -138,12 +138,12 @@ describe('ConsumerDashboardPanel', () => {
     vi.clearAllMocks()
   })
 
-  it('shows permanent number as the consumer common queue position', () => {
+  it('hides the consumer common queue position', () => {
     render(<ConsumerDashboardPanel />)
 
-    expect(screen.getByText('Постоянный номер в общей очереди №7')).toBeInTheDocument()
-    expect(screen.getByText('Общая очередь')).toBeInTheDocument()
-    expect(screen.getByText('№7')).toBeInTheDocument()
+    expect(screen.queryByText('Постоянный номер в общей очереди №7')).not.toBeInTheDocument()
+    expect(screen.queryByText('Общая очередь')).not.toBeInTheDocument()
+    expect(screen.queryByText('№7')).not.toBeInTheDocument()
   })
 
   it('shows which vehicle is queued and keeps the create form hidden', () => {
