@@ -26,8 +26,87 @@ type SupabaseConfig = {
   rateLimitSalt: string | undefined
 }
 
+const latinPlateLetters: Record<string, string> = {
+  A: '\u0410',
+  B: '\u0412',
+  E: '\u0415',
+  K: '\u041A',
+  M: '\u041C',
+  H: '\u041D',
+  O: '\u041E',
+  P: '\u0420',
+  C: '\u0421',
+  T: '\u0422',
+  Y: '\u0423',
+  X: '\u0425',
+}
+
+const platePattern =
+  /^[\u0410\u0412\u0415\u041A\u041C\u041D\u041E\u0420\u0421\u0422\u0423\u0425][0-9]{3}[\u0410\u0412\u0415\u041A\u041C\u041D\u041E\u0420\u0421\u0422\u0423\u0425]{2}[0-9]{2,3}$/
+
 function normalizeSupabaseUrl(url: string | undefined) {
   return url?.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '')
+}
+
+function getSupabaseProjectRef(url: string | undefined) {
+  if (!url) {
+    return null
+  }
+
+  try {
+    const host = new URL(url).hostname
+    const [projectRef] = host.split('.')
+
+    return projectRef || null
+  } catch {
+    return null
+  }
+}
+
+function normalizePlateNumber(value: string) {
+  return value
+    .toUpperCase()
+    .replace(/[\s-]/g, '')
+    .replace(/[ABEKMHOPCTYX]/g, (letter) => latinPlateLetters[letter] ?? letter)
+    .replace(/[^0-9\u0410\u0412\u0415\u041A\u041C\u041D\u041E\u0420\u0421\u0422\u0423\u0425]/g, '')
+}
+
+function normalizePhoneLast4(value: string) {
+  return value.replace(/\D/g, '')
+}
+
+function isValidPublicQueueInput(plateNumber: string, phoneLast4: string) {
+  return platePattern.test(plateNumber) && /^[0-9]{4}$/.test(phoneLast4)
+}
+
+function buildInvalidInputResponse() {
+  return {
+    status: 'INVALID_INPUT',
+    public_status: 'INVALID_INPUT',
+    queue_number: null,
+    ticket_number: null,
+    current_position: null,
+    people_ahead: null,
+    fuel_queue_position: null,
+    is_within_today_limit: null,
+    is_callable_now: null,
+    remaining_attempts: 0,
+    retry_after_seconds: 0,
+    error_code: 'PUBLIC_QUEUE_INVALID_INPUT',
+  }
+}
+
+function getPublicQueueResponseField(value: unknown, field: string) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)[field]
+    : null
+}
+
+function logPublicQueueCheck(
+  event: string,
+  details: Record<string, string | number | boolean | null | undefined>,
+) {
+  console.info('[public-queue-check]', JSON.stringify({ event, ...details }))
 }
 
 function getSupabaseConfig(): SupabaseConfig {
@@ -121,13 +200,26 @@ async function handlePublicQueueCheck(request: PublicApiRequest, response: Publi
   }
 
   const { url, serviceRoleKey, rateLimitSalt } = getSupabaseConfig()
+  const supabaseProjectRef = getSupabaseProjectRef(url)
 
   if (!url || !serviceRoleKey) {
+    logPublicQueueCheck('config_missing', {
+      has_supabase_url: Boolean(url),
+      has_service_role_key: Boolean(serviceRoleKey),
+      has_rate_limit_salt: Boolean(rateLimitSalt),
+      supabase_project_ref: supabaseProjectRef,
+    })
     sendJson(response, 500, { error: 'Supabase is not configured.' })
     return
   }
 
   if (!rateLimitSalt) {
+    logPublicQueueCheck('config_missing', {
+      has_supabase_url: Boolean(url),
+      has_service_role_key: Boolean(serviceRoleKey),
+      has_rate_limit_salt: false,
+      supabase_project_ref: supabaseProjectRef,
+    })
     sendJson(response, 500, { error: 'Public queue rate limit is not configured.' })
     return
   }
@@ -135,11 +227,38 @@ async function handlePublicQueueCheck(request: PublicApiRequest, response: Publi
   try {
     const body = await readBody(request)
     const requestBody = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
-    const plateNumber = typeof requestBody.plateNumber === 'string' ? requestBody.plateNumber : ''
-    const phoneLast4 = typeof requestBody.phoneLast4 === 'string' ? requestBody.phoneLast4 : ''
+    const plateNumber = normalizePlateNumber(
+      typeof requestBody.plateNumber === 'string' ? requestBody.plateNumber : '',
+    )
+    const phoneLast4 = normalizePhoneLast4(
+      typeof requestBody.phoneLast4 === 'string' ? requestBody.phoneLast4 : '',
+    )
+
+    if (!isValidPublicQueueInput(plateNumber, phoneLast4)) {
+      logPublicQueueCheck('invalid_input', {
+        has_supabase_url: true,
+        has_service_role_key: true,
+        has_rate_limit_salt: true,
+        supabase_project_ref: supabaseProjectRef,
+        http_status: 200,
+        rpc_status: 'INVALID_INPUT',
+        error_code: 'PUBLIC_QUEUE_INVALID_INPUT',
+        remaining_attempts: 0,
+      })
+      sendJson(response, 200, buildInvalidInputResponse())
+      return
+    }
+
     const forwardedIp = getForwardedIp(request)
 
     if (!forwardedIp) {
+      logPublicQueueCheck('client_ip_missing', {
+        has_supabase_url: true,
+        has_service_role_key: true,
+        has_rate_limit_salt: true,
+        supabase_project_ref: supabaseProjectRef,
+        http_status: 400,
+      })
       sendJson(response, 400, { error: 'Client IP is unavailable.' })
       return
     }
@@ -162,6 +281,25 @@ async function handlePublicQueueCheck(request: PublicApiRequest, response: Publi
       },
     )
     const responseBody = await supabaseResponse.json().catch(() => null)
+    logPublicQueueCheck('rpc_response', {
+      has_supabase_url: true,
+      has_service_role_key: true,
+      has_rate_limit_salt: true,
+      supabase_project_ref: supabaseProjectRef,
+      http_status: supabaseResponse.status,
+      rpc_status:
+        typeof getPublicQueueResponseField(responseBody, 'status') === 'string'
+          ? (getPublicQueueResponseField(responseBody, 'status') as string)
+          : null,
+      error_code:
+        typeof getPublicQueueResponseField(responseBody, 'error_code') === 'string'
+          ? (getPublicQueueResponseField(responseBody, 'error_code') as string)
+          : null,
+      remaining_attempts:
+        typeof getPublicQueueResponseField(responseBody, 'remaining_attempts') === 'number'
+          ? (getPublicQueueResponseField(responseBody, 'remaining_attempts') as number)
+          : null,
+    })
 
     if (!supabaseResponse.ok) {
       sendJson(response, supabaseResponse.status, {
