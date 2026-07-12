@@ -71,3 +71,10 @@ export function hasActiveGasolineLimit(categoryOverviews: DailyLimitCategoryLike
 
   return gasolineOverview.vehicle_limit > 0
 }
+
+export function isFuelPreferenceLockedByActiveLimit(
+  row: Pick<TodayQueueRow, 'allocation_status' | 'is_within_today_limit'>,
+  hasActiveFuelLimit: boolean,
+) {
+  return hasActiveFuelLimit && (row.allocation_status === 'ACTIVE' || row.is_within_today_limit === true)
+}

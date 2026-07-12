@@ -158,6 +158,10 @@ export function QueueRowCard({
     fuelPreferenceLabels.EXACT
   const fuelQueuePosition = row.fuel_queue_position ?? row.current_position
   const permanentQueueNumber = row.permanent_number ?? row.ticket_number ?? row.queue_number
+  const visibleEstimatedArrivalTime =
+    row.allocation_status === 'ACTIVE' || row.is_within_today_limit
+      ? estimatedArrivalTime
+      : null
   const watchedFuelType = fuelPreferenceForm.watch('fuelType')
   const watchedCancelReason = cancelForm.watch('reason')
   const isGasolineSelected = isGasolineFuelType(watchedFuelType)
@@ -231,9 +235,9 @@ export function QueueRowCard({
                     <MapPin className="size-3 shrink-0" aria-hidden="true" />
                     <span className="truncate">{stationLabel}</span>
                   </p>
-                  {estimatedArrivalTime ? (
+                  {visibleEstimatedArrivalTime ? (
                     <p className="mt-0.5 truncate text-xs font-medium text-slate-700">
-                      Время прибытия: {estimatedArrivalTime}
+                      Время прибытия: {visibleEstimatedArrivalTime}
                     </p>
                   ) : null}
                   <div className="mt-1 flex max-w-full flex-nowrap gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -426,10 +430,10 @@ export function QueueRowCard({
           <AccordionContent className="border-t border-slate-100 px-3 pt-3 pb-3">
             <span className="sr-only">Сведения о записи</span>
             <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-              {estimatedArrivalTime ? (
+              {visibleEstimatedArrivalTime ? (
                 <div>
                   <dt className="text-slate-500">Время прибытия</dt>
-                  <dd className="font-medium text-slate-950">{estimatedArrivalTime}</dd>
+                  <dd className="font-medium text-slate-950">{visibleEstimatedArrivalTime}</dd>
                 </div>
               ) : null}
               <div>

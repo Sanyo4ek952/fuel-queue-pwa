@@ -86,7 +86,19 @@ function getSupabaseErrorMessage(value: unknown, fallback: string) {
     return fallback
   }
 
-  const body = value as { message?: unknown; error?: unknown }
+  const body = value as {
+    code?: unknown
+    details?: unknown
+    message?: unknown
+    error?: unknown
+  }
+  const errorText = [body.message, body.error, body.details, body.code]
+    .filter((item): item is string => typeof item === 'string')
+    .join(' ')
+
+  if (errorText.includes('fueling_records_allocation_id_fkey')) {
+    return 'ALLOCATION_NOT_ACTIVE'
+  }
 
   return typeof body.message === 'string'
     ? body.message

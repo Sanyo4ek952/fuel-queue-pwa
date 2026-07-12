@@ -279,6 +279,38 @@ describe('protected fueling API proxy endpoints', () => {
     expect(JSON.parse(response.body)).toEqual({ error: 'FORBIDDEN' })
   })
 
+  it('maps allocation foreign key errors to a domain error', async () => {
+    stubSupabaseEnv()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        createJsonResponse(
+          {
+            code: '23503',
+            message:
+              'insert or update on table "fueling_records" violates foreign key constraint "fueling_records_allocation_id_fkey"',
+          },
+          400,
+        ),
+      ),
+    )
+    const response = createResponse()
+
+    await protectedRpcHandler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer access-token' },
+        query: { action: 'create-fueling-record-for-allocation' },
+        body: {},
+        [Symbol.asyncIterator]: async function* () {},
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(400)
+    expect(JSON.parse(response.body)).toEqual({ error: 'ALLOCATION_NOT_ACTIVE' })
+  })
+
   it('returns 504 when Supabase times out', async () => {
     stubSupabaseEnv()
     const timeoutError = new Error('The operation was aborted.')

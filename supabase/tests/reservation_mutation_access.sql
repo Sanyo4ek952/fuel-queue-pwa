@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(21);
 
 insert into public.stations (id, name, address, is_active, allocation_order)
 values
@@ -140,7 +140,8 @@ values
   ('77400000-3000-4000-8000-000000000004', 'A334AA777', 'A334AA777'),
   ('77400000-3000-4000-8000-000000000005', 'A335AA777', 'A335AA777'),
   ('77400000-3000-4000-8000-000000000006', 'A336AA777', 'A336AA777'),
-  ('77400000-3000-4000-8000-000000000007', 'A337AA777', 'A337AA777')
+  ('77400000-3000-4000-8000-000000000007', 'A337AA777', 'A337AA777'),
+  ('77400000-3000-4000-8000-000000000008', 'A338AA777', 'A338AA777')
 on conflict (id) do update
 set plate_number = excluded.plate_number,
     normalized_plate_number = excluded.normalized_plate_number;
@@ -153,7 +154,8 @@ values
   ('77500000-3000-4000-8000-000000000004', 'Reservation Driver 4', '+77003000004'),
   ('77500000-3000-4000-8000-000000000005', 'Reservation Driver 5', '+77003000005'),
   ('77500000-3000-4000-8000-000000000006', 'Reservation Driver 6', '+77003000006'),
-  ('77500000-3000-4000-8000-000000000007', 'Reservation Driver 7', '+77003000007')
+  ('77500000-3000-4000-8000-000000000007', 'Reservation Driver 7', '+77003000007'),
+  ('77500000-3000-4000-8000-000000000008', 'Reservation Driver 8', '+77003000008')
 on conflict (id) do update
 set full_name = excluded.full_name,
     phone = excluded.phone;
@@ -325,6 +327,21 @@ values
     'SYNCED',
     timestamp with time zone '2026-07-02 10:00:00+03',
     timestamp with time zone '2026-07-02 10:00:00+03'
+  ),
+  (
+    '77700000-3000-4000-8000-000000000008',
+    993008,
+    '77400000-3000-4000-8000-000000000008',
+    '77500000-3000-4000-8000-000000000008',
+    'AI_95',
+    'EXACT',
+    20,
+    'WAITING',
+    '77200000-3000-4000-8000-000000000003',
+    '77800000-3000-4000-8000-000000000008',
+    'SYNCED',
+    timestamp with time zone '2026-07-02 10:10:00+03',
+    timestamp with time zone '2026-07-02 10:10:00+03'
   )
 on conflict (id) do update
 set preferred_fuel_type = excluded.preferred_fuel_type,
@@ -389,6 +406,20 @@ values
     1,
     timestamp with time zone '2026-07-20 09:20:00+03',
     'ACTIVE',
+    'NOT_CALLED'
+  ),
+  (
+    '77900000-3000-4000-8000-000000000004',
+    date '2026-07-20',
+    '77700000-3000-4000-8000-000000000008',
+    '77000000-3000-4000-8000-000000000002',
+    'AI_95',
+    20,
+    4,
+    2,
+    2,
+    timestamp with time zone '2026-07-20 09:30:00+03',
+    'PAUSED_BY_LIMIT',
     'NOT_CALLED'
   )
 on conflict (allocation_date, queue_entry_id) do update
@@ -512,8 +543,19 @@ select throws_ok(
 select throws_ok(
   $$select public.update_reservation_fuel_preference('77700000-3000-4000-8000-000000000006', 'GAS', 'EXACT', '77800000-3000-4000-8000-000000000402')$$,
   'P0001',
-  'FORBIDDEN',
-  'staff with role but without station access cannot update fuel preference'
+  'FUEL_PREFERENCE_LOCKED_BY_ALLOCATION',
+  'staff cannot update fuel preference while reservation is active in the daily limit'
+);
+
+select lives_ok(
+  $$select public.update_reservation_fuel_preference('77700000-3000-4000-8000-000000000008', 'GAS', 'EXACT', '77800000-3000-4000-8000-000000000403')$$,
+  'staff can update fuel preference for a waiting reservation paused outside the daily limit'
+);
+
+select is(
+  (select preferred_fuel_type || ':' || fuel_preference_mode from public.fuel_queue_entries where id = '77700000-3000-4000-8000-000000000008'),
+  'GAS:EXACT',
+  'paused outside-limit fuel preference update is saved'
 );
 
 select is(

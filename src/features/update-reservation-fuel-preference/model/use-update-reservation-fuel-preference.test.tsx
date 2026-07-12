@@ -161,6 +161,32 @@ describe('useUpdateReservationFuelPreference', () => {
     expect(mocks.localReservationUpdate).not.toHaveBeenCalled()
   })
 
+  it('shows a clear error when fuel editing is locked by active allocation', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    mocks.updateReservationFuelPreference.mockResolvedValue({
+      data: null,
+      error: 'FUEL_PREFERENCE_LOCKED_BY_ALLOCATION',
+    })
+
+    const { result } = renderHook(() => useUpdateReservationFuelPreference(), {
+      wrapper: makeWrapper(queryClient),
+    })
+
+    await expect(
+      result.current.mutateAsync({
+        reservationId: 'reservation-id',
+        fuelType: 'AI_92',
+        fuelPreferenceMode: 'ANY_GASOLINE',
+        clientMutationId: 'mutation-id',
+      }),
+    ).rejects.toThrow('Топливо нельзя изменить, пока запись входит в дневной лимит.')
+
+    expect(mocks.localReservationUpdate).not.toHaveBeenCalled()
+  })
+
   it('hides unknown technical RPC errors behind a clear fallback', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },

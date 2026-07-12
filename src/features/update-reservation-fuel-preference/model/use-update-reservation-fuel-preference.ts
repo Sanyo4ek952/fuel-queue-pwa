@@ -21,6 +21,10 @@ const updateReservationFuelPreferenceErrorMessages: Record<string, string> = {
     'Топливо нельзя изменить после открытия лимитов на сегодня.',
   FUEL_PREFERENCE_LOCKED_BY_ACTIVE_FUELING:
     'Топливо нельзя изменить, пока идет заправка. Попробуйте позже.',
+  FUEL_PREFERENCE_LOCKED_BY_ALLOCATION:
+    'Топливо нельзя изменить, пока запись входит в дневной лимит.',
+  QUEUE_ENTRY_NOT_WAITING:
+    'Марку топлива можно менять только у активной записи в очереди.',
   OFFLINE_UNAVAILABLE: 'Изменение доступно только при подключении к интернету.',
   UPDATE_RESERVATION_FUEL_PREFERENCE_FAILED: 'Не удалось сохранить марку топлива.',
 }

@@ -6,6 +6,7 @@ import {
   getCallFilterCounts,
   groupRowsByFuelCategory,
   hasActiveGasolineLimit,
+  isFuelPreferenceLockedByActiveLimit,
   isRowCallable,
   matchesCallFilter,
 } from './queue-model'
@@ -115,6 +116,27 @@ describe('today queue model', () => {
         },
       ]),
     ).toBe(true)
+  })
+
+  it('locks fuel preference editing only for rows inside an active limit', () => {
+    expect(
+      isFuelPreferenceLockedByActiveLimit(
+        makeQueueRow({ allocation_status: 'ACTIVE', is_within_today_limit: true }),
+        true,
+      ),
+    ).toBe(true)
+    expect(
+      isFuelPreferenceLockedByActiveLimit(
+        makeQueueRow({ allocation_status: 'PAUSED_BY_LIMIT', is_within_today_limit: false }),
+        true,
+      ),
+    ).toBe(false)
+    expect(
+      isFuelPreferenceLockedByActiveLimit(
+        makeQueueRow({ allocation_status: 'ACTIVE', is_within_today_limit: true }),
+        false,
+      ),
+    ).toBe(false)
   })
 
 })

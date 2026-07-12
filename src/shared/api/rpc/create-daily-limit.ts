@@ -41,6 +41,21 @@ function toNumber(value: unknown) {
   return typeof value === 'number' ? value : Number(value)
 }
 
+function getCreateDailyLimitErrorMessage(message: string) {
+  const normalizedMessage = message.toLowerCase()
+  const isAllocatorOverloadError =
+    message.includes('function public.allocate_daily_queue(date) is not unique') ||
+    message.includes('Could not choose the best candidate function') ||
+    normalizedMessage.includes('allocate_daily_queue') &&
+      (normalizedMessage.includes('not unique') ||
+        normalizedMessage.includes('best candidate function') ||
+        normalizedMessage.includes('ambiguous'))
+
+  return isAllocatorOverloadError
+    ? 'Не удалось пересчитать очередь после изменения лимита. Обновите страницу и повторите сохранение лимита.'
+    : message
+}
+
 function toDailyLimitResult(value: unknown): CreateDailyLimitResult | null {
   if (!value || typeof value !== 'object') {
     return null
@@ -114,7 +129,7 @@ export async function createDailyLimit({
   if (error) {
     return {
       data: null,
-      error: error.message,
+      error: getCreateDailyLimitErrorMessage(error.message),
     }
   }
 

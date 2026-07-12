@@ -75,4 +75,33 @@ describe('createDailyLimit', () => {
       liters_limit: 400,
     })
   })
+
+  it('returns a readable error when queue allocation overload is ambiguous', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message:
+          'Could not choose the best candidate function between: public.allocate_daily_queue(target_date => date), public.allocate_daily_queue(target_date => date, preserve_existing_eta => boolean). function public.allocate_daily_queue(date) is not unique',
+      },
+    })
+
+    const result = await createDailyLimit({
+      targetDate: '2026-07-05',
+      stationId: 'station-id',
+      clientMutationId: 'mutation-id',
+      fuelTypeLimits: [
+        {
+          fuelType: 'AI_95',
+          status: 'PAUSED',
+          vehicleLimit: 0,
+          litersLimit: null,
+        },
+      ],
+    })
+
+    expect(result.data).toBeNull()
+    expect(result.error).toBe(
+      'Не удалось пересчитать очередь после изменения лимита. Обновите страницу и повторите сохранение лимита.',
+    )
+  })
 })

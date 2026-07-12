@@ -98,7 +98,7 @@ export async function createFuelingRecord({
   if (!isSupabaseConfigured) {
     return {
       data: null,
-      error: 'Supabase is not configured.',
+      error: 'Сервис фиксации заправки не настроен.',
     }
   }
 
@@ -119,14 +119,14 @@ export async function createFuelingRecord({
           comment: comment ?? null,
           clientMutationId,
         },
-        'Create preferential fueling record request failed.',
+        'Не удалось отправить запрос на фиксацию льготной заправки.',
       )
       const parsed = parseCreateFuelingRecordResult(data)
 
       if (!parsed) {
         return {
           data: null,
-          error: 'Unexpected create_fueling_record response.',
+          error: 'Сервер вернул неожиданный ответ при фиксации заправки.',
         }
       }
 
@@ -140,7 +140,7 @@ export async function createFuelingRecord({
         error:
           error instanceof Error
             ? error.message
-            : 'Create preferential fueling record request failed.',
+            : 'Не удалось отправить запрос на фиксацию льготной заправки.',
       }
     }
   }
@@ -148,7 +148,7 @@ export async function createFuelingRecord({
   if (!allocationId) {
     return {
       data: null,
-      error: 'Active daily allocation is required for fueling.',
+      error: 'Для фиксации заправки нужно активное назначение на сегодня.',
     }
   }
 
@@ -162,14 +162,14 @@ export async function createFuelingRecord({
         comment: comment ?? null,
         clientMutationId,
       },
-      'Create fueling record request failed.',
+      'Не удалось отправить запрос на фиксацию заправки.',
     )
     const parsed = parseCreateFuelingRecordResult(data)
 
     if (!parsed) {
       return {
         data: null,
-        error: 'Unexpected create_fueling_record response.',
+        error: 'Сервер вернул неожиданный ответ при фиксации заправки.',
       }
     }
 
@@ -180,7 +180,10 @@ export async function createFuelingRecord({
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error.message : 'Create fueling record request failed.',
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Не удалось отправить запрос на фиксацию заправки.',
     }
   }
 }

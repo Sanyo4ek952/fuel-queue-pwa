@@ -35,6 +35,7 @@ import {
   getCallFilterCounts,
   groupRowsByFuelCategory,
   hasActiveGasolineLimit,
+  isFuelPreferenceLockedByActiveLimit,
 } from '../model/queue-model'
 import { formatArrivalAt } from '../model/format'
 import {
@@ -262,7 +263,11 @@ export function TodayQueuePanel() {
                       <QueueRowCard
                         key={row.id}
                         row={row}
-                        estimatedArrivalTime={formatArrivalAt(row.arrival_at)}
+                        estimatedArrivalTime={
+                          row.allocation_status === 'ACTIVE' || row.is_within_today_limit
+                            ? formatArrivalAt(row.arrival_at)
+                            : null
+                        }
                         isLoggingCall={
                           logReservationCall.isPending &&
                           (logReservationCall.variables?.reservation
@@ -277,7 +282,10 @@ export function TodayQueuePanel() {
                         }
                         isFuelPreferenceUpdateUnavailable={!queue.isOnline}
                         isFuelPreferenceLockedByGasolineLimit={
-                          isFuelPreferenceLockedByGasolineLimit
+                          isFuelPreferenceLockedByActiveLimit(
+                            row,
+                            isFuelPreferenceLockedByGasolineLimit,
+                          )
                         }
                         canCancel={canCancelQueueRows}
                         isCancelling={

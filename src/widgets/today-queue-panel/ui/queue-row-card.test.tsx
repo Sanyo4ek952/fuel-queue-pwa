@@ -71,6 +71,7 @@ function renderCard(
       | 'isFuelPreferenceUpdateUnavailable'
       | 'isFuelPreferenceLockedByGasolineLimit'
       | 'isUpdatingFuelPreference'
+      | 'estimatedArrivalTime'
     >
   > = {},
 ) {
@@ -81,7 +82,7 @@ function renderCard(
   render(
     <QueueRowCard
       row={row}
-      estimatedArrivalTime={null}
+      estimatedArrivalTime={props.estimatedArrivalTime ?? null}
       isLoggingCall={false}
       isUpdatingFuelPreference={props.isUpdatingFuelPreference ?? false}
       isFuelPreferenceUpdateUnavailable={
@@ -175,6 +176,22 @@ describe('QueueRowCard', () => {
     renderCard()
 
     expect(screen.getByText('Серверное назначение АЗС отсутствует')).toBeInTheDocument()
+  })
+
+  it('hides stale arrival time for rows outside the active limit', async () => {
+    renderCard(
+      makeQueueRow({
+        allocation_status: 'PAUSED_BY_LIMIT',
+        is_within_today_limit: false,
+      }),
+      { estimatedArrivalTime: '12 июля в 13:05' },
+    )
+
+    expect(screen.queryByText(/Время прибытия/)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Открыть детали' }))
+
+    expect(screen.queryByText(/Время прибытия/)).not.toBeInTheDocument()
   })
 
   it('shows a warning dialog when fuel edit is clicked during fueling', async () => {
