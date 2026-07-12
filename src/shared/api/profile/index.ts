@@ -62,6 +62,14 @@ export type ManagedProfile = Omit<CurrentProfile, 'stations'> & {
   stations: ProfileStation[]
 }
 
+export type ManagedProfilesSection = 'pending' | 'active' | 'rejected' | 'disabled'
+
+export type ManagedProfilesPage = {
+  items: ManagedProfile[]
+  totalCount: number
+  hasMore: boolean
+}
+
 type ProfileRow = {
   id: string
   auth_user_id: string
@@ -323,22 +331,75 @@ async function getCurrentProfileViaApi(accessToken: string): Promise<CurrentProf
   return currentProfile
 }
 
-export async function listManagedProfiles(): Promise<ManagedProfile[]> {
-  if (!isSupabaseConfigured) {
-    return []
+function toNumber(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
   }
 
-  const { data, error } = await supabase.rpc('list_managed_profiles')
+  if (typeof value === 'string' && value.trim() !== '') {
+    const numberValue = Number(value)
+
+    if (Number.isFinite(numberValue)) {
+      return numberValue
+    }
+  }
+
+  return null
+}
+
+function toManagedProfilesPage(value: unknown): ManagedProfilesPage | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const page = value as {
+    items?: unknown
+    total_count?: unknown
+    has_more?: unknown
+  }
+  const totalCount = toNumber(page.total_count)
+
+  if (!Array.isArray(page.items) || totalCount === null || typeof page.has_more !== 'boolean') {
+    return null
+  }
+
+  return {
+    items: page.items.map(toManagedProfile).filter((profile): profile is ManagedProfile => Boolean(profile)),
+    totalCount,
+    hasMore: page.has_more,
+  }
+}
+
+export async function listManagedProfiles(params: {
+  section: ManagedProfilesSection
+  limit: number
+  offset: number
+}): Promise<ManagedProfilesPage> {
+  if (!isSupabaseConfigured) {
+    return {
+      items: [],
+      totalCount: 0,
+      hasMore: false,
+    }
+  }
+
+  const { data, error } = await supabase.rpc('list_managed_profiles_page', {
+    section: params.section,
+    page_limit: params.limit,
+    page_offset: params.offset,
+  })
 
   if (error) {
     throw new Error(error.message)
   }
 
-  if (!Array.isArray(data)) {
-    throw new Error('Unexpected list_managed_profiles response.')
+  const page = toManagedProfilesPage(data)
+
+  if (!page) {
+    throw new Error('Unexpected list_managed_profiles_page response.')
   }
 
-  return data.map(toManagedProfile).filter((profile): profile is ManagedProfile => Boolean(profile))
+  return page
 }
 
 export async function approveRegistration(params: {

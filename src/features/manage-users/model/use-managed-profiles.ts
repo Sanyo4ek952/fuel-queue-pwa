@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { currentProfileQueryKey } from '@/entities/profile'
 import {
@@ -7,6 +7,7 @@ import {
   listManagedProfiles,
   rejectRegistration,
   type ManagedProfile,
+  type ManagedProfilesSection,
 } from '@/shared/api/profile'
 
 import type {
@@ -16,8 +17,11 @@ import type {
 } from './schema'
 
 export type { ManagedProfile }
+export type { ManagedProfilesSection }
 
+export const MANAGED_PROFILES_PAGE_SIZE = 10
 export const managedProfilesQueryKey = ['managed-profiles'] as const
+export const managedProfileSections = ['pending', 'active', 'rejected', 'disabled'] as const
 
 function useInvalidateManagedProfiles() {
   const queryClient = useQueryClient()
@@ -30,10 +34,18 @@ function useInvalidateManagedProfiles() {
   }
 }
 
-export function useManagedProfiles() {
-  return useQuery({
-    queryKey: managedProfilesQueryKey,
-    queryFn: listManagedProfiles,
+export function useManagedProfiles(section: ManagedProfilesSection) {
+  return useInfiniteQuery({
+    queryKey: [...managedProfilesQueryKey, section],
+    queryFn: ({ pageParam }) =>
+      listManagedProfiles({
+        section,
+        limit: MANAGED_PROFILES_PAGE_SIZE,
+        offset: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.hasMore ? allPages.length * MANAGED_PROFILES_PAGE_SIZE : undefined,
     staleTime: 15_000,
   })
 }

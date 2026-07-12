@@ -31,7 +31,12 @@ vi.mock('@/shared/api/supabase', () => ({
   supabase: mocks.supabase,
 }))
 
-import { completeCurrentConsumerProfile, getCurrentProfile, type CurrentProfile } from './index'
+import {
+  completeCurrentConsumerProfile,
+  getCurrentProfile,
+  listManagedProfiles,
+  type CurrentProfile,
+} from './index'
 
 const profile: CurrentProfile = {
   id: 'profile-id',
@@ -192,5 +197,64 @@ describe('getCurrentProfile', () => {
       p_middle_name: '',
       p_phone: '+79990000000',
     })
+  })
+})
+
+describe('listManagedProfiles', () => {
+  beforeEach(() => {
+    mocks.supabase.rpc.mockReset()
+  })
+
+  it('loads one managed profiles page through the paginated RPC', async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: {
+        items: [
+          {
+            ...profile,
+            requested_station_name: 'АЗС #1',
+            approved_by_name: null,
+            rejected_by_name: null,
+            deactivated_by_name: null,
+            created_at: '2026-07-13T08:00:00.000Z',
+            updated_at: '2026-07-13T08:00:00.000Z',
+          },
+        ],
+        total_count: 12,
+        has_more: true,
+      },
+      error: null,
+    })
+
+    await expect(
+      listManagedProfiles({
+        section: 'active',
+        limit: 10,
+        offset: 10,
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 12,
+      hasMore: true,
+      items: [{ id: 'profile-id' }],
+    })
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith('list_managed_profiles_page', {
+      section: 'active',
+      page_limit: 10,
+      page_offset: 10,
+    })
+  })
+
+  it('rejects malformed paginated managed profiles responses', async () => {
+    mocks.supabase.rpc.mockResolvedValue({
+      data: [],
+      error: null,
+    })
+
+    await expect(
+      listManagedProfiles({
+        section: 'pending',
+        limit: 10,
+        offset: 0,
+      }),
+    ).rejects.toThrow('Unexpected list_managed_profiles_page response.')
   })
 })
