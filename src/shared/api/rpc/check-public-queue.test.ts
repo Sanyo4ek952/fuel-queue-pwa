@@ -16,6 +16,7 @@ describe('parsePublicQueueCheckResult', () => {
         ticket_number: '2847',
         current_position: '71',
         people_ahead: '70',
+        fuel_queue_position: '23',
         is_within_today_limit: true,
         remaining_attempts: '4',
         retry_after_seconds: '0',
@@ -26,6 +27,7 @@ describe('parsePublicQueueCheckResult', () => {
       ticket_number: 2847,
       current_position: 71,
       people_ahead: 70,
+      fuel_queue_position: 23,
       preferred_fuel_type: null,
       fuel_preference_mode: null,
       public_status: 'WAIT_FOR_CALL',
@@ -53,6 +55,7 @@ describe('parsePublicQueueCheckResult', () => {
       ticket_number: 15,
       current_position: null,
       people_ahead: null,
+      fuel_queue_position: null,
       preferred_fuel_type: null,
       fuel_preference_mode: null,
       public_status: 'QUEUE_NOT_READY',
@@ -80,6 +83,7 @@ describe('parsePublicQueueCheckResult', () => {
       ticket_number: null,
       current_position: null,
       people_ahead: null,
+      fuel_queue_position: null,
       preferred_fuel_type: null,
       fuel_preference_mode: null,
       public_status: 'NOT_FOUND',
@@ -108,6 +112,7 @@ describe('parsePublicQueueCheckResult', () => {
       ticket_number: null,
       current_position: null,
       people_ahead: null,
+      fuel_queue_position: null,
       preferred_fuel_type: null,
       fuel_preference_mode: null,
       public_status: 'LIMIT_EXCEEDED',
@@ -122,5 +127,18 @@ describe('parsePublicQueueCheckResult', () => {
 
   it('returns null for an unexpected response', () => {
     expect(parsePublicQueueCheckResult({ queue_number: 1 })).toBeNull()
+  })
+
+  it('returns null for an invalid fuel queue position', () => {
+    expect(
+      parsePublicQueueCheckResult({
+        status: 'FOUND',
+        queue_number: 1,
+        fuel_queue_position: 0,
+        is_within_today_limit: true,
+        remaining_attempts: 3,
+        retry_after_seconds: 0,
+      }),
+    ).toBeNull()
   })
 })

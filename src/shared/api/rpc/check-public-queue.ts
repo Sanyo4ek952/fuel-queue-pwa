@@ -35,6 +35,7 @@ export type PublicQueueCheckResult = {
   ticket_number: number | null
   current_position: number | null
   people_ahead: number | null
+  fuel_queue_position: number | null
   preferred_fuel_type: QueueFuelType | string | null
   fuel_preference_mode: FuelPreferenceMode | null
   public_status: PublicQueueStatus
@@ -101,6 +102,7 @@ export function parsePublicQueueCheckResult(value: unknown): PublicQueueCheckRes
   const ticketNumber = toNullableNumber(result.ticket_number) ?? toNullableNumber(result.queue_number)
   const currentPosition = toNullableNumber(result.current_position)
   const peopleAhead = toNullableNumber(result.people_ahead)
+  const fuelQueuePosition = toNullableNumber(result.fuel_queue_position)
   const isWithinTodayLimit = toNullableBoolean(result.is_within_today_limit)
   const isCallableNow = toNullableBoolean(result.is_callable_now)
   const publicStatus =
@@ -118,7 +120,8 @@ export function parsePublicQueueCheckResult(value: unknown): PublicQueueCheckRes
     retryAfterSeconds !== null &&
     (ticketNumber === null || ticketNumber > 0) &&
     (currentPosition === null || currentPosition > 0) &&
-    (peopleAhead === null || peopleAhead >= 0)
+    (peopleAhead === null || peopleAhead >= 0) &&
+    (fuelQueuePosition === null || fuelQueuePosition > 0)
   ) {
     return {
       status: result.status as PublicQueueCheckStatus,
@@ -126,6 +129,7 @@ export function parsePublicQueueCheckResult(value: unknown): PublicQueueCheckRes
       ticket_number: ticketNumber,
       current_position: currentPosition,
       people_ahead: peopleAhead,
+      fuel_queue_position: fuelQueuePosition,
       preferred_fuel_type: result.preferred_fuel_type ?? null,
       fuel_preference_mode: result.fuel_preference_mode ?? null,
       public_status: publicStatus as PublicQueueStatus,

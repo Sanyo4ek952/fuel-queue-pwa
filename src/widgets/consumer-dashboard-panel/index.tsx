@@ -158,6 +158,9 @@ export function ConsumerDashboardPanel() {
     Boolean(activeReservation?.station_name) ||
     activeReservation?.is_within_today_limit != null ||
     Boolean(activeReservation?.matched_fuel_type)
+  const fuelQueuePositionLabel = activeReservation?.fuel_queue_position
+    ? `№${activeReservation.fuel_queue_position}`
+    : 'Ожидает расчёта'
   const fuelPreferenceForm = useForm<UpdateReservationFuelPreferenceFormValues>({
     resolver: zodResolver(updateReservationFuelPreferenceSchema),
     mode: 'onBlur',
@@ -471,6 +474,10 @@ export function ConsumerDashboardPanel() {
                 <p className="font-medium text-slate-950">
                   {activeReservation.requested_liters}
                 </p>
+              </div>
+              <div>
+                <span className="text-slate-500">Позиция в очереди топлива</span>
+                <p className="font-medium text-slate-950">{fuelQueuePositionLabel}</p>
               </div>
             </div>
 

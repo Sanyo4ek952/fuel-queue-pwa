@@ -105,6 +105,7 @@ function makeActiveReservation(overrides: Record<string, unknown> = {}) {
     ticket_number: 7,
     current_position: 3,
     people_ahead: 2,
+    fuel_queue_position: 12,
     is_within_today_limit: true,
     is_callable_now: true,
     matched_fuel_type: 'AI_95',
@@ -156,10 +157,23 @@ describe('ConsumerDashboardPanel', () => {
     expect(screen.queryByTestId('create-reservation-form')).not.toBeInTheDocument()
   })
 
-  it('does not show current_position as a consumer queue position', () => {
+  it('shows fuel_queue_position as the consumer fuel queue position', () => {
     render(<ConsumerDashboardPanel />)
 
-    expect(screen.queryByText('Позиция в очереди топлива')).not.toBeInTheDocument()
+    expect(screen.getByText('Позиция в очереди топлива')).toBeInTheDocument()
+    expect(screen.getByText('№12')).toBeInTheDocument()
+    expect(screen.queryByText('№3')).not.toBeInTheDocument()
+  })
+
+  it('does not fall back to current_position when fuel queue position is missing', () => {
+    mocks.activeReservation = makeActiveReservation({
+      fuel_queue_position: null,
+    })
+
+    render(<ConsumerDashboardPanel />)
+
+    expect(screen.getByText('Позиция в очереди топлива')).toBeInTheDocument()
+    expect(screen.getByText('Ожидает расчёта')).toBeInTheDocument()
     expect(screen.queryByText('№3')).not.toBeInTheDocument()
   })
 

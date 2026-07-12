@@ -59,18 +59,15 @@ function getNoShowGraceDescription(days: number | undefined) {
 }
 
 function QueuePositionSummary({
-  currentPosition,
-  peopleAhead,
+  fuelQueuePosition,
 }: {
-  currentPosition: number | null
-  peopleAhead: number | null
+  fuelQueuePosition: number | null
 }) {
   return (
     <span className="block">
-      {currentPosition !== null
-        ? `Ваш текущий номер в очереди №${currentPosition}.`
-        : 'Запись найдена, текущий дневной номер ещё не назначен.'}
-      {peopleAhead !== null ? ` Впереди: ${peopleAhead}.` : ''}
+      {fuelQueuePosition !== null
+        ? `Позиция в очереди топлива №${fuelQueuePosition}.`
+        : 'Позиция в очереди топлива ещё не рассчитана.'}
     </span>
   )
 }
@@ -187,8 +184,7 @@ export function PublicQueueCheckForm() {
                 <AlertTitle>Оператор подтвердил возможность приехать</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    currentPosition={result.current_position}
-                    peopleAhead={result.people_ahead}
+                    fuelQueuePosition={result.fuel_queue_position}
                   />
                   Окончательный допуск подтвердят на АЗС.
                   <span className="mt-2 block">{noShowGraceDescription}</span>
@@ -202,8 +198,7 @@ export function PublicQueueCheckForm() {
                 <AlertTitle>Запись включена в список обзвона</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    currentPosition={result.current_position}
-                    peopleAhead={result.people_ahead}
+                    fuelQueuePosition={result.fuel_queue_position}
                   />
                   Ожидайте звонка оператора
                   {result.matched_fuel_type
@@ -242,8 +237,7 @@ export function PublicQueueCheckForm() {
                 <AlertTitle>Ожидается выбранное топливо</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    currentPosition={result.current_position}
-                    peopleAhead={result.people_ahead}
+                    fuelQueuePosition={result.fuel_queue_position}
                   />
                   Сейчас нет подходящей марки топлива для вашей записи.
                 </AlertDescription>
@@ -256,8 +250,7 @@ export function PublicQueueCheckForm() {
                 <AlertTitle>Запись уже не активна</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    currentPosition={result.current_position}
-                    peopleAhead={result.people_ahead}
+                    fuelQueuePosition={result.fuel_queue_position}
                   />
                   Эта запись уже завершена, отменена или больше не участвует в очереди. Если вы
                   считаете это ошибкой, обратитесь к оператору.
@@ -268,11 +261,10 @@ export function PublicQueueCheckForm() {
             {isQueueNotReady ? (
               <Alert className="border-amber-200 bg-amber-50 text-amber-950">
                 <TriangleAlert className="size-4" aria-hidden="true" />
-                <AlertTitle>Текущий номер ещё не назначен</AlertTitle>
+                <AlertTitle>Позиция в очереди топлива ещё не рассчитана</AlertTitle>
                 <AlertDescription>
                   <QueuePositionSummary
-                    currentPosition={result.current_position}
-                    peopleAhead={result.people_ahead}
+                    fuelQueuePosition={result.fuel_queue_position}
                   />
                   Ваша запись найдена, но сегодня она еще не входит в лимит. Пожалуйста,
                   ожидайте своей очереди. Когда очередь подойдет, вам позвонят.

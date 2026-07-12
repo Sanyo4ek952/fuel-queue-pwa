@@ -54,6 +54,7 @@ export type ConsumerReservation = {
   ticket_number: number
   current_position: number | null
   people_ahead: number | null
+  fuel_queue_position: number | null
   is_within_today_limit: boolean | null
   is_callable_now: boolean | null
   matched_fuel_type: FuelType | null
@@ -233,6 +234,7 @@ export function parseConsumerReservation(value: unknown): ConsumerReservation | 
       ticket_number: ticketNumber,
       current_position: toNullableNumber(row.current_position),
       people_ahead: toNullableNumber(row.people_ahead),
+      fuel_queue_position: toNullableNumber(row.fuel_queue_position),
       is_within_today_limit: toNullableBoolean(row.is_within_today_limit),
       is_callable_now: toNullableBoolean(row.is_callable_now),
       matched_fuel_type: (row.matched_fuel_type as FuelType | null | undefined) ?? null,
