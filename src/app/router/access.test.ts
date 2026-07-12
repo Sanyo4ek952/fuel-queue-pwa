@@ -190,6 +190,18 @@ describe('getProtectedRouteState', () => {
     ).toBe('allowed')
   })
 
+  it('allows reservation creation route for cashier', () => {
+    expect(
+      getProtectedRouteState({
+        authLoading: false,
+        hasSession: true,
+        profileLoading: false,
+        profile: { ...activeProfile, role: 'cashier' },
+        route: ROUTES.reservations,
+      }),
+    ).toBe('allowed')
+  })
+
   it('allows reports for mayor', () => {
     expect(
       getProtectedRouteState({

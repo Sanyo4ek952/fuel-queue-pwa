@@ -9,7 +9,12 @@ const allRoles = new Set<UserRole>([
   'consumer',
 ])
 const staffRoles = new Set<UserRole>(['mayor', 'station_manager', 'cashier', 'mayor_assistant'])
-const createReservationRoles = new Set<UserRole>(['mayor', 'station_manager', 'mayor_assistant'])
+const createReservationRoles = new Set<UserRole>([
+  'mayor',
+  'station_manager',
+  'cashier',
+  'mayor_assistant',
+])
 const checkVehicleRoles = staffRoles
 const queueViewerRoles = staffRoles
 const cancelReservationRoles = new Set<UserRole>(['mayor', 'station_manager', 'mayor_assistant'])

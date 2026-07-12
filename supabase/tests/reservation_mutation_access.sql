@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(25);
 
 insert into public.stations (id, name, address, is_active, allocation_order)
 values
@@ -77,6 +77,19 @@ values
     '{}'::jsonb,
     now(),
     now()
+  ),
+  (
+    '77100000-3000-4000-8000-000000000005',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'reservation-cashier@example.local',
+    extensions.crypt('password123', extensions.gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{}'::jsonb,
+    now(),
+    now()
   )
 on conflict (id) do update
 set email = excluded.email,
@@ -113,6 +126,14 @@ values
     '77100000-3000-4000-8000-000000000004',
     'Reservation Staff Denied',
     'station_manager',
+    true,
+    'approved'
+  ),
+  (
+    '77200000-3000-4000-8000-000000000005',
+    '77100000-3000-4000-8000-000000000005',
+    'Reservation Cashier',
+    'cashier',
     true,
     'approved'
   )
@@ -572,6 +593,32 @@ select is(
   (select preferred_fuel_type || ':' || fuel_preference_mode from public.fuel_queue_entries where id = '77700000-3000-4000-8000-000000000008'),
   'GAS:EXACT',
   'paused outside-limit fuel preference update is saved'
+);
+
+select set_config('request.jwt.claim.sub', '77100000-3000-4000-8000-000000000005', true);
+
+select lives_ok(
+  $$select public.create_reservation(
+    'A339AA777',
+    'Reservation Cashier Driver',
+    '+77003000009',
+    'AI_95',
+    20,
+    'EXACT',
+    'cashier-created queue entry',
+    '77800000-3000-4000-8000-000000000501'
+  )$$,
+  'cashier can create a city queue reservation'
+);
+
+select is(
+  (
+    select operator_id
+    from public.fuel_queue_entries
+    where client_mutation_id = '77800000-3000-4000-8000-000000000501'
+  ),
+  '77200000-3000-4000-8000-000000000005'::uuid,
+  'cashier-created reservation stores cashier as operator'
 );
 
 select is(

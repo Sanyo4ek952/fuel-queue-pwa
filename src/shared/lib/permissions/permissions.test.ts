@@ -14,11 +14,11 @@ import {
 } from './index'
 
 describe('permission helpers', () => {
-  it('allows mayor, station manager and mayor assistant to create reservations', () => {
+  it('allows mayor, station manager, cashier and mayor assistant to create reservations', () => {
     expect(canCreateReservation('mayor')).toBe(true)
     expect(canCreateReservation('station_manager')).toBe(true)
     expect(canCreateReservation('mayor_assistant')).toBe(true)
-    expect(canCreateReservation('cashier')).toBe(false)
+    expect(canCreateReservation('cashier')).toBe(true)
   })
 
   it('allows cashier and full-access roles to create fueling records', () => {
@@ -55,7 +55,7 @@ describe('permission helpers', () => {
     expect(canAccessRoute('mayor_assistant', ROUTES.reservations)).toBe(true)
     expect(canAccessRoute('cashier', ROUTES.check)).toBe(true)
     expect(canAccessRoute('cashier', ROUTES.fueling)).toBe(true)
-    expect(canAccessRoute('cashier', ROUTES.reservations)).toBe(false)
+    expect(canAccessRoute('cashier', ROUTES.reservations)).toBe(true)
     expect(canAccessRoute('station_manager', ROUTES.limits)).toBe(true)
     expect(canAccessRoute('station_manager', ROUTES.users)).toBe(true)
     expect(canAccessRoute('mayor', ROUTES.users)).toBe(true)
