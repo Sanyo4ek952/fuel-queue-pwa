@@ -1,5 +1,5 @@
 import { CalendarDays, CloudOff, Fuel, Gauge } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
   useDailyLimitOverview,
@@ -11,6 +11,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Badge } from '@/shared/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/ui/select'
 
 const statusLabels = {
   OPEN: 'Открыт',
@@ -23,6 +30,8 @@ const statusVariants = {
   CLOSED: 'destructive',
   PAUSED: 'secondary',
 } as const
+
+const ALL_STATIONS_VALUE = 'all'
 
 function formatNumber(value: number | null | undefined) {
   if (value == null) {
@@ -147,8 +156,36 @@ function getAggregateOverview(overview: DailyLimitOverviewResult): DailyLimitSta
 
 export function DailyLimitOverviewPanel() {
   const [date, setDate] = useState(getTodayDateInputValue)
+  const [selectedStationId, setSelectedStationId] = useState(ALL_STATIONS_VALUE)
   const overviewQuery = useDailyLimitOverview({ date })
   const overview = overviewQuery.data
+  const stationOverviews = useMemo(
+    () => overview?.station_overviews ?? [],
+    [overview?.station_overviews],
+  )
+  const selectedStationOverview = stationOverviews.find(
+    (stationOverview) => stationOverview.station_id === selectedStationId,
+  )
+  const selectedOverview = useMemo(() => {
+    if (!overview?.exists) {
+      return null
+    }
+
+    if (selectedStationId === ALL_STATIONS_VALUE) {
+      return getAggregateOverview(overview)
+    }
+
+    return selectedStationOverview ?? getAggregateOverview(overview)
+  }, [overview, selectedStationId, selectedStationOverview])
+
+  useEffect(() => {
+    if (
+      selectedStationId !== ALL_STATIONS_VALUE &&
+      !stationOverviews.some((stationOverview) => stationOverview.station_id === selectedStationId)
+    ) {
+      setSelectedStationId(ALL_STATIONS_VALUE)
+    }
+  }, [selectedStationId, stationOverviews])
 
   return (
     <div className="space-y-4">
@@ -162,17 +199,43 @@ export function DailyLimitOverviewPanel() {
             Прогноз считается по единой очереди отдельно для бензина, дизеля и газа.
           </CardDescription>
         </CardHeader>
-        <CardContent className="max-w-xs">
-          <label className="text-sm font-medium text-slate-700" htmlFor="daily-limit-date">
-            Дата
-          </label>
-          <Input
-            id="daily-limit-date"
-            className="mt-2"
-            type="date"
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-          />
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="text-sm font-medium text-slate-700" htmlFor="daily-limit-date">
+              Дата
+            </label>
+            <Input
+              id="daily-limit-date"
+              className="mt-2"
+              type="date"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-700" htmlFor="daily-limit-station">
+              АЗС
+            </label>
+            <Select value={selectedStationId} onValueChange={setSelectedStationId}>
+              <SelectTrigger id="daily-limit-station" className="mt-2 h-10 w-full bg-white">
+                <SelectValue placeholder="Выберите АЗС" />
+              </SelectTrigger>
+              <SelectContent position="popper" align="start">
+                <SelectItem value={ALL_STATIONS_VALUE}>Все станции</SelectItem>
+                {stationOverviews
+                  .filter((stationOverview) => stationOverview.station_id)
+                  .map((stationOverview) => (
+                    <SelectItem
+                      key={stationOverview.station_id}
+                      value={stationOverview.station_id ?? ''}
+                    >
+                      {stationOverview.station_name ?? stationOverview.station_id}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
@@ -218,39 +281,19 @@ export function DailyLimitOverviewPanel() {
         </Alert>
       ) : null}
 
-      {overview?.exists ? (
-        <div className="space-y-4">
-          <section className="space-y-3">
-            <LimitSummary overview={getAggregateOverview(overview)} />
-            <div className="grid gap-3 lg:grid-cols-3">
-              {(overview.category_overviews ?? []).map((row) => (
-                <CategoryCard
-                  key={`aggregate-${row.fuel_type ?? row.fuel_category}`}
-                  row={row}
-                  stationName={overview.station_name}
-                />
-              ))}
-            </div>
-          </section>
-
-          {(overview.station_overviews ?? []).map((stationOverview) => (
-            <section
-              key={stationOverview.id ?? stationOverview.station_id ?? 'global'}
-              className="space-y-3"
-            >
-              <LimitSummary overview={stationOverview} />
-              <div className="grid gap-3 lg:grid-cols-3">
-                {(stationOverview.category_overviews ?? []).map((row) => (
-                  <CategoryCard
-                    key={`${stationOverview.id ?? stationOverview.station_id ?? 'global'}-${row.fuel_type ?? row.fuel_category}`}
-                    row={row}
-                    stationName={stationOverview.station_name}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+      {selectedOverview ? (
+        <section className="space-y-3">
+          <LimitSummary overview={selectedOverview} />
+          <div className="grid gap-3 lg:grid-cols-3">
+            {(selectedOverview.category_overviews ?? []).map((row) => (
+              <CategoryCard
+                key={`${selectedOverview.station_id ?? 'aggregate'}-${row.fuel_type ?? row.fuel_category}`}
+                row={row}
+                stationName={selectedOverview.station_name}
+              />
+            ))}
+          </div>
+        </section>
       ) : null}
     </div>
   )

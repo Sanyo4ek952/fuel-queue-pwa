@@ -2,6 +2,7 @@
 import '@testing-library/jest-dom/vitest'
 
 import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -16,6 +17,16 @@ import { DailyLimitOverviewPanel } from './index'
 
 describe('DailyLimitOverviewPanel', () => {
   beforeEach(() => {
+    if (!Element.prototype.scrollIntoView) {
+      Element.prototype.scrollIntoView = vi.fn()
+    }
+    if (!Element.prototype.hasPointerCapture) {
+      Element.prototype.hasPointerCapture = vi.fn(() => false)
+    }
+    if (!Element.prototype.releasePointerCapture) {
+      Element.prototype.releasePointerCapture = vi.fn()
+    }
+
     mocks.useDailyLimitOverview.mockReturnValue({
       data: {
         exists: false,
@@ -91,7 +102,7 @@ describe('DailyLimitOverviewPanel', () => {
     expect(screen.queryByText('До номера')).not.toBeInTheDocument()
   })
 
-  it('renders limit cards grouped by station', () => {
+  it('renders aggregate forecast by default instead of all stations at once', () => {
     mocks.useDailyLimitOverview.mockReturnValue({
       data: {
         exists: true,
@@ -188,10 +199,118 @@ describe('DailyLimitOverviewPanel', () => {
     render(<DailyLimitOverviewPanel />)
 
     expect(screen.getAllByText('Общий пул')).not.toHaveLength(0)
-    expect(screen.getAllByText('АЗС №1')).not.toHaveLength(0)
+    expect(screen.getByText('АИ-95')).toBeInTheDocument()
+    expect(screen.queryByText('Дизель')).not.toBeInTheDocument()
+    expect(screen.queryByText('Адрес 1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Адрес 2')).not.toBeInTheDocument()
+  })
+
+  it('filters the forecast by selected station', async () => {
+    const user = userEvent.setup()
+
+    mocks.useDailyLimitOverview.mockReturnValue({
+      data: {
+        exists: true,
+        id: null,
+        date: '2026-07-05',
+        station_id: null,
+        station_name: 'Общий пул',
+        station_address: null,
+        status: 'OPEN',
+        updated_at: null,
+        category_overviews: [
+          {
+            fuel_type: 'AI_95',
+            fuel_category: 'GASOLINE',
+            label: 'АИ-95',
+            limit_mode: 'fuel_liters',
+            vehicle_limit: 0,
+            liters_limit: 400,
+            queue_count: 8,
+            queued_liters: 300,
+            covered_vehicle_count: 5,
+            covered_liters: 250,
+            remaining_vehicle_count: null,
+            remaining_liters: 150,
+            projected_queue_number: 12,
+          },
+        ],
+        station_overviews: [
+          {
+            exists: true,
+            id: 'limit-station-1',
+            date: '2026-07-05',
+            station_id: 'station-1',
+            station_name: 'АЗС №1',
+            station_address: 'Адрес 1',
+            status: 'OPEN',
+            updated_at: null,
+            category_overviews: [
+              {
+                fuel_type: 'AI_95',
+                fuel_category: 'GASOLINE',
+                label: 'АИ-95',
+                limit_mode: 'fuel_liters',
+                vehicle_limit: 0,
+                liters_limit: 250,
+                queue_count: 8,
+                queued_liters: 300,
+                covered_vehicle_count: 5,
+                covered_liters: 250,
+                remaining_vehicle_count: null,
+                remaining_liters: 0,
+                projected_queue_number: 12,
+              },
+            ],
+          },
+          {
+            exists: true,
+            id: 'limit-station-2',
+            date: '2026-07-05',
+            station_id: 'station-2',
+            station_name: 'АЗС №2',
+            station_address: 'Адрес 2',
+            status: 'OPEN',
+            updated_at: null,
+            category_overviews: [
+              {
+                fuel_type: 'DIESEL',
+                fuel_category: 'DIESEL',
+                label: 'Дизель',
+                limit_mode: 'vehicle_count',
+                vehicle_limit: 4,
+                liters_limit: null,
+                queue_count: 6,
+                queued_liters: 180,
+                covered_vehicle_count: 4,
+                covered_liters: 120,
+                remaining_vehicle_count: 0,
+                remaining_liters: null,
+                projected_queue_number: 4,
+              },
+            ],
+          },
+        ],
+        source: 'online',
+        is_estimated: false,
+        unsynced_reservation_count: 0,
+      },
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<DailyLimitOverviewPanel />)
+
+    await user.click(screen.getByRole('combobox', { name: 'АЗС' }))
+    await user.click(screen.getByRole('option', { name: 'АЗС №2' }))
+
     expect(screen.getAllByText('АЗС №2')).not.toHaveLength(0)
-    expect(screen.getAllByText('АИ-95')).not.toHaveLength(0)
+    expect(screen.getByText(/Адрес 2/)).toBeInTheDocument()
     expect(screen.getByText('Дизель')).toBeInTheDocument()
+    expect(screen.queryByText('АИ-95')).not.toBeInTheDocument()
+    expect(screen.queryByText('Адрес 1')).not.toBeInTheDocument()
   })
 
   it('shows offline and estimated snapshot warnings', () => {
