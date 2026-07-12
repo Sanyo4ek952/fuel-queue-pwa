@@ -80,7 +80,7 @@ export function TodayQueuePanel() {
     callFilter,
     gasolineFuelFilter,
   })
-  const dailyLimitOverview = useDailyLimitOverview({ date: todayDate })
+  const dailyLimitOverview = useDailyLimitOverview({ date: todayDate, transport: 'api' })
   const logReservationCall = useLogReservationCall()
   const updateReservationFuelPreference = useUpdateReservationFuelPreference()
   const cancelReservation = useCancelReservation()

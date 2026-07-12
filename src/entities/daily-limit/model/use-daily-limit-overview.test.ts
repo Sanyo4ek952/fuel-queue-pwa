@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/shared/api/rpc', () => ({
   getDailyLimitOverview: vi.fn(),
+  getDailyLimitOverviewViaApi: vi.fn(),
 }))
 
 import type { DailyLimitOverview } from '@/shared/api/rpc'

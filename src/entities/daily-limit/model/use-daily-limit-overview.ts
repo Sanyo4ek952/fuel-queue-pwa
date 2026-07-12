@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   getDailyLimitOverview,
+  getDailyLimitOverviewViaApi,
   type DailyLimitCategoryOverview,
   type DailyLimitOverview,
   type DailyLimitStationOverview,
@@ -38,6 +39,8 @@ export type DailyLimitOverviewResult = DailyLimitOverview & {
 
 export const dailyLimitOverviewQueryKey = (date: string) =>
   ['daily-limit-overview', date] as const
+
+export type DailyLimitOverviewTransport = 'supabase' | 'api'
 
 function toNumber(value: unknown) {
   return typeof value === 'number' ? value : Number(value)
@@ -302,7 +305,13 @@ async function cacheDailyLimitOverview(overview: DailyLimitOverview) {
   await offlineDb.local_daily_limits.put(localDailyLimit)
 }
 
-export function useDailyLimitOverview({ date }: { date: string }) {
+export function useDailyLimitOverview({
+  date,
+  transport = 'supabase',
+}: {
+  date: string
+  transport?: DailyLimitOverviewTransport
+}) {
   const isOnline = useOnlineStatus()
   const [localOverview, setLocalOverview] = useState<DailyLimitOverview | null>(null)
   const [localReservations, setLocalReservations] = useState<LocalReservation[]>([])
@@ -349,10 +358,13 @@ export function useDailyLimitOverview({ date }: { date: string }) {
   }, [date, enabled])
 
   const onlineQuery = useQuery({
-    queryKey: dailyLimitOverviewQueryKey(date),
+    queryKey: [...dailyLimitOverviewQueryKey(date), transport] as const,
     enabled: enabled && isOnline,
     queryFn: async () => {
-      const result = await getDailyLimitOverview({ date })
+      const result =
+        transport === 'api'
+          ? await getDailyLimitOverviewViaApi({ date })
+          : await getDailyLimitOverview({ date })
 
       if (result.error || !result.data) {
         throw new Error(result.error ?? 'Не удалось загрузить обзор лимита.')

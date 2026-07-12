@@ -10,8 +10,10 @@ import type {
   SyncStatus,
 } from '@/shared/constants'
 import { getFuelQueueCategory } from '@/shared/constants'
+import { getAuthSession } from '@/shared/api/auth'
 import { supabase } from '@/shared/api/supabase'
 import { getTodayDateInputValue } from '@/shared/lib/date'
+import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
 import {
   offlineDb,
   type LocalDailyQueueAllocation,
@@ -223,6 +225,15 @@ type QueueAuthorRow = {
   display_name?: string | null
   role?: string | null
   signature_name?: string | null
+}
+
+class ReservationApiError extends Error {
+  statusCode: number | null
+
+  constructor(message: string, statusCode: number | null = null) {
+    super(message)
+    this.statusCode = statusCode
+  }
 }
 
 export type QueueAuthorOption = {
@@ -554,6 +565,56 @@ function toQueueAuthorOption(row: QueueAuthorRow): QueueAuthorOption | null {
   }
 }
 
+async function getAccessToken() {
+  const sessionResult = await getAuthSession()
+
+  if (sessionResult.error) {
+    throw new Error(sessionResult.error)
+  }
+
+  if (!sessionResult.data?.access_token) {
+    throw new Error('Authorization token is required.')
+  }
+
+  return sessionResult.data.access_token
+}
+
+async function readApiResponse(response: Response, fallbackMessage: string) {
+  const value = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const message =
+      value && typeof value === 'object' && 'error' in value && typeof value.error === 'string'
+        ? value.error
+        : fallbackMessage
+
+    throw new ReservationApiError(message, response.status)
+  }
+
+  return value
+}
+
+async function requestReservationApi(path: string, body: unknown, fallbackMessage: string) {
+  const accessToken = await getAccessToken()
+  const response = await fetchWithTimeout(
+    path,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    },
+    {
+      timeoutMs: 10_000,
+      timeoutMessage: fallbackMessage,
+    },
+  )
+
+  return readApiResponse(response, fallbackMessage)
+}
+
 export async function listTodayQueueRowsPage(params: {
   pageSize?: number
   cursor?: TodayQueueCursor | null
@@ -567,21 +628,20 @@ export async function listTodayQueueRowsPage(params: {
     throw new Error('Supabase is not configured.')
   }
 
-  const { data, error } = await supabase.rpc('get_today_call_list', {
-    target_date: getTodayDateInputValue(),
-    page_size: params.pageSize ?? 25,
-    cursor_queue_number: params.cursor?.queue_number ?? null,
-    cursor_id: params.cursor?.id ?? null,
-    plate_search: normalizePlateNumber(params.plateSearch ?? ''),
-    created_by_profile_id: params.createdByProfileId ?? null,
-    call_filter: params.callFilter ?? 'all',
-    gasoline_fuel_filter: params.gasolineFuelFilter ?? 'all',
-    fuel_category_filter: params.fuelCategoryFilter ?? null,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  const data = await requestReservationApi(
+    '/api/today-queue',
+    {
+      targetDate: getTodayDateInputValue(),
+      pageSize: params.pageSize ?? 25,
+      cursor: params.cursor ?? null,
+      plateSearch: normalizePlateNumber(params.plateSearch ?? ''),
+      createdByProfileId: params.createdByProfileId ?? null,
+      callFilter: params.callFilter ?? 'all',
+      gasolineFuelFilter: params.gasolineFuelFilter ?? 'all',
+      fuelCategoryFilter: params.fuelCategoryFilter ?? null,
+    },
+    'Today queue request failed.',
+  )
 
   return parseTodayQueuePage(data)
 }
@@ -601,16 +661,16 @@ export async function listTodayQueueAuthors(params: {
     throw new Error('Supabase is not configured.')
   }
 
-  const { data, error } = await supabase.rpc('get_today_queue_authors', {
-    target_date: getTodayDateInputValue(),
-    plate_search: normalizePlateNumber(params.plateSearch ?? ''),
-    call_filter: params.callFilter ?? 'all',
-    gasoline_fuel_filter: params.gasolineFuelFilter ?? 'all',
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  const data = await requestReservationApi(
+    '/api/today-queue-authors',
+    {
+      targetDate: getTodayDateInputValue(),
+      plateSearch: normalizePlateNumber(params.plateSearch ?? ''),
+      callFilter: params.callFilter ?? 'all',
+      gasolineFuelFilter: params.gasolineFuelFilter ?? 'all',
+    },
+    'Today queue authors request failed.',
+  )
 
   return (Array.isArray(data) ? (data as QueueAuthorRow[]) : [])
     .map(toQueueAuthorOption)

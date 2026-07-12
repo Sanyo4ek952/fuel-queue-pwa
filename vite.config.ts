@@ -7,8 +7,11 @@ import type { IncomingMessage } from 'node:http'
 import type { Connect } from 'vite'
 
 import currentProfileHandler from './api/current-profile.js'
+import dailyLimitOverviewHandler from './api/daily-limit-overview.js'
 import publicNoShowGraceHandler from './api/public-no-show-grace.js'
 import publicQueueCheckHandler from './api/public-queue-check.js'
+import todayQueueHandler from './api/today-queue.js'
+import todayQueueAuthorsHandler from './api/today-queue-authors.js'
 
 type LocalApiResponse = {
   statusCode: number
@@ -108,6 +111,24 @@ function localApiPlugin(mode: string): Plugin {
         '/api/public-no-show-grace',
         publicNoShowGraceHandler,
         'Local public no-show grace request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/today-queue',
+        todayQueueHandler,
+        'Local today queue request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/today-queue-authors',
+        todayQueueAuthorsHandler,
+        'Local today queue authors request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/daily-limit-overview',
+        dailyLimitOverviewHandler,
+        'Local daily limit overview request failed.',
       )
     },
   }

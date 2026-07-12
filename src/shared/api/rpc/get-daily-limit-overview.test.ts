@@ -1,12 +1,22 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  getAuthSession: vi.fn(),
+}))
 
 vi.mock('@/shared/api/supabase', () => ({
   supabase: {
     rpc: vi.fn(),
   },
 }))
+vi.mock('@/shared/api/auth', () => ({ getAuthSession: mocks.getAuthSession }))
+vi.mock('@/shared/config/env', () => ({ isSupabaseConfigured: true }))
 
-import { parseDailyLimitOverview } from './get-daily-limit-overview'
+import { getDailyLimitOverviewViaApi, parseDailyLimitOverview } from './get-daily-limit-overview'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('parseDailyLimitOverview', () => {
   it('parses an existing daily limit overview', () => {
@@ -153,5 +163,47 @@ describe('parseDailyLimitOverview', () => {
 
   it('returns null for an unexpected response', () => {
     expect(parseDailyLimitOverview({ id: 'limit-id' })).toBeNull()
+  })
+})
+
+describe('getDailyLimitOverviewViaApi', () => {
+  it('uses the protected local API proxy', async () => {
+    mocks.getAuthSession.mockResolvedValue({
+      data: { access_token: 'access-token' },
+      error: null,
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          exists: false,
+          date: '2026-07-05',
+          status: null,
+          category_overviews: [],
+          station_overviews: [],
+          updated_at: null,
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getDailyLimitOverviewViaApi({ date: '2026-07-05' })).resolves.toMatchObject({
+      data: { exists: false, date: '2026-07-05' },
+      error: null,
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/daily-limit-overview',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer access-token',
+          'content-type': 'application/json',
+        }),
+        body: JSON.stringify({ date: '2026-07-05' }),
+      }),
+    )
   })
 })

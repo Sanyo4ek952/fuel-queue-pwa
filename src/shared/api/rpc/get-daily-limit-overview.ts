@@ -1,6 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
+import { getAuthSession } from '@/shared/api/auth'
 import { supabase } from '@/shared/api/supabase'
 import type { DailyLimitMode, FuelQueueCategory, QueueFuelType } from '@/shared/constants'
+import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
 
 import type { RpcResult } from './index'
 
@@ -40,6 +42,15 @@ export type DailyLimitOverview = DailyLimitStationOverview & {
 
 export type GetDailyLimitOverviewParams = {
   date: string
+}
+
+class DailyLimitOverviewApiError extends Error {
+  statusCode: number | null
+
+  constructor(message: string, statusCode: number | null = null) {
+    super(message)
+    this.statusCode = statusCode
+  }
 }
 
 function toNumber(value: unknown) {
@@ -183,5 +194,77 @@ export async function getDailyLimitOverview({
   return {
     data: parsed,
     error: null,
+  }
+}
+
+async function readDailyLimitOverviewApiResponse(response: Response) {
+  const value = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const message =
+      value && typeof value === 'object' && 'error' in value && typeof value.error === 'string'
+        ? value.error
+        : 'Daily limit overview request failed.'
+
+    throw new DailyLimitOverviewApiError(message, response.status)
+  }
+
+  return value
+}
+
+export async function getDailyLimitOverviewViaApi({
+  date,
+}: GetDailyLimitOverviewParams): Promise<RpcResult<DailyLimitOverview>> {
+  if (!isSupabaseConfigured) {
+    return {
+      data: null,
+      error: 'Supabase is not configured.',
+    }
+  }
+
+  const sessionResult = await getAuthSession()
+
+  if (sessionResult.error || !sessionResult.data?.access_token) {
+    return {
+      data: null,
+      error: sessionResult.error ?? 'Authorization token is required.',
+    }
+  }
+
+  try {
+    const response = await fetchWithTimeout(
+      '/api/daily-limit-overview',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${sessionResult.data.access_token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ date }),
+      },
+      {
+        timeoutMs: 10_000,
+        timeoutMessage: 'Daily limit overview request timed out.',
+      },
+    )
+    const value = await readDailyLimitOverviewApiResponse(response)
+    const parsed = parseDailyLimitOverview(value)
+
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected get_daily_limit_overview response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Daily limit overview request failed.',
+    }
   }
 }
