@@ -6,6 +6,7 @@ import type { RpcResult } from './index'
 
 export type CreateFuelingRecordParams = {
   allocationId?: string
+  preferentialQueueEntryId?: string
   stationId: string
   plateNumber: string
   liters: number
@@ -84,6 +85,7 @@ export function parseCreateFuelingRecordResult(
 
 export async function createFuelingRecord({
   allocationId,
+  preferentialQueueEntryId,
   stationId,
   plateNumber,
   liters,
@@ -104,6 +106,38 @@ export async function createFuelingRecord({
   void plateNumber
   void fuelType
   void targetDate
+
+  if (preferentialQueueEntryId) {
+    const { data, error } = await supabase.rpc('create_fueling_record_for_preferential_entry', {
+      preferential_queue_entry_id: preferentialQueueEntryId,
+      station_id: stationId,
+      liters,
+      fueled_at: fueledAt,
+      comment: comment ?? null,
+      client_mutation_id: clientMutationId,
+    })
+
+    if (error) {
+      return {
+        data: null,
+        error: error.message,
+      }
+    }
+
+    const parsed = parseCreateFuelingRecordResult(data)
+
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected create_fueling_record response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  }
 
   if (!allocationId) {
     return {
