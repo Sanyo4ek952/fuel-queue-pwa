@@ -404,6 +404,81 @@ describe('CreateFuelingRecordForm', () => {
     })
   })
 
+  it('does not submit preferential fueling when the entry id is missing', async () => {
+    mocks.checkVehicleAccess.mockResolvedValue({
+      data: {
+        status: 'ALLOWED',
+        reason: 'PREFERENTIAL_QUEUE_ACTIVE',
+        normalized_plate_number: '\u0410123\u0412\u0421777',
+        preferential_queue_id: 'queue-id',
+        fuel_type: 'AI_95',
+        matched_fuel_type: 'AI_95',
+        requested_liters: 30,
+      },
+      error: null,
+    })
+
+    const { container } = renderWithQueryClient(<CreateFuelingRecordForm />)
+    await checkPlate()
+
+    const submitButton = container.querySelector<HTMLButtonElement>('button[type="submit"]')!
+    expect(submitButton).toBeDisabled()
+    await userEvent.click(submitButton)
+
+    expect(mocks.createFuelingRecord).not.toHaveBeenCalled()
+  })
+
+  it('prefers preferential entry id over an allocation id when both are present', async () => {
+    mocks.checkVehicleAccess.mockResolvedValue({
+      data: {
+        status: 'ALLOWED',
+        reason: 'PREFERENTIAL_QUEUE_ACTIVE',
+        normalized_plate_number: '\u0410123\u0412\u0421777',
+        allocation_id: 'allocation-id',
+        preferential_queue_entry_id: 'entry-id',
+        preferential_queue_id: 'queue-id',
+        fuel_type: 'AI_95',
+        matched_fuel_type: 'AI_95',
+        requested_liters: 30,
+      },
+      error: null,
+    })
+    mocks.createFuelingRecord.mockResolvedValue({
+      data: {
+        id: 'fueling-id',
+        date: '2026-07-09',
+        station_id: STATIONS[0].id,
+        vehicle_id: 'vehicle-id',
+        driver_id: null,
+        reservation_id: null,
+        allocation_id: null,
+        queue_entry_id: null,
+        preferential_queue_entry_id: 'entry-id',
+        fuel_type: 'AI_95',
+        liters: 30,
+        is_manual_override: false,
+        override_id: null,
+        client_mutation_id: 'mutation-id',
+        sync_status: 'SYNCED',
+        fueled_at: '2026-07-09T00:00:00.000Z',
+      },
+      error: null,
+    })
+
+    renderWithQueryClient(<CreateFuelingRecordForm />)
+    await checkPlate()
+    await userEvent.click(screen.getByRole('button', { name: /Заправить/i }))
+
+    await waitFor(() => {
+      expect(mocks.createFuelingRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allocationId: undefined,
+          preferentialQueueEntryId: 'entry-id',
+        }),
+      )
+    })
+  })
+
   it('shows preferential queue name for mayor', async () => {
     mocks.currentProfile.role = 'mayor'
     mocks.checkVehicleAccess.mockResolvedValue({

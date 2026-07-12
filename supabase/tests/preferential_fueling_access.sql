@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(10);
 
 insert into auth.users (
   id,
@@ -192,6 +192,30 @@ select is(
   'active preferential entry allows access without daily allocation'
 );
 
+select is(
+  public.check_vehicle_access(
+    'A901AA777',
+    '82000000-2000-4000-8000-000000000001',
+    date '2026-07-13'
+  )->>'reason',
+  'PREFERENTIAL_QUEUE_ACTIVE',
+  'active preferential entry allows access when no daily limit exists'
+);
+
+select lives_ok(
+  $test$
+    select public.create_fueling_record_for_preferential_entry(
+      '89000000-2000-4000-8000-000000000001',
+      '82000000-2000-4000-8000-000000000001',
+      5,
+      '2026-07-13 10:00:00+03'::timestamptz,
+      null,
+      '8b000000-2000-4000-8000-000000000004'
+    )
+  $test$,
+  'preferential fueling succeeds when no daily limit exists'
+);
+
 select lives_ok(
   $test$
     select public.create_fueling_record_for_preferential_entry(
@@ -212,7 +236,7 @@ select is(
     from public.preferential_queue_entries
     where id = '89000000-2000-4000-8000-000000000001'
   ),
-  'ACTIVE:30.00',
+  'ACTIVE:25.00',
   'partial preferential fueling subtracts liters and keeps entry active'
 );
 
@@ -222,7 +246,7 @@ select is(
     '82000000-2000-4000-8000-000000000001',
     date '2026-07-12'
   )->>'requested_liters')::numeric,
-  30::numeric,
+  25::numeric,
   'active preferential entry is still allowed after same-day preferential fueling'
 );
 
@@ -231,7 +255,7 @@ select throws_ok(
     select public.create_fueling_record_for_preferential_entry(
       '89000000-2000-4000-8000-000000000001',
       '82000000-2000-4000-8000-000000000001',
-      31,
+      26,
       '2026-07-12 11:00:00+03'::timestamptz,
       null,
       '8b000000-2000-4000-8000-000000000002'
@@ -247,7 +271,7 @@ select lives_ok(
     select public.create_fueling_record_for_preferential_entry(
       '89000000-2000-4000-8000-000000000001',
       '82000000-2000-4000-8000-000000000001',
-      30,
+      25,
       '2026-07-12 12:00:00+03'::timestamptz,
       null,
       '8b000000-2000-4000-8000-000000000003'

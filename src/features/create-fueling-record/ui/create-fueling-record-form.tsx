@@ -88,11 +88,18 @@ function canCreateFuelingRecord(
     return false
   }
 
-  if (result.reason === 'ACTIVE_RESERVATION') {
-    return Boolean(result.allocation_id)
+  const isAllowed =
+    result.status === 'ALLOWED' || result.offline_decision === 'ALLOWED'
+
+  if (result.reason === 'PREFERENTIAL_QUEUE_ACTIVE') {
+    return isAllowed && Boolean(result.preferential_queue_entry_id)
   }
 
-  return result.status === 'ALLOWED' || result.offline_decision === 'ALLOWED'
+  if (result.reason === 'ACTIVE_RESERVATION') {
+    return isAllowed && Boolean(result.allocation_id)
+  }
+
+  return isAllowed
 }
 
 function getFuelTypeLabel(fuelType: string) {
@@ -303,9 +310,11 @@ export function CreateFuelingRecordForm() {
       return
     }
 
+    const preferentialQueueEntryId = accessResult?.preferential_queue_entry_id
+
     await createFuelingRecordMutation.mutateAsync({
-      allocationId: accessResult?.allocation_id,
-      preferentialQueueEntryId: accessResult?.preferential_queue_entry_id,
+      allocationId: preferentialQueueEntryId ? undefined : accessResult?.allocation_id,
+      preferentialQueueEntryId,
       stationId: selectedStationId,
       plateNumber: values.plateNumber,
       liters: values.liters,
