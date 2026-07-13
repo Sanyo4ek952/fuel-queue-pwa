@@ -65,6 +65,13 @@ function firstHeaderValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value
 }
 
+function getBearerToken(request: AuthSessionRequest) {
+  const authorization = firstHeaderValue(request.headers.authorization)
+  const match = authorization?.match(/^Bearer\s+(.+)$/i)
+
+  return match?.[1]?.trim() || null
+}
+
 function parseCookies(header: string | undefined) {
   const cookies = new Map<string, string>()
 
@@ -330,8 +337,20 @@ export async function getServerAuthSession(params: {
   const config = params.config ?? getSupabaseConfig()
   const cookies = getSessionCookies(params.request)
   const refreshToken = cookies.refreshToken
+  const bearerToken = getBearerToken(params.request)
 
   if (!refreshToken) {
+    if (bearerToken) {
+      const user = params.verifyUser === false ? null : await fetchSupabaseUser({ accessToken: bearerToken, config })
+
+      return {
+        accessToken: bearerToken,
+        refreshToken: '',
+        expiresAt: null,
+        user,
+      }
+    }
+
     throw new AuthSessionError('Authorization token is required.', 401)
   }
 

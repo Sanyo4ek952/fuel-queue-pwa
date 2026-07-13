@@ -102,6 +102,53 @@ describe('/api/current-profile', () => {
     })
   })
 
+  it('accepts a verified bearer token when session cookies are not present', async () => {
+    stubSupabaseEnv()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(createJsonResponse({ id: 'auth-user-id' }))
+      .mockResolvedValueOnce(
+        createJsonResponse([
+          {
+            id: 'profile-id',
+            auth_user_id: 'auth-user-id',
+            full_name: 'Consumer User',
+            role: 'consumer',
+            is_active: true,
+            approval_status: 'approved',
+          },
+        ]),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    const response = createResponse()
+
+    await handler(
+      {
+        method: 'GET',
+        headers: {
+          authorization: 'Bearer access-token',
+        },
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(200)
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://example.supabase.co/auth/v1/user',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer access-token',
+        }),
+      }),
+    )
+    expect(JSON.parse(response.body)).toMatchObject({
+      id: 'profile-id',
+      role: 'consumer',
+      stations: [],
+    })
+  })
+
   it('returns a consumer profile without loading assigned stations', async () => {
     stubSupabaseEnv()
     const fetchMock = vi
