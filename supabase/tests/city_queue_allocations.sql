@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(59);
+select plan(62);
 
 select has_table('public', 'fuel_queue_entries', 'persistent queue entries exist');
 select has_table('public', 'daily_queue_allocations', 'daily allocations exist');
@@ -464,6 +464,138 @@ select is(
   ),
   1,
   'AI_95 ANY_GASOLINE can use an AI_92 limit'
+);
+
+delete from public.daily_queue_allocations
+where allocation_date = date '2026-07-12';
+
+delete from public.daily_fueling_schedules
+where date = date '2026-07-12'
+  and station_id = '10000000-1000-4000-8000-000000000001';
+
+delete from public.daily_limits
+where date = date '2026-07-12'
+  and station_id = '10000000-1000-4000-8000-000000000001';
+
+insert into public.vehicles (id, plate_number, normalized_plate_number)
+values
+  ('40000000-1000-4000-8000-000000000016', 'A016AA777', 'A016AA777'),
+  ('40000000-1000-4000-8000-000000000017', 'A017AA777', 'A017AA777')
+on conflict (id) do update
+set plate_number = excluded.plate_number,
+    normalized_plate_number = excluded.normalized_plate_number;
+
+insert into public.drivers (id, full_name, phone)
+values
+  ('50000000-1000-4000-8000-000000000016', 'Driver Sixteen', '+70000000016'),
+  ('50000000-1000-4000-8000-000000000017', 'Driver Seventeen', '+70000000017')
+on conflict (id) do update
+set full_name = excluded.full_name,
+    phone = excluded.phone;
+
+insert into public.fuel_queue_entries (
+  id,
+  permanent_number,
+  vehicle_id,
+  driver_id,
+  preferred_fuel_type,
+  fuel_preference_mode,
+  requested_liters,
+  status,
+  operator_id,
+  client_mutation_id,
+  sync_status
+)
+values
+  ('60000000-1000-4000-8000-000000000016', 900016, '40000000-1000-4000-8000-000000000016', '50000000-1000-4000-8000-000000000016', 'AI_95', 'ANY_GASOLINE', 20, 'WAITING', '30000000-1000-4000-8000-000000000001', '61000000-1000-4000-8000-000000000016', 'SYNCED'),
+  ('60000000-1000-4000-8000-000000000017', 900017, '40000000-1000-4000-8000-000000000017', '50000000-1000-4000-8000-000000000017', 'AI_92', 'EXACT', 20, 'WAITING', '30000000-1000-4000-8000-000000000001', '61000000-1000-4000-8000-000000000017', 'SYNCED')
+on conflict (id) do update
+set permanent_number = excluded.permanent_number,
+    preferred_fuel_type = excluded.preferred_fuel_type,
+    fuel_preference_mode = excluded.fuel_preference_mode,
+    requested_liters = excluded.requested_liters,
+    status = excluded.status;
+
+update public.fuel_queue_entries
+set status = 'CANCELLED'
+where status = 'WAITING'
+  and id not in (
+    '60000000-1000-4000-8000-000000000016',
+    '60000000-1000-4000-8000-000000000017'
+  );
+
+insert into public.daily_queue_allocations (
+  id,
+  allocation_date,
+  queue_entry_id,
+  station_id,
+  assigned_fuel_type,
+  allocated_liters,
+  daily_position,
+  station_position,
+  station_fuel_position,
+  arrival_at,
+  status,
+  call_status,
+  paused_at,
+  paused_reason
+)
+values (
+  '72000000-1000-4000-8000-000000000017',
+  date '2026-07-12',
+  '60000000-1000-4000-8000-000000000017',
+  '10000000-1000-4000-8000-000000000001',
+  'AI_92',
+  20,
+  1,
+  1,
+  1,
+  timestamp with time zone '2026-07-12 09:00:00+03',
+  'PAUSED_BY_LIMIT',
+  'NOT_CALLED',
+  timestamp with time zone '2026-07-12 09:00:00+03',
+  'LIMIT_REALLOCATION'
+)
+on conflict (allocation_date, queue_entry_id) do update
+set status = excluded.status,
+    assigned_fuel_type = excluded.assigned_fuel_type,
+    allocated_liters = excluded.allocated_liters,
+    paused_at = excluded.paused_at,
+    paused_reason = excluded.paused_reason;
+
+select lives_ok(
+  $test$
+    select public.create_daily_limit(
+      date '2026-07-12',
+      '[{"fuel_type":"AI_92","status":"OPEN","liters_limit":20}]'::jsonb,
+      '35000000-1000-4000-8000-000000000018',
+      '10000000-1000-4000-8000-000000000001'
+    )
+  $test$,
+  'reopening AI_92 capacity reallocates paused entries by permanent queue order'
+);
+
+select is(
+  (
+    select assigned_fuel_type
+    from public.daily_queue_allocations
+    where allocation_date = date '2026-07-12'
+      and queue_entry_id = '60000000-1000-4000-8000-000000000016'
+      and status = 'ACTIVE'
+  ),
+  'AI_92',
+  'higher ANY_GASOLINE queue entry receives reopened AI_92 capacity first'
+);
+
+select is(
+  (
+    select status
+    from public.daily_queue_allocations
+    where allocation_date = date '2026-07-12'
+      and queue_entry_id = '60000000-1000-4000-8000-000000000017'
+  ),
+  'PAUSED_BY_LIMIT',
+  'paused lower queue entry does not outrank a compatible higher queue entry'
 );
 
 delete from public.fueling_records
