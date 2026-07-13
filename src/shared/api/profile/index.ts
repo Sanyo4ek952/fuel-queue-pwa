@@ -142,7 +142,7 @@ function toProfile(value: ProfileRow, stations: ProfileStation[]): CurrentProfil
   }
 }
 
-export async function getCurrentProfile(): Promise<CurrentProfile | null> {
+export async function getCurrentProfile(expectedAuthUserId?: string): Promise<CurrentProfile | null> {
   if (!isSupabaseConfigured) {
     return null
   }
@@ -162,7 +162,7 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
 
     const cachedProfile = await getCachedCurrentProfile()
 
-    if (cachedProfile) {
+    if (cachedProfile && (!expectedAuthUserId || cachedProfile.auth_user_id === expectedAuthUserId)) {
       return { ...cachedProfile, is_from_cache: true }
     }
 

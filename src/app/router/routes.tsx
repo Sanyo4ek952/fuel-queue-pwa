@@ -242,6 +242,7 @@ function AuthenticatedAppShell() {
   const location = useLocation()
   const auth = useSupabaseAuth()
   const currentProfileQuery = useCurrentProfile({
+    authUserId: auth.user?.id,
     enabled: Boolean(auth.session) && !auth.isLoading,
   })
   const profileLoadingTimedOut = useLoadingTimeout(currentProfileQuery.isLoading, 8_000)

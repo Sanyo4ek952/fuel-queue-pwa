@@ -12,10 +12,10 @@ export type { ProfileStation }
 
 export const currentProfileQueryKey = ['current-profile'] as const
 
-export function useCurrentProfile(options?: { enabled?: boolean }) {
+export function useCurrentProfile(options?: { authUserId?: string; enabled?: boolean }) {
   return useQuery({
-    queryKey: currentProfileQueryKey,
-    queryFn: getCurrentProfile,
+    queryKey: [...currentProfileQueryKey, options?.authUserId ?? null],
+    queryFn: () => getCurrentProfile(options?.authUserId),
     enabled: options?.enabled ?? true,
     staleTime: 30_000,
   })

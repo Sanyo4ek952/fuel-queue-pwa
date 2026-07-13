@@ -133,6 +133,16 @@ describe('getCurrentProfile', () => {
     })
   })
 
+  it('does not use cached profile data from another auth user', async () => {
+    mocks.fetchWithTimeout.mockRejectedValue(new TypeError('Failed to fetch'))
+    mocks.getCachedCurrentProfile.mockResolvedValue({
+      ...profile,
+      auth_user_id: 'previous-auth-user-id',
+    })
+
+    await expect(getCurrentProfile('current-auth-user-id')).rejects.toThrow('Failed to fetch')
+  })
+
   it('treats a missing profile response as a profile error', async () => {
     mocks.fetchWithTimeout.mockResolvedValue(
       new Response(JSON.stringify(null), {

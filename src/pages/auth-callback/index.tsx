@@ -60,6 +60,7 @@ export function AuthCallbackPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const currentProfileQuery = useCurrentProfile({
+    authUserId: session?.user?.id,
     enabled: Boolean(session) && !isSessionLoading,
   })
 
