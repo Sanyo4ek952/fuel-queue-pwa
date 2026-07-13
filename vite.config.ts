@@ -324,6 +324,7 @@ export default defineConfig(({ mode }) => ({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'script-defer',
       workbox: {
         cleanupOutdatedCaches: true,
         clientsClaim: true,

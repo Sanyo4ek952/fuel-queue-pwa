@@ -111,6 +111,10 @@ supabase/
 - отчёты корректны;
 - повторная заправка запрещена по всем АЗС.
 
+Temporary PWA recovery note:
+
+- After deploy, clear old service worker/site data on affected devices, or open Chrome DevTools -> Application -> Service Workers -> Unregister.
+
 ## Hosted Supabase test data
 
 Для тестового hosted-проекта без очистки базы можно выполнить SQL-скрипт:
