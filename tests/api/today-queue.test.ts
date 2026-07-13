@@ -4,10 +4,10 @@ import protectedRpcHandler from '../../api/protected-rpc.js'
 
 type TestResponse = {
   statusCode: number
-  headers: Record<string, string>
+  headers: Record<string, string | string[]>
   body: string
   status: (statusCode: number) => TestResponse
-  setHeader: (key: string, value: string) => TestResponse
+  setHeader: (key: string, value: string | string[]) => TestResponse
   end: (body: string) => TestResponse
 }
 
@@ -20,7 +20,7 @@ function createResponse() {
       response.statusCode = statusCode
       return response
     }),
-    setHeader: vi.fn((key: string, value: string) => {
+    setHeader: vi.fn((key: string, value: string | string[]) => {
       response.headers[key.toLowerCase()] = value
       return response
     }),
@@ -84,7 +84,7 @@ describe('protected queue API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'today-queue' },
         body: {
           targetDate: '2026-07-12',
@@ -130,7 +130,7 @@ describe('protected queue API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'today-queue-authors' },
         body: {
           targetDate: '2026-07-12',
@@ -171,7 +171,7 @@ describe('protected queue API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'daily-limit-overview' },
         body: { date: '2026-07-12' },
         [Symbol.asyncIterator]: async function* () {},
@@ -197,7 +197,7 @@ describe('protected queue API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'today-queue' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},

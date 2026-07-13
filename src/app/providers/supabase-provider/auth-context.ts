@@ -1,8 +1,10 @@
-import type { Session, User } from '@supabase/supabase-js'
+import type { User } from '@supabase/supabase-js'
 import { createContext, useContext } from 'react'
 
+import type { AuthSession } from '@/shared/api/auth'
+
 export type SupabaseAuthContextValue = {
-  session: Session | null
+  session: AuthSession | null
   user: User | null
   isLoading: boolean
 }

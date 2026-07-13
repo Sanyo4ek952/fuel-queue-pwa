@@ -1,15 +1,18 @@
 import { useQueryClient } from '@tanstack/react-query'
-import type { Session } from '@supabase/supabase-js'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { currentProfileQueryKey } from '@/entities/profile'
-import { getAuthSession, subscribeToAuthSessionChange } from '@/shared/api/auth'
+import {
+  getAuthSession,
+  subscribeToAuthSessionChange,
+  type AuthSession,
+} from '@/shared/api/auth'
 
 import { SupabaseAuthContext } from './auth-context'
 
 export function SupabaseProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
-  const [session, setSession] = useState<Session | null>(null)
+  const [session, setSession] = useState<AuthSession | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {

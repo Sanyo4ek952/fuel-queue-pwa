@@ -190,8 +190,9 @@ describe('parseVehicleFuelingHistory', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/vehicle-fueling-history',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({ 'content-type': 'application/json' }),
         body: JSON.stringify({
           plateNumber: normalizedPlateNumber,
           pageLimit: 10,
@@ -221,8 +222,9 @@ describe('parseVehicleFuelingHistory', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/vehicle-recent-fueling-history',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({ 'content-type': 'application/json' }),
         body: JSON.stringify({
           plateNumber: normalizedPlateNumber,
         }),

@@ -1,4 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
+import type { User } from '@supabase/supabase-js'
 
 import { isSupabaseConfigured } from '@/shared/config/env'
 import { supabase } from '@/shared/api/supabase'
@@ -13,6 +14,11 @@ export type AuthResult<TData> = {
   error: string | null
   status?: number
   code?: string
+}
+
+export type AuthSession = {
+  user: User
+  expires_at: number | null
 }
 
 export type LoginWithPasswordParams = {
@@ -78,7 +84,7 @@ function createSignupConsentMetadata(registrationRole: PersonalDataConsentRegist
   )
 }
 
-async function clearSignupSession(session: Session | null): Promise<AuthResult<Session>> {
+async function clearSignupSession(session: Session | null): Promise<AuthResult<AuthSession>> {
   if (!session) {
     return {
       data: null,
@@ -94,7 +100,37 @@ async function clearSignupSession(session: Session | null): Promise<AuthResult<S
   }
 }
 
-export async function getAuthSession(): Promise<AuthResult<Session>> {
+type ApiErrorResponse = {
+  error?: string
+  status?: number
+  code?: string
+}
+
+async function readApiJson<TData>(response: Response, fallbackMessage: string): Promise<AuthResult<TData>> {
+  const value = (await response.json().catch(() => null)) as (TData & ApiErrorResponse) | null
+
+  if (!response.ok) {
+    return {
+      data: null,
+      error: value?.error ?? fallbackMessage,
+      status: response.status,
+      code: value?.code,
+    }
+  }
+
+  return {
+    data: value as TData,
+    error: null,
+  }
+}
+
+const authSessionChangeEvent = 'azs-auth-session-change'
+
+function notifyAuthSessionChange(session: AuthSession | null) {
+  window.dispatchEvent(new CustomEvent<AuthSession | null>(authSessionChangeEvent, { detail: session }))
+}
+
+export async function getAuthSession(): Promise<AuthResult<AuthSession>> {
   if (!isSupabaseConfigured) {
     return {
       data: null,
@@ -102,30 +138,31 @@ export async function getAuthSession(): Promise<AuthResult<Session>> {
     }
   }
 
-  const { data, error } = await supabase.auth.getSession()
+  const response = await fetch('/api/auth/session', {
+    credentials: 'same-origin',
+  })
 
-  return {
-    data: data.session,
-    error: error?.message ?? null,
-  }
+  return readApiJson<AuthSession>(response, 'Session request failed.')
 }
 
-export function subscribeToAuthSessionChange(onChange: (session: Session | null) => void) {
+export function subscribeToAuthSessionChange(onChange: (session: AuthSession | null) => void) {
   if (!isSupabaseConfigured) {
     return () => undefined
   }
 
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    onChange(session)
-  })
+  const listener = (event: Event) => {
+    onChange((event as CustomEvent<AuthSession | null>).detail ?? null)
+  }
 
-  return () => data.subscription.unsubscribe()
+  window.addEventListener(authSessionChangeEvent, listener)
+
+  return () => window.removeEventListener(authSessionChangeEvent, listener)
 }
 
 export async function signInWithPassword({
   email,
   password,
-}: LoginWithPasswordParams): Promise<AuthResult<Session>> {
+}: LoginWithPasswordParams): Promise<AuthResult<AuthSession>> {
   if (!isSupabaseConfigured) {
     return {
       data: null,
@@ -133,15 +170,24 @@ export async function signInWithPassword({
     }
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      password,
+    }),
   })
+  const result = await readApiJson<AuthSession>(response, 'Login request failed.')
 
-  return {
-    data: data.session,
-    error: error?.message ?? null,
+  if (result.data) {
+    notifyAuthSessionChange(result.data)
   }
+
+  return result
 }
 
 export async function signInWithYandex(): Promise<AuthResult<true>> {
@@ -152,18 +198,9 @@ export async function signInWithYandex(): Promise<AuthResult<true>> {
     }
   }
 
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'custom:yandex',
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-      scopes: 'login:info login:email',
-    },
-  })
-
   return {
-    data: error ? null : true,
-    error: error?.message ?? null,
-    ...getAuthErrorMeta(error),
+    data: null,
+    error: 'Yandex ID login requires the secure server-side OAuth flow.',
   }
 }
 
@@ -179,7 +216,7 @@ export async function signUpWithPassword({
   requestedStationId,
   captchaToken,
   personalDataConsentAccepted,
-}: SignUpWithPasswordParams): Promise<AuthResult<Session>> {
+}: SignUpWithPasswordParams): Promise<AuthResult<AuthSession>> {
   if (!isSupabaseConfigured) {
     return {
       data: null,
@@ -225,7 +262,7 @@ export async function signUpConsumerWithPassword({
   phone,
   captchaToken,
   personalDataConsentAccepted,
-}: SignUpConsumerWithPasswordParams): Promise<AuthResult<Session>> {
+}: SignUpConsumerWithPasswordParams): Promise<AuthResult<AuthSession>> {
   if (!isSupabaseConfigured) {
     return {
       data: null,
@@ -299,10 +336,20 @@ export async function signOut(): Promise<AuthResult<true>> {
     }
   }
 
-  const { error } = await supabase.auth.signOut()
+  const response = await fetch('/api/auth/logout', {
+    method: 'POST',
+    credentials: 'same-origin',
+  })
+  const result = await readApiJson<{ ok?: boolean }>(response, 'Logout request failed.')
+
+  if (!result.error) {
+    notifyAuthSessionChange(null)
+  }
 
   return {
-    data: error ? null : true,
-    error: error?.message ?? null,
+    data: result.error ? null : true,
+    error: result.error,
+    status: result.status,
+    code: result.code,
   }
 }

@@ -1,3 +1,10 @@
+import {
+  AuthSessionError,
+  assertSameOriginRequest,
+  getServerAuthSession,
+  getSupabaseConfig,
+} from './auth-session.js'
+
 const requestTimeoutMs = 9_000
 
 export type ProtectedRpcRequest = {
@@ -9,7 +16,7 @@ export type ProtectedRpcRequest = {
 
 export type ProtectedRpcResponse = {
   status: (statusCode: number) => ProtectedRpcResponse
-  setHeader: (key: string, value: string) => ProtectedRpcResponse
+  setHeader: (key: string, value: string | string[]) => ProtectedRpcResponse
   end: (body: string) => void
 }
 
@@ -17,28 +24,6 @@ type ProtectedRpcOptions = {
   rpcName: string
   fallbackError: string
   mapBody: (body: Record<string, unknown>) => Record<string, unknown>
-}
-
-function normalizeSupabaseUrl(url: string | undefined) {
-  return url?.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '')
-}
-
-function getSupabaseConfig() {
-  return {
-    url: normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
-    anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
-  }
-}
-
-function firstHeaderValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value
-}
-
-function getBearerToken(request: ProtectedRpcRequest) {
-  const authorization = firstHeaderValue(request.headers.authorization)
-  const match = authorization?.match(/^Bearer\s+(.+)$/i)
-
-  return match?.[1] ?? null
 }
 
 function sendJson(response: ProtectedRpcResponse, statusCode: number, payload: unknown) {
@@ -118,25 +103,26 @@ export async function handleProtectedRpc(
   }
 
   const { url, anonKey } = getSupabaseConfig()
-  const accessToken = getBearerToken(request)
 
   if (!url || !anonKey) {
     sendJson(response, 500, { error: 'Supabase is not configured.' })
     return
   }
 
-  if (!accessToken) {
-    sendJson(response, 401, { error: 'Authorization token is required.' })
-    return
-  }
-
   try {
+    assertSameOriginRequest(request)
+    const session = await getServerAuthSession({
+      request,
+      response,
+      config: { url, anonKey },
+      verifyUser: false,
+    })
     const body = await readBody(request)
     const supabaseResponse = await fetchWithTimeout(`${url}/rest/v1/rpc/${options.rpcName}`, {
       method: 'POST',
       headers: {
         apikey: anonKey,
-        authorization: `Bearer ${accessToken}`,
+        authorization: `Bearer ${session.accessToken}`,
         'content-type': 'application/json',
       },
       body: JSON.stringify(options.mapBody(body)),
@@ -152,6 +138,11 @@ export async function handleProtectedRpc(
 
     sendJson(response, 200, responseBody)
   } catch (error) {
+    if (error instanceof AuthSessionError) {
+      sendJson(response, error.statusCode, { error: error.message })
+      return
+    }
+
     sendJson(response, 504, {
       error:
         error instanceof Error && error.name === 'AbortError'

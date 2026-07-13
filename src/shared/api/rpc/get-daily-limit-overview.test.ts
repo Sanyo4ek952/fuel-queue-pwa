@@ -197,9 +197,9 @@ describe('getDailyLimitOverviewViaApi', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/daily-limit-overview',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
         headers: expect.objectContaining({
-          Authorization: 'Bearer access-token',
           'content-type': 'application/json',
         }),
         body: JSON.stringify({ date: '2026-07-05' }),

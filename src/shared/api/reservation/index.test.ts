@@ -102,9 +102,9 @@ describe('daily allocation queue API', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/today-queue',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
         headers: expect.objectContaining({
-          Authorization: 'Bearer access-token',
           'content-type': 'application/json',
         }),
       }),

@@ -87,8 +87,9 @@ describe('updateReservationFuelPreference', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/update-reservation-fuel-preference',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({ 'content-type': 'application/json' }),
         body: JSON.stringify({
           reservationId: 'reservation-id',
           fuelType: 'AI_100',

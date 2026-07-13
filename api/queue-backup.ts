@@ -1,5 +1,10 @@
 import { isQueueBackupDate } from './cron/_lib/queue-backup.js'
 import { runQueueBackup, type QueueBackupEnv } from './cron/_lib/run-queue-backup.js'
+import {
+  AuthSessionError,
+  assertSameOriginRequest,
+  getServerAuthSession,
+} from './_lib/auth-session.js'
 
 type QueueBackupRequest = {
   method?: string
@@ -9,7 +14,7 @@ type QueueBackupRequest = {
 }
 
 type QueueBackupResponse = {
-  setHeader(name: string, value: string): void
+  setHeader(name: string, value: string | string[]): void
   status(code: number): QueueBackupResponse
   json(value: unknown): void
   end(value?: string | Buffer): void
@@ -31,24 +36,10 @@ type ProfileRow = {
   approval_status?: string | null
 }
 
-function firstHeaderValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value
-}
-
 function sendJson(res: QueueBackupResponse, statusCode: number, payload: unknown) {
   res.setHeader('Cache-Control', 'no-store')
   res.setHeader('Content-Type', 'application/json')
   res.status(statusCode).json(payload)
-}
-
-function getBearerToken(req: QueueBackupRequest) {
-  const authorization = firstHeaderValue(req.headers.authorization)
-
-  if (!authorization?.startsWith('Bearer ')) {
-    return null
-  }
-
-  return authorization.slice('Bearer '.length).trim() || null
 }
 
 async function readBody(req: QueueBackupRequest) {
@@ -209,18 +200,21 @@ export default async function handler(req: QueueBackupRequest, res: QueueBackupR
     return
   }
 
-  const accessToken = getBearerToken(req)
-
-  if (!accessToken) {
-    sendJson(res, 401, { error: 'Unauthorized.' })
-    return
-  }
-
   try {
+    assertSameOriginRequest(req)
+    const session = await getServerAuthSession({
+      request: req,
+      response: res,
+      config: {
+        url: env.supabaseUrl,
+        anonKey: env.supabaseAnonKey,
+      },
+      verifyUser: false,
+    })
     const body = await readBody(req)
     const targetDate = parseQueueBackupTargetDate(body.targetDate)
 
-    await assertCanExportQueueBackup({ env, accessToken })
+    await assertCanExportQueueBackup({ env, accessToken: session.accessToken })
 
     const result = await runQueueBackup({ env, targetDate })
 
@@ -231,7 +225,9 @@ export default async function handler(req: QueueBackupRequest, res: QueueBackupR
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Queue backup failed.'
     const statusCode =
-      message === 'Unauthorized.'
+      error instanceof AuthSessionError
+        ? error.statusCode
+        : message === 'Unauthorized.'
         ? 401
         : message === 'Queue backup access denied.'
           ? 403

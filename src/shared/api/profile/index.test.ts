@@ -94,7 +94,7 @@ describe('getCurrentProfile', () => {
     })
     expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
       '/api/current-profile',
-      { headers: { Authorization: 'Bearer access-token' } },
+      { credentials: 'same-origin' },
       { timeoutMs: 8_000, timeoutMessage: 'Current profile request timed out.' },
     )
     expect(mocks.saveCachedCurrentProfile).toHaveBeenCalledWith(

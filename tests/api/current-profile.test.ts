@@ -5,13 +5,13 @@ import handler from '../../api/current-profile.js'
 function createResponse() {
   const response = {
     statusCode: 200,
-    headers: {} as Record<string, string>,
+    headers: {} as Record<string, string | string[]>,
     body: '',
     status: vi.fn((statusCode: number) => {
       response.statusCode = statusCode
       return response
     }),
-    setHeader: vi.fn((key: string, value: string) => {
+    setHeader: vi.fn((key: string, value: string | string[]) => {
       response.headers[key.toLowerCase()] = value
       return response
     }),
@@ -89,7 +89,7 @@ describe('/api/current-profile', () => {
       {
         method: 'GET',
         headers: {
-          authorization: 'Bearer access-token',
+          cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token',
         },
       },
       response,
@@ -126,7 +126,7 @@ describe('/api/current-profile', () => {
       {
         method: 'GET',
         headers: {
-          authorization: 'Bearer access-token',
+          cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token',
         },
       },
       response,
@@ -158,7 +158,7 @@ describe('/api/current-profile', () => {
       {
         method: 'GET',
         headers: {
-          authorization: 'Bearer access-token',
+          cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token',
         },
       },
       response,
@@ -191,7 +191,7 @@ describe('/api/current-profile', () => {
       {
         method: 'GET',
         headers: {
-          authorization: 'Bearer access-token',
+          cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token',
         },
       },
       response,
@@ -213,7 +213,7 @@ describe('/api/current-profile', () => {
       {
         method: 'GET',
         headers: {
-          authorization: 'Bearer access-token',
+          cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token',
         },
       },
       response,

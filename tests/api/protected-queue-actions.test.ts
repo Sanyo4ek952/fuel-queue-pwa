@@ -4,10 +4,10 @@ import protectedRpcHandler from '../../api/protected-rpc.js'
 
 type TestResponse = {
   statusCode: number
-  headers: Record<string, string>
+  headers: Record<string, string | string[]>
   body: string
   status: (statusCode: number) => TestResponse
-  setHeader: (key: string, value: string) => TestResponse
+  setHeader: (key: string, value: string | string[]) => TestResponse
   end: (body: string) => TestResponse
 }
 
@@ -20,7 +20,7 @@ function createResponse() {
       response.statusCode = statusCode
       return response
     }),
-    setHeader: vi.fn((key: string, value: string) => {
+    setHeader: vi.fn((key: string, value: string | string[]) => {
       response.headers[key.toLowerCase()] = value
       return response
     }),
@@ -79,7 +79,7 @@ describe('protected queue action API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'reservation-call-log' },
         body: {
           allocationId: 'allocation-id',
@@ -116,7 +116,7 @@ describe('protected queue action API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'update-reservation-fuel-preference' },
         body: {
           reservationId: 'reservation-id',
@@ -150,7 +150,7 @@ describe('protected queue action API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'cancel-reservation' },
         body: {
           reservationId: 'reservation-id',
@@ -184,7 +184,7 @@ describe('protected queue action API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'sync-offline-mutation' },
         body: {
           clientMutationId: 'mutation-id',
@@ -218,7 +218,7 @@ describe('protected queue action API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'cancel-reservation' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
@@ -241,7 +241,7 @@ describe('protected queue action API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'sync-offline-mutation' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},

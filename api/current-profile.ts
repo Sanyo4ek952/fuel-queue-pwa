@@ -1,3 +1,9 @@
+import {
+  AuthSessionError,
+  getServerAuthSession,
+  getSupabaseConfig,
+} from './_lib/auth-session.js'
+
 const requestTimeoutMs = 9_000
 
 const profileColumns = [
@@ -36,13 +42,8 @@ type VercelRequestLike = {
 
 type VercelResponseLike = {
   status: (statusCode: number) => VercelResponseLike
-  setHeader: (key: string, value: string) => VercelResponseLike
+  setHeader: (key: string, value: string | string[]) => VercelResponseLike
   end: (body: string) => void
-}
-
-type SupabaseConfig = {
-  url: string | undefined
-  anonKey: string | undefined
 }
 
 type SupabaseRequestParams = {
@@ -74,30 +75,10 @@ type SupabaseUser = {
   id: string
 }
 
-function normalizeSupabaseUrl(url: string | undefined) {
-  return url?.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '')
-}
-
-function getSupabaseConfig(): SupabaseConfig {
-  return {
-    url: normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
-    anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
-  }
-}
-
 function sendJson(response: VercelResponseLike, statusCode: number, payload: unknown) {
   response.status(statusCode).setHeader('content-type', 'application/json')
   response.setHeader('cache-control', 'no-store')
   response.end(JSON.stringify(payload))
-}
-
-function getAccessToken(request: VercelRequestLike) {
-  const authorization = Array.isArray(request.headers.authorization)
-    ? request.headers.authorization[0]
-    : request.headers.authorization
-  const match = authorization?.match(/^Bearer\s+(.+)$/i)
-
-  return match?.[1] ?? null
 }
 
 function getSupabaseErrorMessage(value: unknown) {
@@ -202,20 +183,19 @@ export default async function handler(request: VercelRequestLike, response: Verc
   }
 
   const { url, anonKey } = getSupabaseConfig()
-  const accessToken = getAccessToken(request)
 
   if (!url || !anonKey) {
     sendJson(response, 500, { error: 'Supabase is not configured.' })
     return
   }
 
-  if (!accessToken) {
-    sendJson(response, 401, { error: 'Authorization token is required.' })
-    return
-  }
-
   try {
-    const user = await fetchSupabaseJson(`${url}/auth/v1/user`, { anonKey, accessToken })
+    const session = await getServerAuthSession({
+      request,
+      response,
+      config: { url, anonKey },
+    })
+    const user = session.user
 
     if (!isSupabaseUser(user)) {
       sendJson(response, 401, { error: 'Authorization token is invalid.' })
@@ -227,7 +207,10 @@ export default async function handler(request: VercelRequestLike, response: Verc
     profileQuery.searchParams.set('auth_user_id', `eq.${user.id}`)
     profileQuery.searchParams.set('limit', '1')
 
-    const profiles = await fetchSupabaseJson(profileQuery.toString(), { anonKey, accessToken })
+    const profiles = await fetchSupabaseJson(profileQuery.toString(), {
+      anonKey,
+      accessToken: session.accessToken,
+    })
     const profile = Array.isArray(profiles) ? (profiles[0] as ProfileRow | undefined) : null
 
     if (!profile) {
@@ -248,7 +231,10 @@ export default async function handler(request: VercelRequestLike, response: Verc
       stationsQuery.searchParams.set('is_active', 'eq.true')
       stationsQuery.searchParams.set('order', 'name.asc')
 
-      const stations = await fetchSupabaseJson(stationsQuery.toString(), { anonKey, accessToken })
+      const stations = await fetchSupabaseJson(stationsQuery.toString(), {
+        anonKey,
+        accessToken: session.accessToken,
+      })
       sendJson(response, 200, { ...profile, stations: Array.isArray(stations) ? stations.map(toStation) : [] })
       return
     }
@@ -264,7 +250,7 @@ export default async function handler(request: VercelRequestLike, response: Verc
 
     const assignedStations = await fetchSupabaseJson(assignedStationsQuery.toString(), {
       anonKey,
-      accessToken,
+      accessToken: session.accessToken,
     })
 
     sendJson(response, 200, {
@@ -272,6 +258,11 @@ export default async function handler(request: VercelRequestLike, response: Verc
       stations: Array.isArray(assignedStations) ? getStationsFromUserStationRows(assignedStations) : [],
     })
   } catch (error) {
+    if (error instanceof AuthSessionError) {
+      sendJson(response, error.statusCode, { error: error.message })
+      return
+    }
+
     if (error instanceof Error && error.name === 'AbortError') {
       sendJson(response, 504, { error: 'Supabase request timed out.' })
       return

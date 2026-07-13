@@ -1,11 +1,10 @@
-import type { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 
 import { useCurrentProfile } from '@/entities/profile'
 import { CompleteConsumerProfileForm } from '@/features/complete-consumer-profile'
 import { isConsumerProfileComplete } from '@/shared/api/profile'
-import { getAuthSession } from '@/shared/api/auth'
+import { getAuthSession, type AuthSession } from '@/shared/api/auth'
 import { ROUTES } from '@/shared/config/routes'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 
@@ -18,7 +17,7 @@ function LoadingScreen() {
 }
 
 export function ProfileSetupPage() {
-  const [session, setSession] = useState<Session | null>(null)
+  const [session, setSession] = useState<AuthSession | null>(null)
   const [isSessionLoading, setIsSessionLoading] = useState(true)
   const navigate = useNavigate()
   const currentProfileQuery = useCurrentProfile({

@@ -1,5 +1,3 @@
-import { getAuthSession } from '@/shared/api/auth'
-
 export type ExportQueueBackupParams = {
   targetDate: string | null
 }
@@ -34,16 +32,10 @@ export async function exportQueueBackup({
     throw new Error('Экспорт доступен только онлайн.')
   }
 
-  const sessionResult = await getAuthSession()
-
-  if (sessionResult.error || !sessionResult.data?.access_token) {
-    throw new Error(sessionResult.error ?? 'Нужно войти в систему.')
-  }
-
   const response = await fetch('/api/queue-backup', {
     method: 'POST',
+    credentials: 'same-origin',
     headers: {
-      Authorization: `Bearer ${sessionResult.data.access_token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

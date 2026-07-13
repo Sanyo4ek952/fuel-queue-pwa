@@ -1,7 +1,6 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { UserRole } from '@/shared/config/roles'
 import { USER_ROLES } from '@/shared/config/roles'
-import { getAuthSession } from '@/shared/api/auth'
 import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
 import {
   getCachedCurrentProfile,
@@ -148,18 +147,8 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
     return null
   }
 
-  const sessionResult = await getAuthSession()
-
-  if (sessionResult.error) {
-    throw new Error(sessionResult.error)
-  }
-
-  if (!sessionResult.data?.access_token) {
-    return null
-  }
-
   try {
-    const profile = await getCurrentProfileViaApi(sessionResult.data.access_token)
+    const profile = await getCurrentProfileViaApi()
 
     if (profile) {
       await saveCachedCurrentProfile(profile)
@@ -293,13 +282,11 @@ async function readCurrentProfileApiResponse(response: Response) {
   return value
 }
 
-async function getCurrentProfileViaApi(accessToken: string): Promise<CurrentProfile | null> {
+async function getCurrentProfileViaApi(): Promise<CurrentProfile | null> {
   const response = await fetchWithTimeout(
     '/api/current-profile',
     {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      credentials: 'same-origin',
     },
     {
       timeoutMs: 8_000,

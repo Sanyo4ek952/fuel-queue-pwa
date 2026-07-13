@@ -116,8 +116,9 @@ describe('createFuelingRecord', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/create-fueling-record-for-preferential-entry',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({ 'content-type': 'application/json' }),
         body: JSON.stringify({
           preferentialQueueEntryId: 'preferential-entry-id',
           stationId: 'station-id',
@@ -154,8 +155,9 @@ describe('createFuelingRecord', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/create-fueling-record-for-allocation',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({ 'content-type': 'application/json' }),
         body: JSON.stringify({
           allocationId: 'allocation-id',
           liters: 20,

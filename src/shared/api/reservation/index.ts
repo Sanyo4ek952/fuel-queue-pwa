@@ -10,7 +10,6 @@ import type {
   SyncStatus,
 } from '@/shared/constants'
 import { getFuelQueueCategory } from '@/shared/constants'
-import { getAuthSession } from '@/shared/api/auth'
 import { supabase } from '@/shared/api/supabase'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
@@ -565,20 +564,6 @@ function toQueueAuthorOption(row: QueueAuthorRow): QueueAuthorOption | null {
   }
 }
 
-async function getAccessToken() {
-  const sessionResult = await getAuthSession()
-
-  if (sessionResult.error) {
-    throw new Error(sessionResult.error)
-  }
-
-  if (!sessionResult.data?.access_token) {
-    throw new Error('Authorization token is required.')
-  }
-
-  return sessionResult.data.access_token
-}
-
 async function readApiResponse(response: Response, fallbackMessage: string) {
   const value = await response.json().catch(() => null)
 
@@ -595,13 +580,12 @@ async function readApiResponse(response: Response, fallbackMessage: string) {
 }
 
 async function requestReservationApi(path: string, body: unknown, fallbackMessage: string) {
-  const accessToken = await getAccessToken()
   const response = await fetchWithTimeout(
     path,
     {
       method: 'POST',
+      credentials: 'same-origin',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         'content-type': 'application/json',
       },
       body: JSON.stringify(body),

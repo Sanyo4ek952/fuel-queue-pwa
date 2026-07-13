@@ -48,8 +48,9 @@ describe('checkVehicleAccess', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/check-vehicle-access',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({ 'content-type': 'application/json' }),
         body: JSON.stringify({
           plateNumber: normalizedPlateNumber,
           stationId: 'station-id',

@@ -46,8 +46,9 @@ describe('syncOfflineMutation', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/sync-offline-mutation',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({ 'content-type': 'application/json' }),
         body: JSON.stringify({
           clientMutationId: 'mutation-id',
           operationType: 'CREATE_ALLOCATION_CALL_LOG',

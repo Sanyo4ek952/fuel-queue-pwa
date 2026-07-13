@@ -93,8 +93,9 @@ describe('cancelReservation', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/cancel-reservation',
       expect.objectContaining({
+        credentials: 'same-origin',
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({ 'content-type': 'application/json' }),
         body: JSON.stringify({
           reservationId: 'reservation-id',
           reason: 'OTHER',

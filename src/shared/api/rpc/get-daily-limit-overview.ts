@@ -1,5 +1,4 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { getAuthSession } from '@/shared/api/auth'
 import { supabase } from '@/shared/api/supabase'
 import type { DailyLimitMode, FuelQueueCategory, QueueFuelType } from '@/shared/constants'
 import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
@@ -222,22 +221,13 @@ export async function getDailyLimitOverviewViaApi({
     }
   }
 
-  const sessionResult = await getAuthSession()
-
-  if (sessionResult.error || !sessionResult.data?.access_token) {
-    return {
-      data: null,
-      error: sessionResult.error ?? 'Authorization token is required.',
-    }
-  }
-
   try {
     const response = await fetchWithTimeout(
       '/api/daily-limit-overview',
       {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
-          Authorization: `Bearer ${sessionResult.data.access_token}`,
           'content-type': 'application/json',
         },
         body: JSON.stringify({ date }),

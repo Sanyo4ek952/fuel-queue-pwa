@@ -7,13 +7,16 @@ import type { IncomingMessage } from 'node:http'
 import type { Connect } from 'vite'
 
 import currentProfileHandler from './api/current-profile.js'
+import authLoginHandler from './api/auth/login.js'
+import authLogoutHandler from './api/auth/logout.js'
+import authSessionHandler from './api/auth/session.js'
 import protectedRpcHandler from './api/protected-rpc.js'
 import publicApiHandler from './api/public-api.js'
 
 type LocalApiResponse = {
   statusCode: number
   status: (statusCode: number) => LocalApiResponse
-  setHeader: (key: string, value: string) => LocalApiResponse
+  setHeader: (key: string, value: string | string[]) => LocalApiResponse
   end: (body: string) => void
 }
 
@@ -31,9 +34,9 @@ function applyServerEnv(mode: string) {
 }
 
 function createLocalApiResponse(
-  end: (statusCode: number, headers: Record<string, string>, body: string) => void,
+  end: (statusCode: number, headers: Record<string, string | string[]>, body: string) => void,
 ): LocalApiResponse {
-  const headers: Record<string, string> = {}
+  const headers: Record<string, string | string[]> = {}
   const response: LocalApiResponse = {
     statusCode: 200,
     status(statusCode) {
@@ -97,6 +100,24 @@ function localApiPlugin(mode: string): Plugin {
         '/api/current-profile',
         currentProfileHandler,
         'Local current profile request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/auth/login',
+        authLoginHandler,
+        'Local login request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/auth/session',
+        authSessionHandler,
+        'Local session request failed.',
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/auth/logout',
+        authLogoutHandler,
+        'Local logout request failed.',
       )
       mountLocalApiHandler(
         server.middlewares,

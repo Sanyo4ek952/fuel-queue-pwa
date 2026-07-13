@@ -84,8 +84,8 @@ describe('auth registration metadata', () => {
           phone: '+79990000000',
           requested_role: 'consumer',
           personal_data_consent_accepted: true,
-          personal_data_consent_version: '2026-07-12',
-          personal_data_consent_document_hash: 'personal-data-consent-2026-07-12-city-queue-v1',
+          personal_data_consent_version: '1.0',
+          personal_data_consent_document_hash: 'personal-data-consent-v1-2026-07-12-sudak-admin',
           personal_data_consent_source: 'email_password',
           personal_data_consent_registration_role: 'consumer',
         }),
@@ -126,8 +126,8 @@ describe('auth registration metadata', () => {
           requested_role: 'cashier',
           requested_station_id: '10000000-0000-0000-0000-000000000001',
           personal_data_consent_accepted: true,
-          personal_data_consent_version: '2026-07-12',
-          personal_data_consent_document_hash: 'personal-data-consent-2026-07-12-city-queue-v1',
+          personal_data_consent_version: '1.0',
+          personal_data_consent_document_hash: 'personal-data-consent-v1-2026-07-12-sudak-admin',
           personal_data_consent_source: 'email_password',
           personal_data_consent_registration_role: 'cashier',
         }),
@@ -237,17 +237,11 @@ describe('auth registration metadata', () => {
     expect(result.code).toBe('over_email_send_rate_limit')
   })
 
-  it('starts Yandex ID OAuth with the custom provider, scopes, and auth callback redirect', async () => {
+  it('does not start browser-side Yandex OAuth in the HttpOnly cookie auth flow', async () => {
     const result = await signInWithYandex()
 
-    expect(mocks.signInWithOAuth).toHaveBeenCalledWith({
-      provider: 'custom:yandex',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: 'login:info login:email',
-      },
-    })
-    expect(result.data).toBe(true)
-    expect(result.error).toBeNull()
+    expect(mocks.signInWithOAuth).not.toHaveBeenCalled()
+    expect(result.data).toBeNull()
+    expect(result.error).toBe('Yandex ID login requires the secure server-side OAuth flow.')
   })
 })

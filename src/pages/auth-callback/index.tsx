@@ -1,10 +1,9 @@
-import type { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { useCurrentProfile } from '@/entities/profile'
 import { isConsumerProfileComplete } from '@/shared/api/profile'
-import { getAuthSession, signOut } from '@/shared/api/auth'
+import { getAuthSession, signOut, type AuthSession } from '@/shared/api/auth'
 import { recordPersonalDataConsent } from '@/shared/api/rpc'
 import { ROUTES } from '@/shared/config/routes'
 import {
@@ -53,7 +52,7 @@ function readOAuthError(search: string, hash: string) {
 }
 
 export function AuthCallbackPage() {
-  const [session, setSession] = useState<Session | null>(null)
+  const [session, setSession] = useState<AuthSession | null>(null)
   const [isSessionLoading, setIsSessionLoading] = useState(true)
   const [isOAuthErrorRedirecting, setIsOAuthErrorRedirecting] = useState(false)
   const [isConsentRecording, setIsConsentRecording] = useState(false)

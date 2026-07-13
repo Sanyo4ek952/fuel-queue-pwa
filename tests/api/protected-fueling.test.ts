@@ -4,10 +4,10 @@ import protectedRpcHandler from '../../api/protected-rpc.js'
 
 type TestResponse = {
   statusCode: number
-  headers: Record<string, string>
+  headers: Record<string, string | string[]>
   body: string
   status: (statusCode: number) => TestResponse
-  setHeader: (key: string, value: string) => TestResponse
+  setHeader: (key: string, value: string | string[]) => TestResponse
   end: (body: string) => TestResponse
 }
 
@@ -20,7 +20,7 @@ function createResponse() {
       response.statusCode = statusCode
       return response
     }),
-    setHeader: vi.fn((key: string, value: string) => {
+    setHeader: vi.fn((key: string, value: string | string[]) => {
       response.headers[key.toLowerCase()] = value
       return response
     }),
@@ -77,7 +77,7 @@ describe('protected fueling API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'unknown-action' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
@@ -98,7 +98,7 @@ describe('protected fueling API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'check-vehicle-access' },
         body: {
           plateNumber: 'A123BC777',
@@ -133,7 +133,7 @@ describe('protected fueling API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'vehicle-fueling-history' },
         body: {
           plateNumber: 'A123BC777',
@@ -165,7 +165,7 @@ describe('protected fueling API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'vehicle-recent-fueling-history' },
         body: { plateNumber: 'A123BC777' },
         [Symbol.asyncIterator]: async function* () {},
@@ -189,7 +189,7 @@ describe('protected fueling API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'create-fueling-record-for-allocation' },
         body: {
           allocationId: 'allocation-id',
@@ -225,7 +225,7 @@ describe('protected fueling API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'create-fueling-record-for-preferential-entry' },
         body: {
           preferentialQueueEntryId: 'preferential-entry-id',
@@ -267,7 +267,7 @@ describe('protected fueling API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'create-fueling-record-for-allocation' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
@@ -299,7 +299,7 @@ describe('protected fueling API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'create-fueling-record-for-allocation' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
@@ -322,7 +322,7 @@ describe('protected fueling API proxy endpoints', () => {
     await protectedRpcHandler(
       {
         method: 'POST',
-        headers: { authorization: 'Bearer access-token' },
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
         query: { action: 'vehicle-fueling-history' },
         body: {},
         [Symbol.asyncIterator]: async function* () {},
