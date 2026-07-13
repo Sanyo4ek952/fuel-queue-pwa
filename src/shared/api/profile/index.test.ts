@@ -32,9 +32,12 @@ vi.mock('@/shared/api/supabase', () => ({
 }))
 
 import {
+  approveRegistration,
   completeCurrentConsumerProfile,
+  deactivateProfile,
   getCurrentProfile,
   listManagedProfiles,
+  rejectRegistration,
   type CurrentProfile,
 } from './index'
 
@@ -95,7 +98,10 @@ describe('getCurrentProfile', () => {
     expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
       '/api/current-profile',
       { credentials: 'same-origin' },
-      { timeoutMs: 8_000, timeoutMessage: 'Current profile request timed out.' },
+      {
+        timeoutMs: 8_000,
+        timeoutMessage: 'Current profile request timed out.',
+      },
     )
     expect(mocks.saveCachedCurrentProfile).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'profile-id' }),
@@ -155,14 +161,19 @@ describe('getCurrentProfile', () => {
 
   it('does not use the cached profile for authorization errors', async () => {
     mocks.fetchWithTimeout.mockResolvedValue(
-      new Response(JSON.stringify({ error: 'Authorization token is invalid.' }), {
-        status: 401,
-        headers: { 'content-type': 'application/json' },
-      }),
+      new Response(
+        JSON.stringify({ error: 'Authorization token is invalid.' }),
+        {
+          status: 401,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
     )
     mocks.getCachedCurrentProfile.mockResolvedValue(profile)
 
-    await expect(getCurrentProfile()).rejects.toThrow('Authorization token is invalid.')
+    await expect(getCurrentProfile()).rejects.toThrow(
+      'Authorization token is invalid.',
+    )
     expect(mocks.getCachedCurrentProfile).not.toHaveBeenCalled()
   })
 
@@ -191,39 +202,48 @@ describe('getCurrentProfile', () => {
       first_name: 'Ivan',
       phone: '+79990000000',
     })
-    expect(mocks.supabase.rpc).toHaveBeenCalledWith('complete_consumer_profile', {
-      p_first_name: 'Ivan',
-      p_last_name: 'Resident',
-      p_middle_name: '',
-      p_phone: '+79990000000',
-    })
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      'complete_consumer_profile',
+      {
+        p_first_name: 'Ivan',
+        p_last_name: 'Resident',
+        p_middle_name: '',
+        p_phone: '+79990000000',
+      },
+    )
   })
 })
 
 describe('listManagedProfiles', () => {
   beforeEach(() => {
+    mocks.fetchWithTimeout.mockReset()
     mocks.supabase.rpc.mockReset()
   })
 
-  it('loads one managed profiles page through the paginated RPC', async () => {
-    mocks.supabase.rpc.mockResolvedValue({
-      data: {
-        items: [
-          {
-            ...profile,
-            requested_station_name: 'АЗС #1',
-            approved_by_name: null,
-            rejected_by_name: null,
-            deactivated_by_name: null,
-            created_at: '2026-07-13T08:00:00.000Z',
-            updated_at: '2026-07-13T08:00:00.000Z',
-          },
-        ],
-        total_count: 12,
-        has_more: true,
-      },
-      error: null,
-    })
+  it('loads one managed profiles page through the protected API', async () => {
+    mocks.fetchWithTimeout.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              ...profile,
+              requested_station_name: 'АЗС #1',
+              approved_by_name: null,
+              rejected_by_name: null,
+              deactivated_by_name: null,
+              created_at: '2026-07-13T08:00:00.000Z',
+              updated_at: '2026-07-13T08:00:00.000Z',
+            },
+          ],
+          total_count: 12,
+          has_more: true,
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
 
     await expect(
       listManagedProfiles({
@@ -236,18 +256,35 @@ describe('listManagedProfiles', () => {
       hasMore: true,
       items: [{ id: 'profile-id' }],
     })
-    expect(mocks.supabase.rpc).toHaveBeenCalledWith('list_managed_profiles_page', {
-      section: 'active',
-      page_limit: 10,
-      page_offset: 10,
-    })
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
+      '/api/list-managed-profiles',
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          section: 'active',
+          limit: 10,
+          offset: 10,
+        }),
+      },
+      {
+        timeoutMs: 10_000,
+        timeoutMessage: 'List managed profiles request failed.',
+      },
+    )
+    const [, init] = mocks.fetchWithTimeout.mock.calls[0]
+    expect(init.headers).not.toHaveProperty('authorization')
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled()
   })
 
   it('rejects malformed paginated managed profiles responses', async () => {
-    mocks.supabase.rpc.mockResolvedValue({
-      data: [],
-      error: null,
-    })
+    mocks.fetchWithTimeout.mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
 
     await expect(
       listManagedProfiles({
@@ -256,5 +293,101 @@ describe('listManagedProfiles', () => {
         offset: 0,
       }),
     ).rejects.toThrow('Unexpected list_managed_profiles_page response.')
+  })
+})
+
+describe('managed profile mutations', () => {
+  beforeEach(() => {
+    mocks.fetchWithTimeout.mockReset()
+    mocks.supabase.rpc.mockReset()
+    mocks.fetchWithTimeout.mockResolvedValue(
+      new Response(JSON.stringify(null), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+  })
+
+  it('approves a registration through the protected API', async () => {
+    await approveRegistration({
+      profileId: 'profile-id',
+      role: 'cashier',
+      stationIds: ['station-1', 'station-2'],
+    })
+
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
+      '/api/approve-registration',
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          profileId: 'profile-id',
+          role: 'cashier',
+          stationIds: ['station-1', 'station-2'],
+        }),
+      },
+      {
+        timeoutMs: 10_000,
+        timeoutMessage: 'Approve registration request failed.',
+      },
+    )
+    const [, init] = mocks.fetchWithTimeout.mock.calls[0]
+    expect(init.headers).not.toHaveProperty('authorization')
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled()
+  })
+
+  it('rejects a registration through the protected API', async () => {
+    await rejectRegistration({
+      profileId: 'profile-id',
+      reason: 'Missing documents',
+    })
+
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
+      '/api/reject-registration',
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          profileId: 'profile-id',
+          reason: 'Missing documents',
+        }),
+      },
+      {
+        timeoutMs: 10_000,
+        timeoutMessage: 'Reject registration request failed.',
+      },
+    )
+    const [, init] = mocks.fetchWithTimeout.mock.calls[0]
+    expect(init.headers).not.toHaveProperty('authorization')
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled()
+  })
+
+  it('deactivates a profile through the protected API', async () => {
+    await deactivateProfile({
+      profileId: 'profile-id',
+      reason: 'No longer employed',
+    })
+
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
+      '/api/deactivate-profile',
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          profileId: 'profile-id',
+          reason: 'No longer employed',
+        }),
+      },
+      {
+        timeoutMs: 10_000,
+        timeoutMessage: 'Deactivate profile request failed.',
+      },
+    )
+    const [, init] = mocks.fetchWithTimeout.mock.calls[0]
+    expect(init.headers).not.toHaveProperty('authorization')
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled()
   })
 })

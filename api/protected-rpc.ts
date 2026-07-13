@@ -21,6 +21,15 @@ function getCursor(body: Record<string, unknown>) {
 }
 
 const protectedRpcRoutes: Record<string, ProtectedRpcRoute> = {
+  'approve-registration': {
+    rpcName: 'approve_registration',
+    fallbackError: 'Approve registration request failed.',
+    mapBody: (body) => ({
+      target_profile_id: body.profileId ?? null,
+      target_role: body.role ?? null,
+      target_station_ids: body.stationIds ?? null,
+    }),
+  },
   'cancel-reservation': {
     rpcName: 'cancel_reservation',
     fallbackError: 'Cancel reservation request failed.',
@@ -70,6 +79,23 @@ const protectedRpcRoutes: Record<string, ProtectedRpcRoute> = {
       target_date: body.date ?? null,
     }),
   },
+  'deactivate-profile': {
+    rpcName: 'deactivate_profile',
+    fallbackError: 'Deactivate profile request failed.',
+    mapBody: (body) => ({
+      target_profile_id: body.profileId ?? null,
+      reason: body.reason ?? null,
+    }),
+  },
+  'list-managed-profiles': {
+    rpcName: 'list_managed_profiles_page',
+    fallbackError: 'List managed profiles request failed.',
+    mapBody: (body) => ({
+      section: body.section ?? null,
+      page_limit: body.limit ?? null,
+      page_offset: body.offset ?? null,
+    }),
+  },
   'reservation-call-log': {
     rpcName: 'create_reservation_call_log',
     fallbackError: 'Create reservation call log request failed.',
@@ -78,6 +104,14 @@ const protectedRpcRoutes: Record<string, ProtectedRpcRoute> = {
       status: body.status ?? null,
       comment: body.comment ?? null,
       client_mutation_id: body.clientMutationId ?? null,
+    }),
+  },
+  'reject-registration': {
+    rpcName: 'reject_registration',
+    fallbackError: 'Reject registration request failed.',
+    mapBody: (body) => ({
+      target_profile_id: body.profileId ?? null,
+      reason: body.reason ?? null,
     }),
   },
   'sync-offline-mutation': {

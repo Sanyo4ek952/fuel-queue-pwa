@@ -156,6 +156,34 @@ function localApiPlugin(mode: string): Plugin {
       )
       mountLocalApiHandler(
         server.middlewares,
+        '/api/list-managed-profiles',
+        protectedRpcHandler,
+        'Local list managed profiles request failed.',
+        { action: 'list-managed-profiles' },
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/approve-registration',
+        protectedRpcHandler,
+        'Local approve registration request failed.',
+        { action: 'approve-registration' },
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/reject-registration',
+        protectedRpcHandler,
+        'Local reject registration request failed.',
+        { action: 'reject-registration' },
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/deactivate-profile',
+        protectedRpcHandler,
+        'Local deactivate profile request failed.',
+        { action: 'deactivate-profile' },
+      )
+      mountLocalApiHandler(
+        server.middlewares,
         '/api/check-vehicle-access',
         protectedRpcHandler,
         'Local check vehicle access request failed.',

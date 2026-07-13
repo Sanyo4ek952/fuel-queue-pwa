@@ -6,7 +6,7 @@ import {
   getCachedCurrentProfile,
   saveCachedCurrentProfile,
 } from '@/shared/lib/offline-db'
-import { supabase } from '@/shared/api/supabase'
+import { requestProtectedRpcApi } from '@/shared/api/rpc/protected-api'
 
 export type ProfileStation = {
   id: string
@@ -370,16 +370,15 @@ export async function listManagedProfiles(params: {
     }
   }
 
-  const { data, error } = await supabase.rpc('list_managed_profiles_page', {
-    section: params.section,
-    page_limit: params.limit,
-    page_offset: params.offset,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
+  const data = await requestProtectedRpcApi(
+    '/api/list-managed-profiles',
+    {
+      section: params.section,
+      limit: params.limit,
+      offset: params.offset,
+    },
+    'List managed profiles request failed.',
+  )
   const page = toManagedProfilesPage(data)
 
   if (!page) {
@@ -398,15 +397,15 @@ export async function approveRegistration(params: {
     throw new Error('Supabase is not configured.')
   }
 
-  const { error } = await supabase.rpc('approve_registration', {
-    target_profile_id: params.profileId,
-    target_role: params.role,
-    target_station_ids: params.stationIds,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  await requestProtectedRpcApi(
+    '/api/approve-registration',
+    {
+      profileId: params.profileId,
+      role: params.role,
+      stationIds: params.stationIds,
+    },
+    'Approve registration request failed.',
+  )
 }
 
 export async function rejectRegistration(params: { profileId: string; reason: string }) {
@@ -414,14 +413,14 @@ export async function rejectRegistration(params: { profileId: string; reason: st
     throw new Error('Supabase is not configured.')
   }
 
-  const { error } = await supabase.rpc('reject_registration', {
-    target_profile_id: params.profileId,
-    reason: params.reason,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  await requestProtectedRpcApi(
+    '/api/reject-registration',
+    {
+      profileId: params.profileId,
+      reason: params.reason,
+    },
+    'Reject registration request failed.',
+  )
 }
 
 export async function deactivateProfile(params: { profileId: string; reason: string }) {
@@ -429,14 +428,14 @@ export async function deactivateProfile(params: { profileId: string; reason: str
     throw new Error('Supabase is not configured.')
   }
 
-  const { error } = await supabase.rpc('deactivate_profile', {
-    target_profile_id: params.profileId,
-    reason: params.reason,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  await requestProtectedRpcApi(
+    '/api/deactivate-profile',
+    {
+      profileId: params.profileId,
+      reason: params.reason,
+    },
+    'Deactivate profile request failed.',
+  )
 }
 
 export async function completeCurrentConsumerProfile(params: {
@@ -449,6 +448,7 @@ export async function completeCurrentConsumerProfile(params: {
     throw new Error('Supabase is not configured.')
   }
 
+  const { supabase } = await import('@/shared/api/supabase')
   const { data, error } = await supabase.rpc('complete_consumer_profile', {
     p_first_name: params.firstName,
     p_last_name: params.lastName,
