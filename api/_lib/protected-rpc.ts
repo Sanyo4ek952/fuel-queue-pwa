@@ -3,6 +3,10 @@ import {
   assertSameOriginRequest,
   getServerAuthSession,
   getSupabaseConfig,
+  refreshServerSession,
+  setSessionCookies,
+  type ServerAuthSession,
+  type SupabaseConfig,
 } from './auth-session.js'
 
 const requestTimeoutMs = 9_000
@@ -92,6 +96,52 @@ export function getSupabaseErrorMessage(value: unknown, fallback: string) {
       : fallback
 }
 
+async function requestSupabaseRpc(params: {
+  url: string
+  anonKey: string
+  session: Pick<ServerAuthSession, 'accessToken'>
+  options: ProtectedRpcOptions
+  body: Record<string, unknown>
+}) {
+  return fetchWithTimeout(`${params.url}/rest/v1/rpc/${params.options.rpcName}`, {
+    method: 'POST',
+    headers: {
+      apikey: params.anonKey,
+      authorization: `Bearer ${params.session.accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(params.options.mapBody(params.body)),
+  })
+}
+
+async function refreshSessionForRetry(params: {
+  session: Pick<ServerAuthSession, 'refreshToken'>
+  config: SupabaseConfig
+  response: ProtectedRpcResponse
+}) {
+  if (!params.session.refreshToken) {
+    throw new AuthSessionError('Authorization token is invalid.', 401)
+  }
+
+  let refreshed: ServerAuthSession
+
+  try {
+    refreshed = await refreshServerSession({
+      refreshToken: params.session.refreshToken,
+      config: params.config,
+    })
+  } catch (error) {
+    throw new AuthSessionError(
+      error instanceof Error ? error.message : 'Session refresh failed.',
+      401,
+    )
+  }
+
+  setSessionCookies(params.response, refreshed)
+
+  return refreshed
+}
+
 export async function handleProtectedRpc(
   request: ProtectedRpcRequest,
   response: ProtectedRpcResponse,
@@ -111,22 +161,36 @@ export async function handleProtectedRpc(
 
   try {
     assertSameOriginRequest(request)
-    const session = await getServerAuthSession({
+    let session = await getServerAuthSession({
       request,
       response,
       config: { url, anonKey },
       verifyUser: false,
     })
     const body = await readBody(request)
-    const supabaseResponse = await fetchWithTimeout(`${url}/rest/v1/rpc/${options.rpcName}`, {
-      method: 'POST',
-      headers: {
-        apikey: anonKey,
-        authorization: `Bearer ${session.accessToken}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(options.mapBody(body)),
+    let supabaseResponse = await requestSupabaseRpc({
+      url,
+      anonKey,
+      session,
+      options,
+      body,
     })
+
+    if (supabaseResponse.status === 401) {
+      session = await refreshSessionForRetry({
+        session,
+        config: { url, anonKey },
+        response,
+      })
+      supabaseResponse = await requestSupabaseRpc({
+        url,
+        anonKey,
+        session,
+        options,
+        body,
+      })
+    }
+
     const responseBody = await supabaseResponse.json().catch(() => null)
 
     if (!supabaseResponse.ok) {

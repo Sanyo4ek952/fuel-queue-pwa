@@ -1,5 +1,6 @@
 import {
   AuthSessionError,
+  clearSessionCookies,
   getServerAuthSession,
   getSupabaseConfig,
 } from './_lib/auth-session.js'
@@ -259,6 +260,10 @@ export default async function handler(request: VercelRequestLike, response: Verc
     })
   } catch (error) {
     if (error instanceof AuthSessionError) {
+      if (error.statusCode === 401) {
+        clearSessionCookies(response)
+      }
+
       sendJson(response, error.statusCode, { error: error.message })
       return
     }

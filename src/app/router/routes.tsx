@@ -9,6 +9,7 @@ import { OfflineBanner } from '@/widgets/offline-banner'
 import { PwaInstallPrompt } from '@/widgets/pwa-install-prompt'
 import { useSupabaseAuth } from '@/app/providers/supabase-provider/auth-context'
 import { PUBLIC_ROUTES, ROUTES } from '@/shared/config/routes'
+import { clearAppCaches } from '@/shared/lib/app-recovery'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -102,6 +103,13 @@ function ProfileLoadErrorScreen({
   onRetry: () => void
 }) {
   const logoutMutation = useLogout()
+  const [isRefreshingApp, setIsRefreshingApp] = useState(false)
+
+  async function handleRefreshApp() {
+    setIsRefreshingApp(true)
+    await clearAppCaches()
+    window.location.reload()
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
@@ -119,6 +127,16 @@ function ProfileLoadErrorScreen({
           </Alert>
           <Button className="w-full" disabled={isRetrying} onClick={onRetry}>
             {isRetrying ? 'Повторяем...' : 'Повторить'}
+          </Button>
+          <Button
+            className="w-full"
+            variant="outline"
+            disabled={isRefreshingApp}
+            onClick={() => void handleRefreshApp()}
+          >
+            {isRefreshingApp
+              ? '\u041e\u0431\u043d\u043e\u0432\u043b\u044f\u0435\u043c...'
+              : '\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435'}
           </Button>
           <Button
             className="w-full"

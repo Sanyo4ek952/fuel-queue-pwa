@@ -272,6 +272,84 @@ describe('protected queue action API proxy endpoints', () => {
     expect(JSON.parse(response.body)).toEqual({ error: 'FORBIDDEN' })
   })
 
+  it('refreshes the session and retries once when Supabase rejects the access token', async () => {
+    stubSupabaseEnv()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(createJsonResponse({ message: 'JWT expired' }, 401))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          access_token: 'refreshed-access-token',
+          refresh_token: 'refreshed-refresh-token',
+          expires_in: 3600,
+        }),
+      )
+      .mockResolvedValueOnce(createJsonResponse({ id: 'reservation-id' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = createResponse()
+
+    await protectedRpcHandler(
+      {
+        method: 'POST',
+        headers: { cookie: 'azs_sb_access=stale-access-token; azs_sb_refresh=refresh-token' },
+        query: { action: 'create-reservation' },
+        body: { clientMutationId: 'mutation-id' },
+        [Symbol.asyncIterator]: async function* () {},
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(200)
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://example.supabase.co/auth/v1/token?grant_type=refresh_token',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ refresh_token: 'refresh-token' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'https://example.supabase.co/rest/v1/rpc/create_reservation',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: 'Bearer refreshed-access-token',
+        }),
+      }),
+    )
+    expect(response.headers['set-cookie']).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('azs_sb_access=refreshed-access-token'),
+        expect.stringContaining('azs_sb_refresh=refreshed-refresh-token'),
+      ]),
+    )
+  })
+
+  it('returns 401 when the retry refresh fails', async () => {
+    stubSupabaseEnv()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(createJsonResponse({ message: 'JWT expired' }, 401))
+      .mockResolvedValueOnce(createJsonResponse({ error: 'invalid refresh token' }, 400))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = createResponse()
+
+    await protectedRpcHandler(
+      {
+        method: 'POST',
+        headers: { cookie: 'azs_sb_access=stale-access-token; azs_sb_refresh=refresh-token' },
+        query: { action: 'create-reservation' },
+        body: {},
+        [Symbol.asyncIterator]: async function* () {},
+      },
+      response,
+    )
+
+    expect(response.statusCode).toBe(401)
+    expect(JSON.parse(response.body)).toEqual({ error: 'invalid refresh token' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('returns 504 when Supabase times out', async () => {
     stubSupabaseEnv()
     const timeoutError = new Error('The operation was aborted.')

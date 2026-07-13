@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   getAuthSession: vi.fn(),
+  notifyAuthSessionChange: vi.fn(),
   fetchWithTimeout: vi.fn(),
   getCachedCurrentProfile: vi.fn(),
   saveCachedCurrentProfile: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/shared/api/auth', () => ({
   getAuthSession: mocks.getAuthSession,
+  notifyAuthSessionChange: mocks.notifyAuthSessionChange,
 }))
 
 vi.mock('@/shared/config/env', () => ({
@@ -78,6 +80,7 @@ describe('getCurrentProfile', () => {
       error: null,
     })
     mocks.fetchWithTimeout.mockReset()
+    mocks.notifyAuthSessionChange.mockReset()
     mocks.getCachedCurrentProfile.mockReset()
     mocks.saveCachedCurrentProfile.mockReset()
     mocks.supabase.rpc.mockReset()
@@ -184,6 +187,7 @@ describe('getCurrentProfile', () => {
     await expect(getCurrentProfile()).rejects.toThrow(
       'Authorization token is invalid.',
     )
+    expect(mocks.notifyAuthSessionChange).toHaveBeenCalledWith(null)
     expect(mocks.getCachedCurrentProfile).not.toHaveBeenCalled()
   })
 

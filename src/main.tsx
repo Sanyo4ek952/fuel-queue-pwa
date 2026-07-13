@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from '@/app/App'
+import { clearAppCaches } from '@/shared/lib/app-recovery'
 import '@/app/styles/globals.css'
 
 let recoveryScreenShown = false
@@ -15,18 +16,6 @@ function isAssetLoadError(error: unknown) {
     message.includes('Importing a module script failed') ||
     message.includes('/assets/')
   )
-}
-
-async function clearServiceWorkerCaches() {
-  if ('serviceWorker' in navigator) {
-    const registrations = await navigator.serviceWorker.getRegistrations()
-    await Promise.all(registrations.map((registration) => registration.unregister()))
-  }
-
-  if ('caches' in window) {
-    const cacheNames = await caches.keys()
-    await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)))
-  }
 }
 
 function showAppRecoveryScreen() {
@@ -52,7 +41,7 @@ function showAppRecoveryScreen() {
   `
 
   document.getElementById('app-recovery-refresh')?.addEventListener('click', async () => {
-    await clearServiceWorkerCaches()
+    await clearAppCaches()
     window.location.reload()
   })
 }

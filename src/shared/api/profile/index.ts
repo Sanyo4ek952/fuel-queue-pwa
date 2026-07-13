@@ -6,6 +6,7 @@ import {
   getCachedCurrentProfile,
   saveCachedCurrentProfile,
 } from '@/shared/lib/offline-db'
+import { notifyAuthSessionChange } from '@/shared/api/auth'
 import { requestProtectedRpcApi } from '@/shared/api/rpc/protected-api'
 
 export type ProfileStation = {
@@ -275,6 +276,10 @@ async function readCurrentProfileApiResponse(response: Response) {
       value && typeof value === 'object' && 'error' in value && typeof value.error === 'string'
         ? value.error
         : 'Current profile request failed.'
+
+    if (response.status === 401) {
+      notifyAuthSessionChange(null)
+    }
 
     throw new CurrentProfileApiError(message, response.status)
   }

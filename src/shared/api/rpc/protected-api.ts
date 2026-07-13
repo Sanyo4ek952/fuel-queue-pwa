@@ -2,6 +2,15 @@ import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
 import { notifyAuthSessionChange } from '@/shared/api/auth'
 
 function getProtectedApiErrorMessage(status: number, value: unknown, fallbackMessage: string) {
+  const serverError =
+    value && typeof value === 'object' && 'error' in value && typeof value.error === 'string'
+      ? value.error
+      : null
+
+  if ((status === 401 || status === 403) && serverError) {
+    return serverError
+  }
+
   if (status === 401) {
     return 'Сессия истекла. Войдите снова.'
   }

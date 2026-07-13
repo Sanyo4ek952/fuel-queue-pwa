@@ -121,6 +121,33 @@ function clearCookie(name: string) {
   ].join('; ')
 }
 
+function getJwtExpiresAt(accessToken: string | null) {
+  if (!accessToken) {
+    return null
+  }
+
+  const [, payload] = accessToken.split('.')
+
+  if (!payload) {
+    return null
+  }
+
+  try {
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
+      '=',
+    )
+    const value = JSON.parse(Buffer.from(paddedPayload, 'base64').toString('utf8')) as {
+      exp?: unknown
+    }
+
+    return typeof value.exp === 'number' && Number.isFinite(value.exp) ? value.exp : null
+  } catch {
+    return null
+  }
+}
+
 export function setSessionCookies(
   response: AuthSessionResponse,
   session: Pick<ServerAuthSession, 'accessToken' | 'refreshToken' | 'expiresAt'>,
@@ -328,6 +355,35 @@ function shouldRefresh(expiresAt: number | null) {
   return Boolean(expiresAt && expiresAt - Math.floor(Date.now() / 1000) <= refreshSkewSeconds)
 }
 
+async function refreshSessionWithCookies(params: {
+  refreshToken: string
+  config: SupabaseConfig
+  response?: AuthSessionResponse
+}) {
+  try {
+    const refreshed = await refreshServerSession({
+      refreshToken: params.refreshToken,
+      config: params.config,
+    })
+
+    if (params.response) {
+      setSessionCookies(params.response, refreshed)
+    }
+
+    return refreshed
+  } catch (error) {
+    if (params.response) {
+      clearSessionCookies(params.response)
+    }
+
+    if (error instanceof AuthSessionError) {
+      throw new AuthSessionError(error.message, 401)
+    }
+
+    throw error
+  }
+}
+
 export async function getServerAuthSession(params: {
   request: AuthSessionRequest
   response?: AuthSessionResponse
@@ -355,20 +411,20 @@ export async function getServerAuthSession(params: {
   }
 
   if (!cookies.accessToken) {
-    const refreshed = await refreshServerSession({ refreshToken, config })
+    return refreshSessionWithCookies({ refreshToken, config, response: params.response })
+  }
 
-    if (params.response) {
-      setSessionCookies(params.response, refreshed)
-    }
+  const accessTokenExpiresAt = getJwtExpiresAt(cookies.accessToken)
 
-    return refreshed
+  if (shouldRefresh(accessTokenExpiresAt)) {
+    return refreshSessionWithCookies({ refreshToken, config, response: params.response })
   }
 
   if (params.verifyUser === false) {
     return {
       accessToken: cookies.accessToken,
       refreshToken,
-      expiresAt: null,
+      expiresAt: accessTokenExpiresAt,
       user: null,
     }
   }
@@ -378,11 +434,11 @@ export async function getServerAuthSession(params: {
       throw error
     }
 
-    const refreshed = await refreshServerSession({ refreshToken, config })
-
-    if (params.response) {
-      setSessionCookies(params.response, refreshed)
-    }
+    const refreshed = await refreshSessionWithCookies({
+      refreshToken,
+      config,
+      response: params.response,
+    })
 
     return { refreshed }
   })
@@ -391,22 +447,10 @@ export async function getServerAuthSession(params: {
     return user.refreshed as ServerAuthSession
   }
 
-  const expiresAt = null
-
-  if (shouldRefresh(expiresAt)) {
-    const refreshed = await refreshServerSession({ refreshToken, config })
-
-    if (params.response) {
-      setSessionCookies(params.response, refreshed)
-    }
-
-    return refreshed
-  }
-
   return {
     accessToken: cookies.accessToken,
     refreshToken,
-    expiresAt,
+    expiresAt: accessTokenExpiresAt,
     user,
   }
 }
