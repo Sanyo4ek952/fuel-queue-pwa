@@ -36,27 +36,16 @@ describe('QueueBackupExportCard', () => {
     vi.clearAllMocks()
   })
 
-  it('exports all active queue entries by default', async () => {
+  it('exports all waiting queue entries', async () => {
     render(<QueueBackupExportCard />)
+
+    expect(screen.queryByLabelText('Дата')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /Скачать очередь/i }))
 
     await waitFor(() => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         targetDate: null,
-      })
-    })
-  })
-
-  it('exports a selected target date', async () => {
-    render(<QueueBackupExportCard />)
-
-    await userEvent.type(screen.getByLabelText('Дата'), '2026-07-07')
-    await userEvent.click(screen.getByRole('button', { name: /Скачать очередь/i }))
-
-    await waitFor(() => {
-      expect(mocks.mutateAsync).toHaveBeenCalledWith({
-        targetDate: '2026-07-07',
       })
     })
   })

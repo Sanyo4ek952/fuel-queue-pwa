@@ -1,31 +1,16 @@
-import { zodResolver } from '@hookform/resolvers/zod'
 import { Download, HardDriveUpload } from 'lucide-react'
-import { useForm } from 'react-hook-form'
 
-import {
-  type QueueBackupExportInput,
-  type QueueBackupExportValues,
-  queueBackupExportSchema,
-} from '../model/schema'
 import { useExportQueueBackup } from '../model/use-export-queue-backup'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
-import { Form, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
-import { Input } from '@/shared/ui/input'
 
 export function QueueBackupExportCard() {
   const exportMutation = useExportQueueBackup()
-  const form = useForm<QueueBackupExportInput, unknown, QueueBackupExportValues>({
-    resolver: zodResolver(queueBackupExportSchema),
-    defaultValues: {
-      targetDate: '',
-    },
-  })
 
-  async function handleSubmit(values: QueueBackupExportValues) {
+  async function handleExport() {
     await exportMutation.mutateAsync({
-      targetDate: values.targetDate,
+      targetDate: null,
     })
   }
 
@@ -41,29 +26,15 @@ export function QueueBackupExportCard() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form className="space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
-            <FormItem>
-              <FormLabel htmlFor="queueBackupTargetDate">Дата</FormLabel>
-              <Input id="queueBackupTargetDate" type="date" {...form.register('targetDate')} />
-              <p className="text-xs text-slate-500">
-                Оставьте пустым, чтобы скачать всю активную очередь.
-              </p>
-              {form.formState.errors.targetDate ? (
-                <FormMessage>{form.formState.errors.targetDate.message}</FormMessage>
-              ) : null}
-            </FormItem>
-
-            <Button
-              type="submit"
-              className="h-11 w-full gap-2"
-              disabled={exportMutation.isPending}
-            >
-              <Download className="size-4" aria-hidden="true" />
-              {exportMutation.isPending ? 'Готовим файл...' : 'Скачать очередь'}
-            </Button>
-          </form>
-        </Form>
+        <Button
+          type="button"
+          className="h-11 w-full gap-2"
+          disabled={exportMutation.isPending}
+          onClick={handleExport}
+        >
+          <Download className="size-4" aria-hidden="true" />
+          {exportMutation.isPending ? 'Готовим файл...' : 'Скачать очередь'}
+        </Button>
 
         {exportMutation.error ? (
           <Alert variant="destructive" className="mt-4">

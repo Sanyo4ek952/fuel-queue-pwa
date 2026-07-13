@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>АЗС Онлайн: краткая методичка по ролям</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 14mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #f4f6f8;
+        color: #111827;
+        font-family:
+          Arial,
+          "Helvetica Neue",
+          sans-serif;
+        font-size: 12.5px;
+        line-height: 1.45;
+      }
+
+      .page {
+        max-width: 880px;
+        margin: 0 auto;
+        background: #ffffff;
+        padding: 28px;
+      }
+
+      .cover {
+        min-height: 92vh;
+        display: grid;
+        align-content: center;
+        gap: 22px;
+        page-break-after: always;
+      }
+
+      .eyebrow {
+        color: #475569;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        color: #0f172a;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        max-width: 680px;
+        font-size: 38px;
+        line-height: 1.08;
+      }
+
+      h2 {
+        margin-top: 26px;
+        padding-top: 18px;
+        border-top: 1px solid #d9e1ea;
+        font-size: 23px;
+      }
+
+      h3 {
+        margin-top: 14px;
+        font-size: 15px;
+      }
+
+      p {
+        margin: 8px 0;
+      }
+
+      ol,
+      ul {
+        margin: 8px 0 0 18px;
+        padding: 0;
+      }
+
+      li {
+        margin: 4px 0;
+      }
+
+      .lead {
+        max-width: 640px;
+        color: #334155;
+        font-size: 16px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .pill {
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        padding: 5px 10px;
+        color: #334155;
+        font-size: 12px;
+      }
+
+      .role {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .note {
+        border-left: 4px solid #0f172a;
+        background: #f8fafc;
+        padding: 10px 12px;
+        color: #334155;
+      }
+
+      .shot {
+        margin: 12px 0 4px;
+        border: 1px solid #d8dee8;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #e8edf4;
+        box-shadow: 0 8px 18px rgb(15 23 42 / 0.08);
+      }
+
+      .shot img {
+        display: block;
+        width: 100%;
+        height: 360px;
+        object-fit: cover;
+        object-position: top center;
+      }
+
+      .phone {
+        max-width: 260px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .phone img {
+        height: 460px;
+      }
+
+      .wide img {
+        height: 300px;
+      }
+
+      .caption {
+        margin-top: 5px;
+        color: #64748b;
+        font-size: 11px;
+        text-align: center;
+      }
+
+      .checklist {
+        columns: 2;
+        column-gap: 24px;
+      }
+
+      .break {
+        page-break-before: always;
+      }
+
+      @media print {
+        body {
+          background: #ffffff;
+        }
+
+        .page {
+          max-width: none;
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="cover">
+        <div>
+          <p class="eyebrow">АЗС Онлайн</p>
+          <h1>Краткая методичка по ролям</h1>
+          <p class="lead">
+            Что делать в приложении сотрудникам АЗС, администрации и жителю. Только основные
+            действия: вход, запись, очередь, заправка, лимиты, отчеты и доступы.
+          </p>
+        </div>
+        <div class="meta">
+          <span class="pill">Один PDF для всех ролей</span>
+          <span class="pill">Мобильный PWA-интерфейс</span>
+          <span class="pill">Кратко и по рабочим ситуациям</span>
+        </div>
+        <div class="shot phone">
+          <img src="assets/01-login.png" alt="Экран входа" />
+        </div>
+      </section>
+
+      <section>
+        <h2>Общие правила</h2>
+        <div class="grid">
+          <div>
+            <ol>
+              <li>Откройте приложение и войдите под своей учетной записью.</li>
+              <li>Проверьте, что вверху указана нужная АЗС или доступ ко всем АЗС.</li>
+              <li>Работайте только в разделах, которые доступны вашей роли.</li>
+              <li>Если раздел не открывается, обратитесь к руководителю или администратору.</li>
+              <li>Если форма показывает ошибку, исправьте выделенное поле и повторите действие.</li>
+            </ol>
+            <p class="note">
+              Нижнее меню ведет в основные разделы: Запись, Очередь, Заправка и Ещё.
+            </p>
+          </div>
+          <div>
+            <div class="shot phone">
+              <img src="assets/02-dashboard.png" alt="Главный экран" />
+            </div>
+            <p class="caption">Главный экран с доступными разделами</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="role break">
+        <h2>Пользователь / житель</h2>
+        <div class="grid">
+          <div>
+            <p>
+              Используйте личный кабинет, чтобы добавить автомобиль, встать в очередь, посмотреть
+              статус записи или отменить запись, пока она еще доступна для отмены.
+            </p>
+            <ol>
+              <li>Войдите в личный кабинет.</li>
+              <li>В блоке Автомобили проверьте добавленные госномера.</li>
+              <li>Если нужного номера нет, введите госномер и нажмите Добавить автомобиль.</li>
+              <li>В блоке Встать в очередь выберите автомобиль, топливо и проверьте телефон.</li>
+              <li>Нажмите Создать запись.</li>
+              <li>Если появилась активная запись, следите за статусом, очередью и назначенной АЗС.</li>
+              <li>Если запись больше не нужна и кнопка отмены доступна, нажмите Отменить запись.</li>
+            </ol>
+            <p class="note">
+              Обратитесь к сотруднику, если запись уже взята в работу, отмена недоступна, номер не
+              добавляется или данные отображаются неверно.
+            </p>
+          </div>
+          <div>
+            <div class="shot phone">
+              <img src="assets/10-consumer-dashboard.png" alt="Кабинет жителя" />
+            </div>
+            <p class="caption">Кабинет жителя</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="role break">
+        <h2>Кассир АЗС</h2>
+        <div class="grid">
+          <div>
+            <p>
+              Используйте раздел Заправка, когда автомобиль приехал на АЗС и нужно проверить допуск,
+              а затем зафиксировать фактический отпуск топлива.
+            </p>
+            <ol>
+              <li>Откройте раздел Заправка.</li>
+              <li>Проверьте выбранную АЗС.</li>
+              <li>Введите госномер автомобиля.</li>
+              <li>Нажмите Проверить.</li>
+              <li>Если доступ разрешен, укажите фактические литры.</li>
+              <li>При необходимости добавьте короткий комментарий.</li>
+              <li>Нажмите Заправить только после фактического отпуска топлива.</li>
+            </ol>
+            <p class="note">
+              Если доступ запрещен, не оформляйте заправку. Сообщите водителю причину на экране и
+              при необходимости передайте вопрос управляющему.
+            </p>
+          </div>
+          <div>
+            <div class="shot phone">
+              <img src="assets/05-fueling.png" alt="Заправка" />
+            </div>
+            <p class="caption">Проверка допуска и фиксация заправки</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="role break">
+        <h2>Админ / помощник</h2>
+        <div class="grid">
+          <div>
+            <p>
+              Используйте эту роль для постановки автомобилей в очередь, просмотра текущей очереди и
+              помощи с рабочими ситуациями по записи.
+            </p>
+            <h3>Запись автомобиля</h3>
+            <ol>
+              <li>Откройте раздел Запись.</li>
+              <li>Введите госномер.</li>
+              <li>Выберите дату, топливо и данные водителя.</li>
+              <li>Проверьте корректность номера перед отправкой.</li>
+              <li>Нажмите кнопку создания записи.</li>
+              <li>После создания проверьте, что автомобиль появился в очереди.</li>
+            </ol>
+            <h3>Работа с очередью</h3>
+            <ol>
+              <li>Откройте раздел Очередь.</li>
+              <li>Выберите нужную АЗС и дату, если на экране есть такие фильтры.</li>
+              <li>Смотрите позицию автомобиля, статус и доступное топливо.</li>
+              <li>Если запись нужно отменить, укажите понятную причину.</li>
+            </ol>
+          </div>
+          <div>
+            <div class="shot phone">
+              <img src="assets/03-reservations.png" alt="Запись" />
+            </div>
+            <div class="shot phone">
+              <img src="assets/04-queue.png" alt="Очередь" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="role break">
+        <h2>Управляющий АЗС</h2>
+        <div class="grid">
+          <div>
+            <p>
+              Используйте эту роль для контроля своей АЗС: очередь, заправки, лимиты и сотрудники.
+            </p>
+            <ol>
+              <li>На главном экране проверьте, что указана нужная АЗС.</li>
+              <li>Откройте Лимиты и посмотрите доступный объем по топливу.</li>
+              <li>Откройте Очередь и проверьте текущие записи.</li>
+              <li>При спорной ситуации проверьте автомобиль через Заправка.</li>
+              <li>Если требуется ручное решение, оформляйте его только при понятной причине.</li>
+              <li>В разделе Сотрудники проверяйте заявки и доступы сотрудников вашей АЗС.</li>
+            </ol>
+            <p class="note">
+              Если лимит закончился, не создавайте неподтвержденные обещания водителям. Передайте
+              информацию руководителю или дождитесь обновления лимита.
+            </p>
+          </div>
+          <div>
+            <div class="shot phone">
+              <img src="assets/06-limits.png" alt="Лимиты" />
+            </div>
+            <div class="shot phone">
+              <img src="assets/08-users.png" alt="Сотрудники" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="role break">
+        <h2>Руководитель администрации</h2>
+        <div class="grid">
+          <div>
+            <p>
+              Используйте эту роль для общего контроля по всем 3 АЗС: отчеты, лимиты, настройки и
+              доступы сотрудников.
+            </p>
+            <ol>
+              <li>На главном экране убедитесь, что доступен просмотр всех АЗС.</li>
+              <li>В Лимиты контролируйте дневные объемы топлива.</li>
+              <li>В Очередь смотрите общую ситуацию по записям.</li>
+              <li>В Отчёты проверяйте фактический отпуск топлива.</li>
+              <li>В Сотрудники подтверждайте или отключайте доступы.</li>
+              <li>В Настройки меняйте только те параметры, в которых уверены.</li>
+            </ol>
+            <p class="note">
+              Вмешивайтесь при повторной попытке заправки, споре по номеру, превышении лимита,
+              ошибке в роли сотрудника или необходимости ручного разрешения.
+            </p>
+          </div>
+          <div>
+            <div class="shot phone">
+              <img src="assets/09-reports.png" alt="Отчеты" />
+            </div>
+            <div class="shot phone">
+              <img src="assets/07-settings.png" alt="Настройки" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="break">
+        <h2>Короткая памятка</h2>
+        <ul class="checklist">
+          <li>Доступ запрещен: проверьте роль пользователя и выбранную АЗС.</li>
+          <li>Номер не найден: проверьте госномер без лишних пробелов и ошибок.</li>
+          <li>Запись уже есть: новую запись создавайте после завершения или отмены текущей.</li>
+          <li>Лимит закончился: не фиксируйте заправку без разрешения ответственного лица.</li>
+          <li>Форма не отправляется: заполните обязательные поля и проверьте подсказки под ними.</li>
+          <li>Автомобиль уже заправлен сегодня: повторную обычную заправку не оформляйте.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>
