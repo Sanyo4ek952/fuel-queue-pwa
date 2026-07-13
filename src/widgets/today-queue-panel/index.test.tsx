@@ -281,6 +281,30 @@ describe('TodayQueuePanel', () => {
     expect(screen.queryByRole('combobox', { name: AUTHOR_FILTER_NAME })).not.toBeInTheDocument()
   })
 
+  it('renders with a legacy daily-limit overview shape', () => {
+    mocks.useDailyLimitOverview.mockReturnValue({
+      data: {
+        exists: true,
+        id: 'daily-limit-id',
+        date: '2026-07-08',
+        station_id: null,
+        status: 'OPEN',
+        updated_at: '2026-07-08T10:00:00.000Z',
+        source: 'online',
+        is_estimated: false,
+        unsynced_reservation_count: 0,
+      },
+      isOnline: true,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    })
+
+    render(<TodayQueuePanel />)
+
+    expect(screen.queryByRole('combobox', { name: AUTHOR_FILTER_NAME })).not.toBeInTheDocument()
+  })
+
   it('shows all rows by default', () => {
     mocks.useTodayQueue.mockReturnValue({
       rows: [

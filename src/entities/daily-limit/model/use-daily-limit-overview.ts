@@ -46,22 +46,35 @@ function toNumber(value: unknown) {
   return typeof value === 'number' ? value : Number(value)
 }
 
+function normalizeDailyLimitOverview(overview: DailyLimitOverview): DailyLimitOverview {
+  return {
+    ...overview,
+    category_overviews: overview.category_overviews ?? [],
+    station_overviews: (overview.station_overviews ?? []).map((station) => ({
+      ...station,
+      category_overviews: station.category_overviews ?? [],
+    })),
+  }
+}
+
 function toLocalDailyLimit(overview: DailyLimitOverview): LocalDailyLimit | null {
-  if (!overview.exists || !overview.id || !overview.status) {
+  const normalizedOverview = normalizeDailyLimitOverview(overview)
+
+  if (!normalizedOverview.exists || !normalizedOverview.id || !normalizedOverview.status) {
     return null
   }
 
   return {
-    id: overview.id,
-    station_id: overview.station_id,
-    station_name: overview.station_name,
-    station_address: overview.station_address,
-    date: overview.date,
-    status: overview.status,
-    category_overviews: overview.category_overviews,
-    station_overviews: overview.station_overviews,
+    id: normalizedOverview.id,
+    station_id: normalizedOverview.station_id,
+    station_name: normalizedOverview.station_name,
+    station_address: normalizedOverview.station_address,
+    date: normalizedOverview.date,
+    status: normalizedOverview.status,
+    category_overviews: normalizedOverview.category_overviews,
+    station_overviews: normalizedOverview.station_overviews,
     cached_at: new Date().toISOString(),
-    updated_at: overview.updated_at ?? undefined,
+    updated_at: normalizedOverview.updated_at ?? undefined,
   }
 }
 
@@ -97,7 +110,7 @@ function fromLocalDailyLimit(row: LocalDailyLimit): DailyLimitOverview {
       station_name: station.station_name,
       station_address: station.station_address,
       status: station.status as DailyLimitOverview['status'],
-      category_overviews: station.category_overviews.map((item) => ({
+      category_overviews: (station.category_overviews ?? []).map((item) => ({
         fuel_type: item.fuel_type as DailyLimitCategoryOverview['fuel_type'],
         fuel_category: item.fuel_category as FuelQueueCategory,
         label: item.label,
@@ -167,17 +180,18 @@ export function applyUnsyncedReservationEstimate(
   reservations: LocalReservation[],
   source: DailyLimitOverviewSource,
 ): DailyLimitOverviewResult {
+  const normalizedOverview = normalizeDailyLimitOverview(overview)
   const unsyncedReservations = getUnsyncedActiveReservations(reservations)
   const stationOverviews =
-    overview.station_overviews.length > 0
-      ? overview.station_overviews.map((station) =>
+    normalizedOverview.station_overviews.length > 0
+      ? normalizedOverview.station_overviews.map((station) =>
           applyUnsyncedReservationEstimateToStation(station, unsyncedReservations),
         )
       : []
 
-  if (!overview.exists || unsyncedReservations.length === 0) {
+  if (!normalizedOverview.exists || unsyncedReservations.length === 0) {
     return {
-      ...overview,
+      ...normalizedOverview,
       station_overviews: stationOverviews,
       source,
       is_estimated: source === 'offline',
@@ -188,24 +202,24 @@ export function applyUnsyncedReservationEstimate(
   const baseOverview =
     stationOverviews.length > 0
       ? {
-          ...overview,
+          ...normalizedOverview,
           category_overviews: applyUnsyncedReservationEstimateToStation(
             {
-              exists: overview.exists,
-              id: overview.id,
-              date: overview.date,
+              exists: normalizedOverview.exists,
+              id: normalizedOverview.id,
+              date: normalizedOverview.date,
               station_id: null,
-              station_name: overview.station_name,
-              station_address: overview.station_address,
-              status: overview.status,
-              category_overviews: overview.category_overviews,
-              updated_at: overview.updated_at,
+              station_name: normalizedOverview.station_name,
+              station_address: normalizedOverview.station_address,
+              status: normalizedOverview.status,
+              category_overviews: normalizedOverview.category_overviews,
+              updated_at: normalizedOverview.updated_at,
             },
             unsyncedReservations,
           ).category_overviews,
           station_overviews: stationOverviews,
         }
-      : overview
+      : normalizedOverview
 
   if (stationOverviews.length > 0) {
     return {

@@ -114,6 +114,7 @@ supabase/
 Temporary PWA recovery note:
 
 - After deploy, clear old service worker/site data on affected devices, or open Chrome DevTools -> Application -> Service Workers -> Unregister.
+- If the recovery screen appears, press "Обновить приложение" to unregister the old service worker, clear app caches, and reload without deleting offline IndexedDB data.
 
 ## Hosted Supabase test data
 

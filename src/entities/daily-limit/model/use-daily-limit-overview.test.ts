@@ -143,4 +143,52 @@ describe('applyUnsyncedReservationEstimate', () => {
       remaining_liters: 90,
     })
   })
+
+  it('normalizes legacy overviews without station_overviews', () => {
+    const legacyOverview = {
+      ...overview,
+      station_overviews: undefined,
+    } as unknown as DailyLimitOverview
+
+    const result = applyUnsyncedReservationEstimate(legacyOverview, [], 'online')
+
+    expect(result.station_overviews).toEqual([])
+    expect(result.category_overviews).toHaveLength(1)
+    expect(result.is_estimated).toBe(false)
+  })
+
+  it('normalizes legacy station overviews without category_overviews', () => {
+    const legacyOverview = {
+      ...overview,
+      station_overviews: [
+        {
+          ...overview,
+          id: 'limit-station-1',
+          station_id: 'station-1',
+          station_name: 'РђР—РЎ в„–1',
+          station_address: 'РђРґСЂРµСЃ 1',
+          category_overviews: undefined,
+        },
+      ],
+    } as unknown as DailyLimitOverview
+
+    const result = applyUnsyncedReservationEstimate(
+      legacyOverview,
+      [
+        makeReservation({
+          id: 'pending-station-1',
+          station_id: 'station-1',
+          queue_number: 3,
+          requested_liters: 30,
+        }),
+      ],
+      'offline',
+    )
+
+    expect(result.station_overviews[0]?.category_overviews[0]).toMatchObject({
+      fuel_type: 'AI_95',
+      queue_count: 1,
+      queued_liters: 30,
+    })
+  })
 })

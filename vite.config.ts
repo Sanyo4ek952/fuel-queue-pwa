@@ -327,8 +327,6 @@ export default defineConfig(({ mode }) => ({
       injectRegister: 'script-defer',
       workbox: {
         cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
       },
       manifest: {
         name: 'АЗС Онлайн',
