@@ -184,6 +184,27 @@ function localApiPlugin(mode: string): Plugin {
       )
       mountLocalApiHandler(
         server.middlewares,
+        '/api/get-my-queue-status',
+        protectedRpcHandler,
+        'Local get my queue status request failed.',
+        { action: 'get-my-queue-status' },
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/get-my-today-fueling-status',
+        protectedRpcHandler,
+        'Local get my today fueling status request failed.',
+        { action: 'get-my-today-fueling-status' },
+      )
+      mountLocalApiHandler(
+        server.middlewares,
+        '/api/list-my-vehicles',
+        protectedRpcHandler,
+        'Local list my vehicles request failed.',
+        { action: 'list-my-vehicles' },
+      )
+      mountLocalApiHandler(
+        server.middlewares,
         '/api/check-vehicle-access',
         protectedRpcHandler,
         'Local check vehicle access request failed.',

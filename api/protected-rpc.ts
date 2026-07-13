@@ -87,6 +87,21 @@ const protectedRpcRoutes: Record<string, ProtectedRpcRoute> = {
       reason: body.reason ?? null,
     }),
   },
+  'get-my-queue-status': {
+    rpcName: 'get_my_queue_status',
+    fallbackError: 'Get my queue status request failed.',
+    mapBody: () => ({}),
+  },
+  'get-my-today-fueling-status': {
+    rpcName: 'get_my_today_fueling_status',
+    fallbackError: 'Get my today fueling status request failed.',
+    mapBody: () => ({}),
+  },
+  'list-my-vehicles': {
+    rpcName: 'list_my_vehicles',
+    fallbackError: 'List my vehicles request failed.',
+    mapBody: () => ({}),
+  },
   'list-managed-profiles': {
     rpcName: 'list_managed_profiles_page',
     fallbackError: 'List managed profiles request failed.',

@@ -8,6 +8,7 @@ import type {
   SyncStatus,
 } from '@/shared/constants'
 import { supabase } from '@/shared/api/supabase'
+import { requestProtectedRpcApi } from '@/shared/api/rpc/protected-api'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
@@ -349,11 +350,7 @@ export async function listMyVehicles(): Promise<ConsumerVehicle[]> {
     return []
   }
 
-  const { data, error } = await supabase.rpc('list_my_vehicles')
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  const data = await requestProtectedRpcApi('/api/list-my-vehicles', {}, 'Не удалось загрузить автомобили.')
 
   if (!Array.isArray(data)) {
     throw new Error('Не удалось загрузить автомобили.')
@@ -443,11 +440,7 @@ export async function getMyQueueStatus(): Promise<ConsumerReservation | null> {
     return null
   }
 
-  const { data, error } = await supabase.rpc('get_my_queue_status')
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  const data = await requestProtectedRpcApi('/api/get-my-queue-status', {}, 'Не удалось загрузить очередь.')
 
   if (data === null) {
     return null
@@ -467,11 +460,11 @@ export async function getMyTodayFuelingStatus(): Promise<ConsumerTodayFuelingSta
     return null
   }
 
-  const { data, error } = await supabase.rpc('get_my_today_fueling_status')
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  const data = await requestProtectedRpcApi(
+    '/api/get-my-today-fueling-status',
+    {},
+    'Не удалось загрузить сегодняшнюю заправку.',
+  )
 
   if (data === null) {
     return null

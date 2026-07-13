@@ -136,4 +136,25 @@ describe('protected users API proxy endpoints', () => {
       reason: 'No longer employed',
     })
   })
+
+  it('/api/list-my-vehicles proxies list_my_vehicles', async () => {
+    const result = await callProtectedUsersAction('list-my-vehicles', {})
+
+    expect(result.url).toBe('https://example.supabase.co/rest/v1/rpc/list_my_vehicles')
+    expect(result.body).toEqual({})
+  })
+
+  it('/api/get-my-queue-status proxies get_my_queue_status', async () => {
+    const result = await callProtectedUsersAction('get-my-queue-status', {})
+
+    expect(result.url).toBe('https://example.supabase.co/rest/v1/rpc/get_my_queue_status')
+    expect(result.body).toEqual({})
+  })
+
+  it('/api/get-my-today-fueling-status proxies get_my_today_fueling_status', async () => {
+    const result = await callProtectedUsersAction('get-my-today-fueling-status', {})
+
+    expect(result.url).toBe('https://example.supabase.co/rest/v1/rpc/get_my_today_fueling_status')
+    expect(result.body).toEqual({})
+  })
 })

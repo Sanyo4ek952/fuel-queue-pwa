@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/shared/api/supabase', () => ({
   supabase: {
@@ -6,11 +6,16 @@ vi.mock('@/shared/api/supabase', () => ({
   },
 }))
 
+vi.mock('@/shared/lib/fetch-with-timeout', () => ({
+  fetchWithTimeout: vi.fn(),
+}))
+
 vi.mock('@/shared/config/env', () => ({
   isSupabaseConfigured: true,
 }))
 
 import { supabase } from '@/shared/api/supabase'
+import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
 
 import {
   createConsumerReservation,
@@ -20,6 +25,10 @@ import {
   parseConsumerTodayFuelingStatus,
   parseConsumerVehicle,
 } from './consumer-cabinet'
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
 
 describe('consumer cabinet RPC parsers', () => {
   it('parses a consumer vehicle response', () => {
@@ -216,19 +225,32 @@ describe('consumer cabinet RPC parsers', () => {
 
 describe('getMyTodayFuelingStatus', () => {
   it('returns null when the RPC has no today fueling record', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: null,
-      error: null,
-    } as never)
+    vi.mocked(fetchWithTimeout).mockResolvedValueOnce(
+      new Response(JSON.stringify(null), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }) as never,
+    )
 
     await expect(getMyTodayFuelingStatus()).resolves.toBeNull()
 
-    expect(supabase.rpc).toHaveBeenCalledWith('get_my_today_fueling_status')
+    expect(fetchWithTimeout).toHaveBeenCalledWith(
+      '/api/get-my-today-fueling-status',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'same-origin',
+      }),
+      expect.objectContaining({
+        timeoutMs: 10_000,
+      }),
+    )
+    expect(supabase.rpc).not.toHaveBeenCalledWith('get_my_today_fueling_status')
   })
 
   it('returns a parsed today fueling record', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: {
+    vi.mocked(fetchWithTimeout).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
         id: 'fueling-id',
         date: '2026-07-10',
         station_id: 'station-id',
@@ -241,9 +263,13 @@ describe('getMyTodayFuelingStatus', () => {
         liters: '20.5',
         fueled_at: '2026-07-10T10:00:00Z',
         ticket_number: '7',
-      },
-      error: null,
-    } as never)
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ) as never,
+    )
 
     await expect(getMyTodayFuelingStatus()).resolves.toMatchObject({
       id: 'fueling-id',
