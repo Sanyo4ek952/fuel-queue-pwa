@@ -6,6 +6,7 @@ import { useLogout } from '@/features/auth'
 import { AppHeader } from '@/widgets/app-header'
 import { BottomNavigation, getVisibleBottomNavItems } from '@/widgets/bottom-navigation'
 import { OfflineBanner } from '@/widgets/offline-banner'
+import { PwaInstallPrompt } from '@/widgets/pwa-install-prompt'
 import { useSupabaseAuth } from '@/app/providers/supabase-provider/auth-context'
 import { PUBLIC_ROUTES, ROUTES } from '@/shared/config/routes'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/ui/alert'
@@ -195,6 +196,7 @@ function AppShell() {
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
       <OfflineBanner />
+      <PwaInstallPrompt />
       <AppHeader />
       <main
         className={[
