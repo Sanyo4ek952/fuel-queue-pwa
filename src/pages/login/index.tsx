@@ -34,7 +34,7 @@ export function LoginPage() {
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid h-10 w-full grid-cols-3">
             <TabsTrigger value="login">Вход</TabsTrigger>
-            <TabsTrigger value="consumer">Житель</TabsTrigger>
+            <TabsTrigger value="consumer">Пользователь</TabsTrigger>
             <TabsTrigger value="register">Сотрудник</TabsTrigger>
           </TabsList>
           <TabsContent value="login">

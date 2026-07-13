@@ -9,9 +9,9 @@ export const USER_ROLES = [
 export type UserRole = (typeof USER_ROLES)[number]
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  mayor: 'Мэр',
+  mayor: 'Руководитель администрации',
   station_manager: 'Управляющий АЗС',
   cashier: 'Кассир АЗС',
-  mayor_assistant: 'Помощник мэра',
-  consumer: 'Житель',
+  mayor_assistant: 'Админ',
+  consumer: 'Пользователь',
 }
