@@ -20,19 +20,19 @@ export type ProtectedRpcResponse = {
   end: (body: string) => void
 }
 
-type ProtectedRpcOptions = {
+export type ProtectedRpcOptions = {
   rpcName: string
   fallbackError: string
   mapBody: (body: Record<string, unknown>) => Record<string, unknown>
 }
 
-function sendJson(response: ProtectedRpcResponse, statusCode: number, payload: unknown) {
+export function sendJson(response: ProtectedRpcResponse, statusCode: number, payload: unknown) {
   response.status(statusCode).setHeader('content-type', 'application/json')
   response.setHeader('cache-control', 'no-store')
   response.end(JSON.stringify(payload))
 }
 
-async function readBody(request: ProtectedRpcRequest) {
+export async function readBody(request: ProtectedRpcRequest) {
   if (request.body && typeof request.body === 'object') {
     return request.body as Record<string, unknown>
   }
@@ -52,7 +52,7 @@ async function readBody(request: ProtectedRpcRequest) {
   return rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {}
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit) {
+export async function fetchWithTimeout(url: string, init: RequestInit) {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
 
@@ -66,7 +66,7 @@ async function fetchWithTimeout(url: string, init: RequestInit) {
   }
 }
 
-function getSupabaseErrorMessage(value: unknown, fallback: string) {
+export function getSupabaseErrorMessage(value: unknown, fallback: string) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return fallback
   }

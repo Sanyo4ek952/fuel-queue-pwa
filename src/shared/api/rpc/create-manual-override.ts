@@ -1,9 +1,9 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import type { SyncStatus } from '@/shared/constants'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type CreateManualOverrideParams = {
   targetDate: string
@@ -81,33 +81,36 @@ export async function createManualOverride({
     }
   }
 
-  const { data, error } = await supabase.rpc('create_manual_override', {
-    target_date: targetDate,
-    target_station_id: stationId,
-    plate_number: normalizePlateNumber(plateNumber),
-    reason,
-    expires_at: expiresAt ?? null,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/create-manual-override',
+      {
+        targetDate,
+        stationId,
+        plateNumber: normalizePlateNumber(plateNumber),
+        reason,
+        expiresAt: expiresAt ?? null,
+        clientMutationId,
+      },
+      'Create manual override request failed.',
+    )
+    const parsed = parseCreateManualOverrideResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected create_manual_override response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Create manual override request failed.',
     }
-  }
-
-  const parsed = parseCreateManualOverrideResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected create_manual_override response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

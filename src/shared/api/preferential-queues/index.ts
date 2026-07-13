@@ -1,11 +1,11 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import type { UserRole } from '@/shared/config/roles'
 import type { FuelType } from '@/shared/constants'
 import type {
   PreferentialQueueEntryStatus,
   PreferentialQueueStatus,
 } from '@/shared/api/rpc'
+import { requestProtectedRpcApi } from '@/shared/api/rpc/protected-api'
 
 type RelatedVehicle = {
   normalized_plate_number?: string | null
@@ -144,18 +144,11 @@ export async function listActivePreferentialQueues() {
     throw new Error('Supabase is not configured.')
   }
 
-  const { data, error } = await supabase
-    .from('preferential_queues')
-    .select(
-      'id,name,status,created_by,client_mutation_id,created_at,updated_at,created_by_profile:profiles!preferential_queues_created_by_fkey(full_name,role,signature_name),entries:preferential_queue_entries(id,queue_id,vehicle_id,driver_id,fuel_type,requested_liters,status,comment,client_mutation_id,created_at,updated_at,vehicles(normalized_plate_number),drivers(full_name,phone),created_by_profile:profiles!preferential_queue_entries_created_by_fkey(full_name,role,signature_name))',
-    )
-    .eq('status', 'ACTIVE')
-    .eq('entries.status', 'ACTIVE')
-    .order('created_at', { ascending: true })
+  const data = await requestProtectedRpcApi(
+    '/api/list-active-preferential-queues',
+    {},
+    'List active preferential queues request failed.',
+  )
 
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return (data as PreferentialQueueRow[]).map(toPreferentialQueue)
+  return (Array.isArray(data) ? (data as PreferentialQueueRow[]) : []).map(toPreferentialQueue)
 }

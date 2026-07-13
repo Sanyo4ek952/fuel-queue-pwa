@@ -188,17 +188,22 @@ describe('getCurrentProfile', () => {
   })
 
   it('completes a consumer profile through the RPC wrapper', async () => {
-    mocks.supabase.rpc.mockResolvedValue({
-      data: {
+    mocks.fetchWithTimeout.mockResolvedValue(
+      new Response(
+        JSON.stringify({
         ...profile,
         role: 'consumer',
         first_name: 'Ivan',
         last_name: 'Resident',
         phone: '+79990000000',
         stations: [],
-      },
-      error: null,
-    })
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
 
     await expect(
       completeCurrentConsumerProfile({
@@ -212,13 +217,22 @@ describe('getCurrentProfile', () => {
       first_name: 'Ivan',
       phone: '+79990000000',
     })
-    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
-      'complete_consumer_profile',
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
+      '/api/complete-consumer-profile',
       {
-        p_first_name: 'Ivan',
-        p_last_name: 'Resident',
-        p_middle_name: '',
-        p_phone: '+79990000000',
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'Ivan',
+          lastName: 'Resident',
+          middleName: '',
+          phone: '+79990000000',
+        }),
+      },
+      {
+        timeoutMs: 10_000,
+        timeoutMessage: 'Сервер не ответил. Проверьте соединение и повторите.',
       },
     )
   })
@@ -280,7 +294,7 @@ describe('listManagedProfiles', () => {
       },
       {
         timeoutMs: 10_000,
-        timeoutMessage: 'List managed profiles request failed.',
+        timeoutMessage: 'Сервер не ответил. Проверьте соединение и повторите.',
       },
     )
     const [, init] = mocks.fetchWithTimeout.mock.calls[0]
@@ -339,7 +353,7 @@ describe('managed profile mutations', () => {
       },
       {
         timeoutMs: 10_000,
-        timeoutMessage: 'Approve registration request failed.',
+        timeoutMessage: 'Сервер не ответил. Проверьте соединение и повторите.',
       },
     )
     const [, init] = mocks.fetchWithTimeout.mock.calls[0]
@@ -366,7 +380,7 @@ describe('managed profile mutations', () => {
       },
       {
         timeoutMs: 10_000,
-        timeoutMessage: 'Reject registration request failed.',
+        timeoutMessage: 'Сервер не ответил. Проверьте соединение и повторите.',
       },
     )
     const [, init] = mocks.fetchWithTimeout.mock.calls[0]
@@ -393,7 +407,7 @@ describe('managed profile mutations', () => {
       },
       {
         timeoutMs: 10_000,
-        timeoutMessage: 'Deactivate profile request failed.',
+        timeoutMessage: 'Сервер не ответил. Проверьте соединение и повторите.',
       },
     )
     const [, init] = mocks.fetchWithTimeout.mock.calls[0]

@@ -1,9 +1,9 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
 import type { FuelQueueCategory } from '@/shared/constants'
-import { supabase } from '@/shared/api/supabase'
 import { cacheDailyFuelingSchedule } from '@/shared/lib/offline-db'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type DailyFuelingScheduleRow = {
   id?: string | null
@@ -96,32 +96,35 @@ export async function getDailyFuelingSchedule(
     }
   }
 
-  const { data, error } = await supabase.rpc('get_daily_fueling_schedule', {
-    target_date: targetDate,
-    target_station_id: stationId ?? null,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/get-daily-fueling-schedule',
+      {
+        targetDate,
+        stationId: stationId ?? null,
+      },
+      'Daily fueling schedule request failed.',
+    )
+    const parsed = parseDailyFuelingSchedule(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected get_daily_fueling_schedule response.',
+      }
+    }
+
+    await cacheDailyFuelingSchedule(targetDate, parsed, stationId)
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Daily fueling schedule request failed.',
     }
-  }
-
-  const parsed = parseDailyFuelingSchedule(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected get_daily_fueling_schedule response.',
-    }
-  }
-
-  await cacheDailyFuelingSchedule(targetDate, parsed, stationId)
-
-  return {
-    data: parsed,
-    error: null,
   }
 }
 
@@ -138,38 +141,41 @@ export async function setDailyFuelingSchedule({
     }
   }
 
-  const { data, error } = await supabase.rpc('set_daily_fueling_schedule', {
-    target_date: targetDate,
-    target_station_id: stationId,
-    schedules: schedules.map((schedule) => ({
-      fuel_category: schedule.fuelCategory,
-      start_time: schedule.startTime,
-      interval_minutes: schedule.intervalMinutes,
-      vehicles_per_interval: schedule.vehiclesPerInterval,
-    })),
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/set-daily-fueling-schedule',
+      {
+        targetDate,
+        stationId,
+        schedules: schedules.map((schedule) => ({
+          fuel_category: schedule.fuelCategory,
+          start_time: schedule.startTime,
+          interval_minutes: schedule.intervalMinutes,
+          vehicles_per_interval: schedule.vehiclesPerInterval,
+        })),
+        clientMutationId,
+      },
+      'Set daily fueling schedule request failed.',
+    )
+    const parsed = parseDailyFuelingSchedule(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected set_daily_fueling_schedule response.',
+      }
+    }
+
+    await cacheDailyFuelingSchedule(targetDate, parsed, stationId)
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Set daily fueling schedule request failed.',
     }
-  }
-
-  const parsed = parseDailyFuelingSchedule(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected set_daily_fueling_schedule response.',
-    }
-  }
-
-  await cacheDailyFuelingSchedule(targetDate, parsed, stationId)
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

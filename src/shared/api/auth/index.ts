@@ -1,8 +1,6 @@
-import type { Session } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
 
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import {
   createPersonalDataConsentSnapshot,
   type PersonalDataConsentRegistrationRole,
@@ -56,13 +54,6 @@ export type ResendSignupConfirmationEmailParams = {
   captchaToken?: string
 }
 
-function getAuthErrorMeta(error: { status?: number; code?: string } | null | undefined) {
-  return {
-    status: error?.status,
-    code: error?.code,
-  }
-}
-
 function toConsentMetadata(snapshot: PersonalDataConsentSnapshot) {
   return {
     personal_data_consent_accepted: true,
@@ -82,22 +73,6 @@ function createSignupConsentMetadata(registrationRole: PersonalDataConsentRegist
       source: 'email_password',
     }),
   )
-}
-
-async function clearSignupSession(session: Session | null): Promise<AuthResult<AuthSession>> {
-  if (!session) {
-    return {
-      data: null,
-      error: null,
-    }
-  }
-
-  const { error } = await supabase.auth.signOut()
-
-  return {
-    data: null,
-    error: error?.message ?? null,
-  }
 }
 
 type ApiErrorResponse = {
@@ -126,8 +101,29 @@ async function readApiJson<TData>(response: Response, fallbackMessage: string): 
 
 const authSessionChangeEvent = 'azs-auth-session-change'
 
-function notifyAuthSessionChange(session: AuthSession | null) {
+export function notifyAuthSessionChange(session: AuthSession | null) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
   window.dispatchEvent(new CustomEvent<AuthSession | null>(authSessionChangeEvent, { detail: session }))
+}
+
+async function postAuthAction<TData>(
+  action: string,
+  body: unknown,
+  fallbackMessage: string,
+): Promise<AuthResult<TData>> {
+  const response = await fetch(`/api/auth/login?action=${encodeURIComponent(action)}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  return readApiJson<TData>(response, fallbackMessage)
 }
 
 export async function getAuthSession(): Promise<AuthResult<AuthSession>> {
@@ -224,11 +220,11 @@ export async function signUpWithPassword({
     }
   }
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      ...(captchaToken ? { captchaToken } : {}),
+  const result = await postAuthAction<{ ok?: boolean }>(
+    'signup',
+    {
+      email,
+      password,
       data: {
         first_name: firstName,
         last_name: lastName,
@@ -239,18 +235,17 @@ export async function signUpWithPassword({
         requested_station_id: requestedRole === 'cashier' ? (requestedStationId ?? '') : '',
         ...(personalDataConsentAccepted ? createSignupConsentMetadata(requestedRole) : {}),
       },
+      captchaToken,
     },
-  })
+    'Signup request failed.',
+  )
 
-  if (error) {
-    return {
-      data: null,
-      error: error.message,
-      ...getAuthErrorMeta(error),
-    }
+  return {
+    data: null,
+    error: result.error,
+    status: result.status,
+    code: result.code,
   }
-
-  return clearSignupSession(data.session)
 }
 
 export async function signUpConsumerWithPassword({
@@ -270,11 +265,11 @@ export async function signUpConsumerWithPassword({
     }
   }
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      ...(captchaToken ? { captchaToken } : {}),
+  const result = await postAuthAction<{ ok?: boolean }>(
+    'signup',
+    {
+      email,
+      password,
       data: {
         first_name: firstName,
         last_name: lastName,
@@ -283,18 +278,17 @@ export async function signUpConsumerWithPassword({
         requested_role: 'consumer',
         ...(personalDataConsentAccepted ? createSignupConsentMetadata('consumer') : {}),
       },
+      captchaToken,
     },
-  })
+    'Signup request failed.',
+  )
 
-  if (error) {
-    return {
-      data: null,
-      error: error.message,
-      ...getAuthErrorMeta(error),
-    }
+  return {
+    data: null,
+    error: result.error,
+    status: result.status,
+    code: result.code,
   }
-
-  return clearSignupSession(data.session)
 }
 
 export async function resendSignupConfirmationEmail({
@@ -308,23 +302,20 @@ export async function resendSignupConfirmationEmail({
     }
   }
 
-  const { error } = await supabase.auth.resend({
-    type: 'signup',
-    email,
-    options: captchaToken ? { captchaToken } : undefined,
-  })
-
-  if (error) {
-    return {
-      data: null,
-      error: error.message,
-      ...getAuthErrorMeta(error),
-    }
-  }
+  const result = await postAuthAction<{ ok?: boolean }>(
+    'resend-signup-confirmation',
+    {
+      email,
+      captchaToken,
+    },
+    'Resend signup confirmation request failed.',
+  )
 
   return {
-    data: true,
-    error: null,
+    data: result.error ? null : true,
+    error: result.error,
+    status: result.status,
+    code: result.code,
   }
 }
 

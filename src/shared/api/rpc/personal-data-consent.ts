@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import type { PersonalDataConsentSnapshot } from '@/shared/config/personal-data-consent'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type RecordPersonalDataConsentResult = {
   id: string
@@ -53,34 +53,36 @@ export async function recordPersonalDataConsent(
     }
   }
 
-  const { data, error } = await supabase.rpc('record_personal_data_consent', {
-    p_document_version: snapshot.documentVersion,
-    p_document_hash: snapshot.documentHash,
-    p_accepted_at: snapshot.acceptedAt,
-    p_source: snapshot.source,
-    p_registration_role: snapshot.registrationRole,
-    p_user_agent: snapshot.userAgent,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/record-personal-data-consent',
+      {
+        documentVersion: snapshot.documentVersion,
+        documentHash: snapshot.documentHash,
+        acceptedAt: snapshot.acceptedAt,
+        source: snapshot.source,
+        registrationRole: snapshot.registrationRole,
+        userAgent: snapshot.userAgent,
+      },
+      'Record personal data consent request failed.',
+    )
+    const parsed = parseRecordPersonalDataConsentResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected record_personal_data_consent response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Record personal data consent request failed.',
     }
-  }
-
-  const parsed = parseRecordPersonalDataConsentResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected record_personal_data_consent response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }
-

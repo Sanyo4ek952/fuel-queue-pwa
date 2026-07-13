@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import type { FuelType } from '@/shared/constants'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type FuelingReportSummary = {
   total_liters: number
@@ -195,30 +195,33 @@ export async function getFuelingReport({
     }
   }
 
-  const { data, error } = await supabase.rpc('get_fueling_report', {
-    date_from: dateFrom,
-    date_to: dateTo,
-    station_ids: stationIds,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/get-fueling-report',
+      {
+        dateFrom,
+        dateTo,
+        stationIds,
+      },
+      'Fueling report request failed.',
+    )
+    const parsed = parseFuelingReport(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected get_fueling_report response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Fueling report request failed.',
     }
-  }
-
-  const parsed = parseFuelingReport(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected get_fueling_report response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

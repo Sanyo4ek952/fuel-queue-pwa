@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import type { DailyLimitMode, QueueFuelType } from '@/shared/constants'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type DailyFuelTypeLimitInput = {
   fuelType: QueueFuelType
@@ -114,36 +114,41 @@ export async function createDailyLimit({
     }
   }
 
-  const { data, error } = await supabase.rpc('create_daily_limit', {
-    target_date: targetDate,
-    target_station_id: stationId,
-    fuel_type_limits: fuelTypeLimits.map((item) => ({
-      fuel_type: item.fuelType,
-      status: item.status,
-      vehicle_limit: 0,
-      liters_limit: item.litersLimit ?? null,
-    })),
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/create-daily-limit',
+      {
+        targetDate,
+        stationId,
+        fuelTypeLimits: fuelTypeLimits.map((item) => ({
+          fuel_type: item.fuelType,
+          status: item.status,
+          vehicle_limit: 0,
+          liters_limit: item.litersLimit ?? null,
+        })),
+        clientMutationId,
+      },
+      'Create daily limit request failed.',
+    )
+    const parsed = toDailyLimitResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected create_daily_limit response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Create daily limit request failed.'
+
     return {
       data: null,
-      error: getCreateDailyLimitErrorMessage(error.message),
+      error: getCreateDailyLimitErrorMessage(message),
     }
-  }
-
-  const parsed = toDailyLimitResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected create_daily_limit response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

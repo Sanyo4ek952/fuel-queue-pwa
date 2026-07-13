@@ -1,25 +1,22 @@
 import { describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  rpc: vi.fn(),
+  requestProtectedRpcApi: vi.fn(),
 }))
 
 vi.mock('@/shared/config/env', () => ({
   isSupabaseConfigured: true,
 }))
 
-vi.mock('@/shared/api/supabase', () => ({
-  supabase: {
-    rpc: mocks.rpc,
-  },
+vi.mock('./protected-api', () => ({
+  requestProtectedRpcApi: mocks.requestProtectedRpcApi,
 }))
 
 import { createDailyLimit } from './create-daily-limit'
 
 describe('createDailyLimit', () => {
   it('sends liter limits without exposing vehicle count as a capacity control', async () => {
-    mocks.rpc.mockResolvedValueOnce({
-      data: {
+    mocks.requestProtectedRpcApi.mockResolvedValueOnce({
         id: 'limit-id',
         date: '2026-07-05',
         station_id: 'station-id',
@@ -36,8 +33,6 @@ describe('createDailyLimit', () => {
           },
         ],
         category_limits: [],
-      },
-      error: null,
     })
 
     const result = await createDailyLimit({
@@ -55,19 +50,23 @@ describe('createDailyLimit', () => {
     })
 
     expect(result.error).toBeNull()
-    expect(mocks.rpc).toHaveBeenCalledWith('create_daily_limit', {
-      target_date: '2026-07-05',
-      target_station_id: 'station-id',
-      client_mutation_id: 'mutation-id',
-      fuel_type_limits: [
+    expect(mocks.requestProtectedRpcApi).toHaveBeenCalledWith(
+      '/api/create-daily-limit',
+      {
+        targetDate: '2026-07-05',
+        stationId: 'station-id',
+        clientMutationId: 'mutation-id',
+        fuelTypeLimits: [
         {
           fuel_type: 'AI_95',
           status: 'OPEN',
           vehicle_limit: 0,
           liters_limit: 400,
         },
-      ],
-    })
+        ],
+      },
+      'Create daily limit request failed.',
+    )
     expect(result.data?.fuel_type_limits[0]).toMatchObject({
       fuel_type: 'AI_95',
       limit_mode: 'fuel_liters',
@@ -77,13 +76,11 @@ describe('createDailyLimit', () => {
   })
 
   it('returns a readable error when queue allocation overload is ambiguous', async () => {
-    mocks.rpc.mockResolvedValueOnce({
-      data: null,
-      error: {
-        message:
-          'Could not choose the best candidate function between: public.allocate_daily_queue(target_date => date), public.allocate_daily_queue(target_date => date, preserve_existing_eta => boolean). function public.allocate_daily_queue(date) is not unique',
-      },
-    })
+    mocks.requestProtectedRpcApi.mockRejectedValueOnce(
+      new Error(
+        'Could not choose the best candidate function between: public.allocate_daily_queue(target_date => date), public.allocate_daily_queue(target_date => date, preserve_existing_eta => boolean). function public.allocate_daily_queue(date) is not unique',
+      ),
+    )
 
     const result = await createDailyLimit({
       targetDate: '2026-07-05',

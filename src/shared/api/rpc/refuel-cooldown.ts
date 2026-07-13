@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import { cacheNoShowGraceSetting, cacheRefuelCooldownSetting } from '@/shared/lib/offline-db'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type RefuelCooldownSetting = {
   days: number
@@ -51,26 +51,29 @@ export async function getRefuelCooldown(): Promise<RpcResult<RefuelCooldownSetti
     }
   }
 
-  const { data, error } = await supabase.rpc('get_reservation_refuel_cooldown')
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/get-refuel-cooldown',
+      {},
+      'Refuel cooldown request failed.',
+    )
+    const setting = {
+      days: toInteger(data),
+      updated_at: null,
+      client_mutation_id: null,
+    }
 
-  if (error) {
+    await cacheRefuelCooldownSetting(setting.days)
+
+    return {
+      data: setting,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Refuel cooldown request failed.',
     }
-  }
-
-  const setting = {
-    days: toInteger(data),
-    updated_at: null,
-    client_mutation_id: null,
-  }
-
-  await cacheRefuelCooldownSetting(setting.days)
-
-  return {
-    data: setting,
-    error: null,
   }
 }
 
@@ -85,32 +88,32 @@ export async function setRefuelCooldown({
     }
   }
 
-  const { data, error } = await supabase.rpc('set_reservation_refuel_cooldown', {
-    days,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/set-refuel-cooldown',
+      { days, clientMutationId },
+      'Set refuel cooldown request failed.',
+    )
+    const parsed = parseDaysSettingResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected set_reservation_refuel_cooldown response.',
+      }
+    }
+
+    await cacheRefuelCooldownSetting(parsed.days)
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Set refuel cooldown request failed.',
     }
-  }
-
-  const parsed = parseDaysSettingResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected set_reservation_refuel_cooldown response.',
-    }
-  }
-
-  await cacheRefuelCooldownSetting(parsed.days)
-
-  return {
-    data: parsed,
-    error: null,
   }
 }
 
@@ -122,26 +125,29 @@ export async function getNoShowGrace(): Promise<RpcResult<NoShowGraceSetting>> {
     }
   }
 
-  const { data, error } = await supabase.rpc('get_reservation_no_show_grace_days')
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/get-no-show-grace',
+      {},
+      'No-show grace request failed.',
+    )
+    const setting = {
+      days: toInteger(data),
+      updated_at: null,
+      client_mutation_id: null,
+    }
 
-  if (error) {
+    await cacheNoShowGraceSetting(setting.days)
+
+    return {
+      data: setting,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'No-show grace request failed.',
     }
-  }
-
-  const setting = {
-    days: toInteger(data),
-    updated_at: null,
-    client_mutation_id: null,
-  }
-
-  await cacheNoShowGraceSetting(setting.days)
-
-  return {
-    data: setting,
-    error: null,
   }
 }
 
@@ -156,31 +162,31 @@ export async function setNoShowGrace({
     }
   }
 
-  const { data, error } = await supabase.rpc('set_reservation_no_show_grace_days', {
-    days,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/set-no-show-grace',
+      { days, clientMutationId },
+      'Set no-show grace request failed.',
+    )
+    const parsed = parseDaysSettingResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected set_reservation_no_show_grace_days response.',
+      }
+    }
+
+    await cacheNoShowGraceSetting(parsed.days)
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Set no-show grace request failed.',
     }
-  }
-
-  const parsed = parseDaysSettingResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected set_reservation_no_show_grace_days response.',
-    }
-  }
-
-  await cacheNoShowGraceSetting(parsed.days)
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

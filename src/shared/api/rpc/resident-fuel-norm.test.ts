@@ -9,10 +9,6 @@ const mocks = vi.hoisted(() => ({
   requestProtectedRpcApi: vi.fn(),
 }))
 
-vi.mock('@/shared/api/supabase', () => ({
-  supabase: mocks.supabase,
-}))
-
 vi.mock('@/shared/config/env', () => ({
   isSupabaseConfigured: true,
 }))
@@ -25,8 +21,6 @@ vi.mock('@/shared/lib/offline-db', () => ({
 vi.mock('./protected-api', () => ({
   requestProtectedRpcApi: mocks.requestProtectedRpcApi,
 }))
-
-import { supabase } from '@/shared/api/supabase'
 
 import {
   getResidentFuelNorm,
@@ -85,14 +79,11 @@ describe('resident fuel norm RPC', () => {
   })
 
   it('saves and caches a mayor-updated norm', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: {
+    mocks.requestProtectedRpcApi.mockResolvedValueOnce({
         liters: 35,
         updated_at: '2026-07-11T10:00:00Z',
         client_mutation_id: 'mutation-id',
-      },
-      error: null,
-    } as never)
+    })
 
     await expect(
       setResidentFuelNorm({ liters: 35, clientMutationId: 'mutation-id' }),
@@ -101,10 +92,14 @@ describe('resident fuel norm RPC', () => {
       error: null,
     })
 
-    expect(supabase.rpc).toHaveBeenCalledWith('set_resident_fuel_norm_liters', {
-      liters: 35,
-      client_mutation_id: 'mutation-id',
-    })
+    expect(mocks.requestProtectedRpcApi).toHaveBeenCalledWith(
+      '/api/set-resident-fuel-norm',
+      {
+        liters: 35,
+        clientMutationId: 'mutation-id',
+      },
+      'Set resident fuel norm request failed.',
+    )
     expect(mocks.cacheResidentFuelNormLiters).toHaveBeenCalledWith(35)
   })
 })

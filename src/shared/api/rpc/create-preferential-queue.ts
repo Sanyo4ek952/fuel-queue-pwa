@@ -1,7 +1,7 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type PreferentialQueueStatus = 'ACTIVE' | 'ARCHIVED'
 
@@ -63,29 +63,29 @@ export async function createPreferentialQueue({
     }
   }
 
-  const { data, error } = await supabase.rpc('create_preferential_queue', {
-    name,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/create-preferential-queue',
+      { name, clientMutationId },
+      'Create preferential queue request failed.',
+    )
+    const parsed = parseCreatePreferentialQueueResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected create_preferential_queue response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Create preferential queue request failed.',
     }
-  }
-
-  const parsed = parseCreatePreferentialQueueResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected create_preferential_queue response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

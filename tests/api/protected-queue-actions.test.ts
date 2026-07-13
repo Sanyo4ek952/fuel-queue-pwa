@@ -107,6 +107,48 @@ describe('protected queue action API proxy endpoints', () => {
     })
   })
 
+  it('/api/create-reservation proxies create_reservation', async () => {
+    stubSupabaseEnv()
+    const fetchMock = vi.fn().mockResolvedValue(createJsonResponse({ id: 'reservation-id' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const response = createResponse()
+
+    await protectedRpcHandler(
+      {
+        method: 'POST',
+        headers: { cookie: 'azs_sb_access=access-token; azs_sb_refresh=refresh-token' },
+        query: { action: 'create-reservation' },
+        body: {
+          plateNumber: 'А222АА222',
+          driverFullName: 'Driver',
+          driverPhone: '+77998789798',
+          fuelType: 'AI_95',
+          fuelPreferenceMode: 'EXACT',
+          requestedLiters: 20,
+          comment: 'ok',
+          clientMutationId: 'mutation-id',
+        },
+        [Symbol.asyncIterator]: async function* () {},
+      },
+      response,
+    )
+
+    const [url, init] = fetchMock.mock.calls[0]
+
+    expect(response.statusCode).toBe(200)
+    expect(url).toBe('https://example.supabase.co/rest/v1/rpc/create_reservation')
+    expect(JSON.parse(init.body as string)).toEqual({
+      plate_number: 'А222АА222',
+      driver_full_name: 'Driver',
+      driver_phone: '+77998789798',
+      fuel_type: 'AI_95',
+      fuel_preference_mode: 'EXACT',
+      requested_liters: 20,
+      comment: 'ok',
+      client_mutation_id: 'mutation-id',
+    })
+  })
+
   it('/api/update-reservation-fuel-preference proxies update_reservation_fuel_preference', async () => {
     stubSupabaseEnv()
     const fetchMock = vi.fn().mockResolvedValue(createJsonResponse({ id: 'reservation-id' }))

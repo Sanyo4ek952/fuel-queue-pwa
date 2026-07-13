@@ -448,17 +448,16 @@ export async function completeCurrentConsumerProfile(params: {
     throw new Error('Supabase is not configured.')
   }
 
-  const { supabase } = await import('@/shared/api/supabase')
-  const { data, error } = await supabase.rpc('complete_consumer_profile', {
-    p_first_name: params.firstName,
-    p_last_name: params.lastName,
-    p_middle_name: params.middleName ?? null,
-    p_phone: params.phone,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  const data = await requestProtectedRpcApi(
+    '/api/complete-consumer-profile',
+    {
+      firstName: params.firstName,
+      lastName: params.lastName,
+      middleName: params.middleName ?? null,
+      phone: params.phone,
+    },
+    'Complete consumer profile request failed.',
+  )
 
   const profile = data as ProfileRow | null
 

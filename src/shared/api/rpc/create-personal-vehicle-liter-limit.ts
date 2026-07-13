@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type CreatePersonalVehicleLiterLimitParams = {
   targetDate: string
@@ -72,32 +72,38 @@ export async function createPersonalVehicleLiterLimit({
     }
   }
 
-  const { data, error } = await supabase.rpc('create_personal_vehicle_liter_limit', {
-    target_date: targetDate,
-    plate_number: normalizePlateNumber(plateNumber),
-    liters,
-    comment: comment ?? null,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/create-personal-vehicle-liter-limit',
+      {
+        targetDate,
+        plateNumber: normalizePlateNumber(plateNumber),
+        liters,
+        comment: comment ?? null,
+        clientMutationId,
+      },
+      'Create personal vehicle liter limit request failed.',
+    )
+    const parsed = parseCreatePersonalVehicleLiterLimitResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected create_personal_vehicle_liter_limit response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Create personal vehicle liter limit request failed.',
     }
-  }
-
-  const parsed = parseCreatePersonalVehicleLiterLimitResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected create_personal_vehicle_liter_limit response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

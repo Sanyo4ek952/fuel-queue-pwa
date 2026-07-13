@@ -1,5 +1,4 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import {
   cacheResidentFuelNormLiters,
   getCachedResidentFuelNormLiters,
@@ -92,31 +91,31 @@ export async function setResidentFuelNorm({
     }
   }
 
-  const { data, error } = await supabase.rpc('set_resident_fuel_norm_liters', {
-    liters,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/set-resident-fuel-norm',
+      { liters, clientMutationId },
+      'Set resident fuel norm request failed.',
+    )
+    const parsed = parseResidentFuelNormResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected set_resident_fuel_norm_liters response.',
+      }
+    }
+
+    await cacheResidentFuelNormLiters(parsed.liters)
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Set resident fuel norm request failed.',
     }
-  }
-
-  const parsed = parseResidentFuelNormResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected set_resident_fuel_norm_liters response.',
-    }
-  }
-
-  await cacheResidentFuelNormLiters(parsed.liters)
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/shared/api/supabase', () => ({
-  supabase: {
-    rpc: vi.fn(),
-  },
+const mocks = vi.hoisted(() => ({
+  requestProtectedRpcApi: vi.fn(),
 }))
 
 vi.mock('@/shared/config/env', () => ({
@@ -14,7 +12,9 @@ vi.mock('@/shared/lib/offline-db', () => ({
   cacheDailyFuelingSchedule: vi.fn(),
 }))
 
-import { supabase } from '@/shared/api/supabase'
+vi.mock('./protected-api', () => ({
+  requestProtectedRpcApi: mocks.requestProtectedRpcApi,
+}))
 
 import {
   getDailyFuelingSchedule,
@@ -61,25 +61,23 @@ describe('parseDailyFuelingSchedule', () => {
 
 describe('daily fueling schedule RPC wrappers', () => {
   it('loads the schedule by date', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: [],
-      error: null,
-    } as never)
+    mocks.requestProtectedRpcApi.mockResolvedValueOnce([])
 
     const result = await getDailyFuelingSchedule('2026-07-09', 'station-id')
 
-    expect(supabase.rpc).toHaveBeenCalledWith('get_daily_fueling_schedule', {
-      target_date: '2026-07-09',
-      target_station_id: 'station-id',
-    })
+    expect(mocks.requestProtectedRpcApi).toHaveBeenCalledWith(
+      '/api/get-daily-fueling-schedule',
+      {
+        targetDate: '2026-07-09',
+        stationId: 'station-id',
+      },
+      'Daily fueling schedule request failed.',
+    )
     expect(result).toEqual({ data: [], error: null })
   })
 
   it('saves the schedule through the mutation RPC', async () => {
-    vi.mocked(supabase.rpc).mockResolvedValueOnce({
-      data: [],
-      error: null,
-    } as never)
+    mocks.requestProtectedRpcApi.mockResolvedValueOnce([])
 
     const result = await setDailyFuelingSchedule({
       targetDate: '2026-07-09',
@@ -95,19 +93,23 @@ describe('daily fueling schedule RPC wrappers', () => {
       clientMutationId: 'mutation-id',
     })
 
-    expect(supabase.rpc).toHaveBeenCalledWith('set_daily_fueling_schedule', {
-      target_date: '2026-07-09',
-      target_station_id: 'station-id',
-      schedules: [
+    expect(mocks.requestProtectedRpcApi).toHaveBeenCalledWith(
+      '/api/set-daily-fueling-schedule',
+      {
+        targetDate: '2026-07-09',
+        stationId: 'station-id',
+        schedules: [
         {
           fuel_category: 'GASOLINE',
           start_time: '13:00',
           interval_minutes: 5,
           vehicles_per_interval: 5,
         },
-      ],
-      client_mutation_id: 'mutation-id',
-    })
+        ],
+        clientMutationId: 'mutation-id',
+      },
+      'Set daily fueling schedule request failed.',
+    )
     expect(result).toEqual({ data: [], error: null })
   })
 })

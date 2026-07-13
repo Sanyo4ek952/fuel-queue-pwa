@@ -1,9 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import type { DailyLimitMode, FuelQueueCategory, QueueFuelType } from '@/shared/constants'
-import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type DailyLimitStatus = 'OPEN' | 'CLOSED' | 'PAUSED'
 
@@ -41,15 +40,6 @@ export type DailyLimitOverview = DailyLimitStationOverview & {
 
 export type GetDailyLimitOverviewParams = {
   date: string
-}
-
-class DailyLimitOverviewApiError extends Error {
-  statusCode: number | null
-
-  constructor(message: string, statusCode: number | null = null) {
-    super(message)
-    this.statusCode = statusCode
-  }
 }
 
 function toNumber(value: unknown) {
@@ -170,45 +160,31 @@ export async function getDailyLimitOverview({
     }
   }
 
-  const { data, error } = await supabase.rpc('get_daily_limit_overview', {
-    target_date: date,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/daily-limit-overview',
+      { date },
+      'Daily limit overview request failed.',
+    )
+    const parsed = parseDailyLimitOverview(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected get_daily_limit_overview response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Daily limit overview request failed.',
     }
   }
-
-  const parsed = parseDailyLimitOverview(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected get_daily_limit_overview response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
-  }
-}
-
-async function readDailyLimitOverviewApiResponse(response: Response) {
-  const value = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    const message =
-      value && typeof value === 'object' && 'error' in value && typeof value.error === 'string'
-        ? value.error
-        : 'Daily limit overview request failed.'
-
-    throw new DailyLimitOverviewApiError(message, response.status)
-  }
-
-  return value
 }
 
 export async function getDailyLimitOverviewViaApi({
@@ -222,22 +198,11 @@ export async function getDailyLimitOverviewViaApi({
   }
 
   try {
-    const response = await fetchWithTimeout(
+    const value = await requestProtectedRpcApi(
       '/api/daily-limit-overview',
-      {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ date }),
-      },
-      {
-        timeoutMs: 10_000,
-        timeoutMessage: 'Daily limit overview request timed out.',
-      },
+      { date },
+      'Daily limit overview request failed.',
     )
-    const value = await readDailyLimitOverviewApiResponse(response)
     const parsed = parseDailyLimitOverview(value)
 
     if (!parsed) {

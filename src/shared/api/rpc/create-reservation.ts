@@ -1,9 +1,9 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 import type { FuelPreferenceMode, FuelType } from '@/shared/constants'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type CreateReservationParams = {
   plateNumber: string
@@ -110,35 +110,38 @@ export async function createReservation({
     }
   }
 
-  const { data, error } = await supabase.rpc('create_reservation', {
-    plate_number: normalizePlateNumber(plateNumber),
-    driver_full_name: driverFullName,
-    driver_phone: driverPhone ?? null,
-    fuel_type: fuelType,
-    fuel_preference_mode: fuelPreferenceMode ?? 'EXACT',
-    requested_liters: requestedLiters,
-    comment: comment ?? null,
-    client_mutation_id: clientMutationId,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/create-reservation',
+      {
+        plateNumber: normalizePlateNumber(plateNumber),
+        driverFullName,
+        driverPhone: driverPhone ?? null,
+        fuelType,
+        fuelPreferenceMode: fuelPreferenceMode ?? 'EXACT',
+        requestedLiters,
+        comment: comment ?? null,
+        clientMutationId,
+      },
+      'Create reservation request failed.',
+    )
+    const parsed = parseCreateReservationResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected create_reservation response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Create reservation request failed.',
     }
-  }
-
-  const parsed = parseCreateReservationResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected create_reservation response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

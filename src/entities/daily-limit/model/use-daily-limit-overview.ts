@@ -321,7 +321,7 @@ async function cacheDailyLimitOverview(overview: DailyLimitOverview) {
 
 export function useDailyLimitOverview({
   date,
-  transport = 'supabase',
+  transport = 'api',
 }: {
   date: string
   transport?: DailyLimitOverviewTransport

@@ -1,8 +1,8 @@
 import { isSupabaseConfigured } from '@/shared/config/env'
-import { supabase } from '@/shared/api/supabase'
 
 import type { PreferentialQueueEntryStatus } from './create-preferential-queue-entry'
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type CancelPreferentialQueueEntryParams = {
   entryId: string
@@ -54,29 +54,33 @@ export async function cancelPreferentialQueueEntry({
     }
   }
 
-  const { data, error } = await supabase.rpc('cancel_preferential_queue_entry', {
-    entry_id: entryId,
-    comment: comment ?? null,
-  })
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/cancel-preferential-queue-entry',
+      {
+        entryId,
+        comment: comment ?? null,
+      },
+      'Cancel preferential queue entry request failed.',
+    )
+    const parsed = parseCancelPreferentialQueueEntryResult(data)
 
-  if (error) {
+    if (!parsed) {
+      return {
+        data: null,
+        error: 'Unexpected cancel_preferential_queue_entry response.',
+      }
+    }
+
+    return {
+      data: parsed,
+      error: null,
+    }
+  } catch (error) {
     return {
       data: null,
-      error: error.message,
+      error:
+        error instanceof Error ? error.message : 'Cancel preferential queue entry request failed.',
     }
-  }
-
-  const parsed = parseCancelPreferentialQueueEntryResult(data)
-
-  if (!parsed) {
-    return {
-      data: null,
-      error: 'Unexpected cancel_preferential_queue_entry response.',
-    }
-  }
-
-  return {
-    data: parsed,
-    error: null,
   }
 }

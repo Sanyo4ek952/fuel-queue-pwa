@@ -10,7 +10,6 @@ import type {
   SyncStatus,
 } from '@/shared/constants'
 import { getFuelQueueCategory } from '@/shared/constants'
-import { supabase } from '@/shared/api/supabase'
 import { getTodayDateInputValue } from '@/shared/lib/date'
 import { fetchWithTimeout } from '@/shared/lib/fetch-with-timeout'
 import {
@@ -20,6 +19,7 @@ import {
   type LocalQueueEntry,
 } from '@/shared/lib/offline-db'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
+import { requestProtectedRpcApi } from '@/shared/api/rpc/protected-api'
 
 type RelatedVehicle = {
   normalized_plate_number?: string | null
@@ -672,18 +672,17 @@ export async function listCancelledReservationsPage(params: {
     throw new Error('Supabase is not configured.')
   }
 
-  const { data, error } = await supabase.rpc('get_cancelled_reservations', {
-    page_size: params.pageSize ?? 25,
-    cursor_cancelled_at: params.cursor?.cancelled_at ?? null,
-    cursor_id: params.cursor?.id ?? null,
-    plate_search: normalizePlateNumber(params.plateSearch ?? ''),
-    date_from: params.dateFrom ?? null,
-    date_to: params.dateTo ?? null,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  const data = await requestProtectedRpcApi(
+    '/api/get-cancelled-reservations',
+    {
+      pageSize: params.pageSize ?? 25,
+      cursor: params.cursor ?? null,
+      plateSearch: normalizePlateNumber(params.plateSearch ?? ''),
+      dateFrom: params.dateFrom ?? null,
+      dateTo: params.dateTo ?? null,
+    },
+    'Cancelled reservations request failed.',
+  )
 
   return parseCancelledReservationsPage(data)
 }

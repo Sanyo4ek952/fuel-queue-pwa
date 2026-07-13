@@ -7,7 +7,6 @@ import type {
   ReservationStatus,
   SyncStatus,
 } from '@/shared/constants'
-import { supabase } from '@/shared/api/supabase'
 import { requestProtectedRpcApi } from '@/shared/api/rpc/protected-api'
 import { normalizePlateNumber } from '@/shared/lib/plate-number'
 
@@ -370,15 +369,24 @@ export async function createConsumerVehicle({
     }
   }
 
-  const { data, error } = await supabase.rpc('create_consumer_vehicle', {
-    plate_number: normalizePlateNumber(plateNumber),
-    client_mutation_id: clientMutationId,
-  })
+  const data = await requestProtectedRpcApi(
+    '/api/create-consumer-vehicle',
+    {
+      plateNumber: normalizePlateNumber(plateNumber),
+      clientMutationId,
+    },
+    'Create consumer vehicle request failed.',
+  ).catch((error: unknown) => ({
+    __error: error instanceof Error ? error.message : 'Create consumer vehicle request failed.',
+  }))
 
-  if (error) {
+  if (!data || (typeof data === 'object' && '__error' in data)) {
     return {
       data: null,
-      error: error.message,
+      error:
+        data && typeof data === 'object' && '__error' in data && typeof data.__error === 'string'
+          ? data.__error
+          : 'Create consumer vehicle request failed.',
     }
   }
 
@@ -408,15 +416,24 @@ export async function unlinkMyVehicle({
     }
   }
 
-  const { data, error } = await supabase.rpc('unlink_my_vehicle', {
-    profile_vehicle_id: profileVehicleId,
-    client_mutation_id: clientMutationId,
-  })
+  const data = await requestProtectedRpcApi(
+    '/api/unlink-my-vehicle',
+    {
+      profileVehicleId,
+      clientMutationId,
+    },
+    'Unlink my vehicle request failed.',
+  ).catch((error: unknown) => ({
+    __error: error instanceof Error ? error.message : 'Unlink my vehicle request failed.',
+  }))
 
-  if (error) {
+  if (!data || (typeof data === 'object' && '__error' in data)) {
     return {
       data: null,
-      error: error.message,
+      error:
+        data && typeof data === 'object' && '__error' in data && typeof data.__error === 'string'
+          ? data.__error
+          : 'Unlink my vehicle request failed.',
     }
   }
 
@@ -495,21 +512,30 @@ export async function createConsumerReservation({
     }
   }
 
-  const { data, error } = await supabase.rpc('create_consumer_reservation', {
-    vehicle_id: vehicleId,
-    driver_full_name: driverFullName,
-    driver_phone: driverPhone ?? null,
-    fuel_type: fuelType,
-    fuel_preference_mode: fuelPreferenceMode ?? 'EXACT',
-    requested_liters: 20,
-    comment: comment ?? null,
-    client_mutation_id: clientMutationId,
-  })
+  const data = await requestProtectedRpcApi(
+    '/api/create-consumer-reservation',
+    {
+      vehicleId,
+      driverFullName,
+      driverPhone: driverPhone ?? null,
+      fuelType,
+      fuelPreferenceMode: fuelPreferenceMode ?? 'EXACT',
+      requestedLiters: 20,
+      comment: comment ?? null,
+      clientMutationId,
+    },
+    'Create consumer reservation request failed.',
+  ).catch((error: unknown) => ({
+    __error: error instanceof Error ? error.message : 'Create consumer reservation request failed.',
+  }))
 
-  if (error) {
+  if (!data || (typeof data === 'object' && '__error' in data)) {
     return {
       data: null,
-      error: error.message,
+      error:
+        data && typeof data === 'object' && '__error' in data && typeof data.__error === 'string'
+          ? data.__error
+          : 'Create consumer reservation request failed.',
     }
   }
 
@@ -539,15 +565,24 @@ export async function cancelMyReservation({
     }
   }
 
-  const { data, error } = await supabase.rpc('cancel_my_reservation', {
-    reservation_id: reservationId,
-    client_mutation_id: clientMutationId,
-  })
+  const data = await requestProtectedRpcApi(
+    '/api/cancel-my-reservation',
+    {
+      reservationId,
+      clientMutationId,
+    },
+    'Cancel my reservation request failed.',
+  ).catch((error: unknown) => ({
+    __error: error instanceof Error ? error.message : 'Cancel my reservation request failed.',
+  }))
 
-  if (error) {
+  if (!data || (typeof data === 'object' && '__error' in data)) {
     return {
       data: null,
-      error: error.message,
+      error:
+        data && typeof data === 'object' && '__error' in data && typeof data.__error === 'string'
+          ? data.__error
+          : 'Cancel my reservation request failed.',
     }
   }
 
