@@ -6,6 +6,7 @@ import {
 } from '@/shared/lib/offline-db'
 
 import type { RpcResult } from './index'
+import { requestProtectedRpcApi } from './protected-api'
 
 export type ResidentFuelNormSetting = {
   liters: number
@@ -51,28 +52,32 @@ export async function getResidentFuelNorm(): Promise<RpcResult<ResidentFuelNormS
     }
   }
 
-  const { data, error } = await supabase.rpc('get_resident_fuel_norm_liters')
+  try {
+    const data = await requestProtectedRpcApi(
+      '/api/resident-fuel-norm',
+      {},
+      'Resident fuel norm request failed.',
+    )
 
-  if (error) {
+    const setting = {
+      liters: toPositiveNumber(data),
+      updated_at: null,
+      client_mutation_id: null,
+    }
+
+    await cacheResidentFuelNormLiters(setting.liters)
+
+    return {
+      data: setting,
+      error: null,
+    }
+  } catch {
     const cachedLiters = await getCachedResidentFuelNormLiters()
 
     return {
       data: { liters: cachedLiters },
       error: null,
     }
-  }
-
-  const setting = {
-    liters: toPositiveNumber(data),
-    updated_at: null,
-    client_mutation_id: null,
-  }
-
-  await cacheResidentFuelNormLiters(setting.liters)
-
-  return {
-    data: setting,
-    error: null,
   }
 }
 

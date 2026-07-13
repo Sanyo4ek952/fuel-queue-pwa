@@ -157,4 +157,13 @@ describe('protected users API proxy endpoints', () => {
     expect(result.url).toBe('https://example.supabase.co/rest/v1/rpc/get_my_today_fueling_status')
     expect(result.body).toEqual({})
   })
+
+  it('/api/resident-fuel-norm proxies get_resident_fuel_norm_liters', async () => {
+    const result = await callProtectedUsersAction('resident-fuel-norm', {})
+
+    expect(result.url).toBe(
+      'https://example.supabase.co/rest/v1/rpc/get_resident_fuel_norm_liters',
+    )
+    expect(result.body).toEqual({})
+  })
 })

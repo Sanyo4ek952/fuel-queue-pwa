@@ -129,6 +129,11 @@ const protectedRpcRoutes: Record<string, ProtectedRpcRoute> = {
       reason: body.reason ?? null,
     }),
   },
+  'resident-fuel-norm': {
+    rpcName: 'get_resident_fuel_norm_liters',
+    fallbackError: 'Resident fuel norm request failed.',
+    mapBody: () => ({}),
+  },
   'sync-offline-mutation': {
     rpcName: 'sync_offline_mutation',
     fallbackError: 'Sync offline mutation request failed.',

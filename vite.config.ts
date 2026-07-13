@@ -184,6 +184,13 @@ function localApiPlugin(mode: string): Plugin {
       )
       mountLocalApiHandler(
         server.middlewares,
+        '/api/resident-fuel-norm',
+        protectedRpcHandler,
+        'Local resident fuel norm request failed.',
+        { action: 'resident-fuel-norm' },
+      )
+      mountLocalApiHandler(
+        server.middlewares,
         '/api/get-my-queue-status',
         protectedRpcHandler,
         'Local get my queue status request failed.',

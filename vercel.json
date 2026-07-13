@@ -21,6 +21,7 @@
     { "source": "/api/list-my-vehicles", "destination": "/api/protected-rpc?action=list-my-vehicles" },
     { "source": "/api/reservation-call-log", "destination": "/api/protected-rpc?action=reservation-call-log" },
     { "source": "/api/reject-registration", "destination": "/api/protected-rpc?action=reject-registration" },
+    { "source": "/api/resident-fuel-norm", "destination": "/api/protected-rpc?action=resident-fuel-norm" },
     { "source": "/api/sync-offline-mutation", "destination": "/api/protected-rpc?action=sync-offline-mutation" },
     { "source": "/api/today-queue", "destination": "/api/protected-rpc?action=today-queue" },
     { "source": "/api/today-queue-authors", "destination": "/api/protected-rpc?action=today-queue-authors" },
